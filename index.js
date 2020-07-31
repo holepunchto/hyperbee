@@ -1,7 +1,7 @@
 const { YoloIndex, Node } = require('./messages')
 const { Readable } = require('streamx')
 
-const MAX_CHILDREN = 3
+const MAX_CHILDREN = 8
 
 class Key {
   constructor (seq, value) {
@@ -107,6 +107,7 @@ class TreeNode {
     while (right.keys.length < len) right.keys.push(this.keys.pop())
     right.keys.reverse()
 
+    await this.getKey(this.keys.length - 1) // make sure the median is loaded
     const median = this.keys.pop()
 
     if (this.children.length) {
@@ -229,6 +230,28 @@ class BTree {
     return (opts && opts.reverse) ? createReverseReadStream(this, opts) : createReadStream(this, opts)
   }
 
+  createHistoryStream () {
+    let seq = 1
+    const tree = this
+
+    return new Readable({
+      open (cb) {
+        tree.feed.ready(cb)
+      },
+      read (cb) {
+        if (seq >= tree.feed.length) {
+          this.push(null)
+          return cb(null)
+        }
+
+        tree.feed.get(seq, { valueEncoding: Node }, (err, data) => {
+          this.push(new BlockEntry(seq++, tree, data))
+          cb(null)
+        })
+      }
+    })
+  }
+
   get (key) {
     const b = new Batch(this)
     return b.get(key)
@@ -292,6 +315,7 @@ class Batch {
 
       while (s < e) {
         const mid = (s + e) >> 1
+
         c = cmp(key, await node.getKey(mid))
 
         if (c === 0) {
@@ -590,89 +614,3 @@ function cmp (a, b) {
 }
 
 module.exports = BTree
-
-if (require.main !== module) return
-
-const t = new BTree(require('hypercore')('./data2'))
-let debug = 0
-
-main()
-
-async function main () {
-  // await t.put('b', Buffer.from('some b stuff'))
-// console.log(await t.debugToString())
-
-  const i = t.createReadStream({ gte: '0243faebcb2', lt: '0248a397c491', reverse: true })
-  const sp = require('speedometer')()
-  let cnt = 0
-
-  i.on('data', (data) => {
-    console.log(data.key.toString())
-    cnt++
-    if (cnt === 20) return i.pause()
-  })
-
-  return
-
-  const s = setInterval(function () {
-    // console.log(cnt, sp())
-  }, 1000)
-
-  i.on('data', function (data) {
-    console.log(cnt, data.key.toString())
-    cnt++
-    sp(1)
-  })
-
-  i.on('end', function () {
-    clearInterval(s)
-    console.log(cnt, sp())
-  })
-
-return
-  console.log(await t.get('b'))
-  console.log(await t.get('aa'))
-  console.log(await t.get('bb'))
-// return
-  let max = 0
-  const speed = require('speedometer')()
-  setInterval(function () {
-    console.log(t.feed.length, speed())
-  }, 1000)
-  while (true) {
-    // const then = Date.now()
-    await t.put(Math.random().toString(16).slice(2))
-    // const delta = Date.now() - then
-    // if (delta > max) console.log(max = delta, t.feed.length)
-    speed(1)
-    // console.log(t.feed.length)
-  }
-  // await t.put('hi')
-  // await t.put('ho')
-  // // debug = 1
-  // await t.put('ha')
-  // // debug = 0
-  // await t.put('a')
-  // await t.put('b', Buffer.from('some b stuff'))
-  // await t.put('c')
-  // await t.put('d')
-  // await t.put('a!')
-  // await t.put('a!!')
-  // // console.log(t.feed.length)
-  // // console.log(await t.getRoot())
-  // await t.put('a!!!')
-  // await t.put('a!!!!')
-  // await t.put('a!!!!!')
-  // debug = 1
-  // await t.put('a!')
-  // console.log('---')
-
-
-  // console.log(await t.get('b'))
-  // console.log(t)
-}
-
-// const arr = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n']
-// const res = bisect('!', arr, cmp)
-
-// console.log(res)

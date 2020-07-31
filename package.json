@@ -2,7 +2,7 @@
   "name": "simple-btree",
   "version": "1.0.0",
   "description": "",
-  "main": "append-only-tree.js",
+  "main": "index.js",
   "dependencies": {
     "protocol-buffers-encodings": "^1.1.0",
     "streamx": "^2.6.6",

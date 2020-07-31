@@ -50,12 +50,12 @@ function deflate (index) {
     const keys = []
     const children = []
 
-    for (let i = 0; i < l.keys.length; i++) {
-      keys.push(l.keys[i].seq)
+    for (let i = 0; i < l.value.keys.length; i++) {
+      keys.push(l.value.keys[i].seq)
     }
 
-    for (let i = 0; i < l.children.length; i++) {
-      children.push(l.children[i].seq, l.children[i].offset)
+    for (let i = 0; i < l.value.children.length; i++) {
+      children.push(l.value.children[i].seq, l.value.children[i].offset)
     }
 
     return { keys, children }
@@ -102,7 +102,7 @@ class TreeNode {
 
   async split () {
     const len = this.keys.length >> 1
-    const right = TreeNode.create(this.block.tree)
+    const right = TreeNode.create(this.block)
 
     while (right.keys.length < len) right.keys.push(this.keys.pop())
     right.keys.reverse()
@@ -141,6 +141,20 @@ class TreeNode {
     if (key.value) return key.value
     const k = key.seq === this.block.seq ? this.block.key : await this.block.tree.getKey(key.seq)
     return (key.value = k)
+  }
+
+  indexChanges (index, seq) {
+    const offset = index.push(null) - 1
+    this.changed = false
+
+    for (const child of this.children) {
+      if (!child.value || !child.value.changed) continue
+      child.seq = seq
+      child.offset = child.value.indexChanges(index, seq)
+      index[child.offset] = child
+    }
+
+    return offset
   }
 
   buildIndex (index, seq) {
@@ -187,6 +201,17 @@ class BlockEntry {
   }
 }
 
+class BatchEntry extends BlockEntry {
+  constructor (seq, tree, key, value, index) {
+    super(seq, tree, { key, value, index: null })
+    this.pendingIndex = index
+  }
+
+  getTreeNode (offset) {
+    return this.pendingIndex[offset].value
+  }
+}
+
 class BTree {
   constructor (feed) {
     this.feed = feed
@@ -208,9 +233,8 @@ class BTree {
 
   async getRoot (batch = this) {
     await this.ready()
-
     if (this.feed.length < 2) return null
-    return (await this.getBlock(this.feed.length - 1, this)).getTreeNode(0)
+    return (await batch.getBlock(this.feed.length - 1)).getTreeNode(0)
   }
 
   async getKey (seq) {
@@ -258,8 +282,12 @@ class BTree {
   }
 
   put (key, value) {
-    const b = new Batch(this)
+    const b = new Batch(this, false)
     return b.put(key, value)
+  }
+
+  batch () {
+    return new Batch(this, true)
   }
 
   async debugToString () {
@@ -279,16 +307,20 @@ class BTree {
 }
 
 class Batch {
-  constructor (tree) {
+  constructor (tree, multi) {
     this.tree = tree
     this.blocks = new Map()
+    this.multi = multi
+    this.root = null
+    this.length = 0
   }
 
   ready () {
     return this.tree.ready()
   }
 
-  async getRoot () {
+  getRoot () {
+    if (this.root !== null) return this.root
     return this.tree.getRoot(this)
   }
 
@@ -341,17 +373,10 @@ class Batch {
 
     let root
     let node = root = await this.getRoot()
+    if (!node) node = root = TreeNode.create(null)
 
-    const seq = this.tree.feed.length
+    const seq = this.tree.feed.length + this.length
     const target = new Key(seq, key)
-
-    if (!node) {
-      await this.append({
-        key: target.value,
-        index: deflate([{ keys: [target], children: [] }])
-      })
-      return
-    }
 
     while (node.children.length) {
       stack.push(node)
@@ -399,21 +424,68 @@ class Batch {
     return this._append(root, seq, key, value)
   }
 
+  flush () {
+    if (!this.length) return Promise.resolve()
+
+    const batch = new Array(this.length)
+
+    for (let i = 0; i < this.length; i++) {
+      const seq = this.tree.feed.length + i
+      const { pendingIndex, key, value } = this.blocks.get(seq)
+
+      if (i < this.length - 1) {
+        pendingIndex[0] = null
+        let j = 0
+
+        while (j < pendingIndex.length) {
+          const idx = pendingIndex[j]
+          if (idx !== null && idx.seq === seq) {
+            idx.offset = j++
+            continue
+          }
+          if (j === pendingIndex.length - 1) pendingIndex.pop()
+          else pendingIndex[j] = pendingIndex.pop()
+        }
+      }
+
+      batch[i] = Node.encode({
+        key,
+        value,
+        index: deflate(pendingIndex)
+      })
+    }
+
+    this.root = null
+    this.blocks.clear()
+    this.length = 0
+
+    return this._appendBatch(batch)
+  }
+
   _append (root, seq, key, value) {
     const index = []
+    root.indexChanges(index, seq)
+    index[0] = new Child(seq, 0, root)
 
-    root.buildIndex(index, seq)
+    if (this.multi) {
+      const block = new BatchEntry(seq, this, key, value, index)
+      if (!root.block) root.block = block
+      this.root = root
+      this.length++
+      this.blocks.set(seq, block)
+      return
+    }
 
-    return this.append({
+    return this._appendBatch(Node.encode({
       key,
       value,
       index: deflate(index)
-    })
+    }))
   }
 
-  append (raw) {
+  _appendBatch (raw) {
     return new Promise((resolve, reject) => {
-      this.tree.feed.append(Node.encode(raw), err => {
+      this.tree.feed.append(raw, err => {
         if (err) return reject(err)
         resolve()
       })
@@ -480,7 +552,7 @@ function createReverseReadStream (tree, opts) {
     if (!node) return
 
     if (!start) {
-      stack.push({ root: true, node, i: node.keys.length << 1 })
+      stack.push({ node, i: node.keys.length << 1 })
       return
     }
 

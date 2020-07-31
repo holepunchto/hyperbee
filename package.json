@@ -1,6 +1,6 @@
 {
-  "name": "simple-btree",
-  "version": "1.0.0",
+  "name": "hyperbtree",
+  "version": "0.0.0",
   "description": "",
   "main": "index.js",
   "dependencies": {

@@ -397,7 +397,7 @@ class Batch {
   }
 }
 
-function createReadStream (tree) {
+function createReadStream (tree, opts) {
   const stack = []
 
   return new Readable({
@@ -416,32 +416,23 @@ function createReadStream (tree) {
   async function next (stream) {
     while (stack.length) {
       const top = stack[stack.length - 1]
-
-      if (!top.node.children.length) {
-        if (top.i >= top.node.keys.length) {
-          stack.pop()
-          continue
-        }
-        const key = top.node.keys[top.i++]
-        stream.push(await tree.getBlock(key.seq))
-        return
-      }
-
       const isKey = (top.i & 1) === 1
       const n = top.i++ >> 1
 
-      if (isKey) {
-        if (n >= top.node.keys.length) {
-          stack.pop()
-          continue
-        }
-        const key = top.node.keys[n]
-        stream.push(await tree.getBlock(key.seq))
-        return
-      } else {
+      if (!isKey) {
+        if (!top.node.children.length) continue
         stack.push({ i: 0, node: await top.node.getChildNode(n) })
         continue
       }
+
+      if (n >= top.node.keys.length) {
+        stack.pop()
+        continue
+      }
+
+      const key = top.node.keys[n]
+      stream.push(await tree.getBlock(key.seq))
+      return
     }
 
     stream.push(null)
@@ -486,7 +477,8 @@ async function main () {
     console.log(cnt, sp())
   }, 1000)
 
-  i.on('data', function () {
+  i.on('data', function (data) {
+    // console.log(cnt, data.key)
     cnt++
     sp(1)
   })

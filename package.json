@@ -4,6 +4,7 @@
   "description": "",
   "main": "append-only-tree.js",
   "dependencies": {
+    "protocol-buffers-encodings": "^1.1.0",
     "tree-to-string": "^1.1.1"
   },
   "devDependencies": {},

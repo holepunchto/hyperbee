@@ -1,0 +1,14 @@
+message YoloIndex {
+  message Level {
+    repeated uint64 keys = 1 [packed=true];
+    repeated uint64 children = 2 [packed=true];
+  }
+
+  repeated Level levels = 1;
+}
+
+message Node {
+  required bytes index = 1;
+  required bytes key = 2;
+  optional bytes value = 3;
+}

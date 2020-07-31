@@ -1,277 +1,116 @@
-const MAX_CHILDREN = 4
-let debug = false
+const { YoloIndex, Node } = require('./messages')
 
-class KeyCache {
-  constructor (feed) {
-    this.feed = feed
-    this.cache = new Map()
-  }
+const MAX_CHILDREN = 3
 
-  preload (seqs) {
-    // TODO when async
-  }
-
-  clear () {
-    this.cache.clear()
-  }
-
-  set (seq, key) {
-    this.cache.set(seq, key)
-  }
-
-  async get (seq) {
-    return this.cache.get(seq) || (await getFeed(this.feed, seq)).key
-  }
-}
-
-const cache = new Map()
-
-
-function getFeed (feed, i) {
-  return new Promise((resolve, reject) => {
-    feed.get(i, (err, val) => {
-      if (err) return reject(err)
-      resolve(val)
-    })
-  })
-}
-
-function appendFeed (feed, val) {
-  return new Promise((resolve, reject) => {
-    feed.append(val, (err) => {
-      if (err) return reject(err)
-      resolve()
-    })
-  })
-}
-
-class BTree {
-  constructor (feed) {
-    this.feed = feed
-    this.keys = new KeyCache(feed)
-  }
-
-  async getNode ([seq, index]) {
-    const entry = decompress(await getFeed(this.feed, seq))
-    return new Node(seq, index, entry, this)
-  }
-
-  async getRoot () {
-    await this.ready()
-    if (this.feed.length < 2) return null
-    return await this.getNode([this.feed.length - 1, 0], null)
-  }
-
-  async ready () {
-    await new Promise((resolve, reject) => {
-      this.feed.ready(err => {
-        if (err) return reject(err)
-        resolve()
-      })
-    })
-
-    if (!this.feed.length) {
-      await appendFeed(this.feed, null)
-    }
-  }
-
-  get (key) {
-
-  }
-
-  async put (key) {
-    await this.ready()
-
-    this.keys.clear()
-
-    const index = []
-    const stack = []
-    const seq = this.feed.length
-
-    let root
-    let node = root = await this.getRoot()
-
-    if (!node) {
-      await appendFeed(this.feed, {
-        seq,
-        key,
-        index: [
-          { keys: [1], children: [] }
-        ]
-      })
-      return
-    }
-
-    while (node.childCount()) {
-      stack.push(node)
-      node.changed = true // changed, but compressible
-
-      const keys = await node.keys()
-      let next
-
-      for (let i = 0; i < keys.length; i++) { // TODO: bisect
-        const k = keys[i]
-
-        if (k === key) {
-          console.log('exact match')
-          process.exit(1)
-        }
-
-        if (key < k) {
-          next = await node.child(i)
-          break
-        }
-      }
-
-      node = next || await node.child(keys.length)
-    }
-
-    let needsSplit = !(await node.addKey(key, seq))
-
-    if (needsSplit) this.keys.set(seq, key)
-
-    while (needsSplit) {
-      // if (debug) console.log('splits', node._keys.map(k => this.feed[k] && this.feed[k].key || key))
-      const parent = stack.pop()
-      const { median, right } = await node.split()
-
-      if (parent) {
-        needsSplit = !(await parent.addChild(median, right))
-        node = parent
-      } else {
-        root = Node.create(this)
-        root.changed = true
-        root._keys = [median]
-        root._children = [node, right]
-        needsSplit = false
-      }
-    }
-
-    await indexify(root, index, seq)
-
-    await appendFeed(this.feed, compress({
-      seq,
-      key,
-      index
-    }))
-  }
-
-  async stringify () {
-    const root = await this.getRoot()
-    const m = await load(root)
-
-    return require('tree-to-string')(m)
-
-    async function load (n) {
-      const r = {}
-      r.values = await n.keys()
-      r.children = []
-      for (const c of await n.children()) {
-        r.children.push(await load(c))
-      }
-      return r
-    }
-  }
-}
-
-class Node {
-  constructor (seq, index, entry, tree) {
-    if (entry === undefined) console.trace(entry, seq)
+class Key {
+  constructor (seq, value) {
     this.seq = seq
-    this.index = index
+    this.value = value
+  }
+}
+
+class Child {
+  constructor (seq, offset, value) {
+    this.seq = seq
+    this.offset = offset
+    this.value = value
+  }
+}
+
+class Pointers {
+  constructor (buf) {
+    this.levels = YoloIndex.decode(buf).levels.map(l => {
+      const children = []
+      const keys = []
+
+      for (let i = 0; i < l.keys.length; i++) {
+        keys.push(new Key(l.keys[i], null))
+      }
+
+      for (let i = 0; i < l.children.length; i += 2) {
+        children.push(new Child(l.children[i], l.children[i + 1], null))
+      }
+
+      return { keys, children }
+    })
+  }
+
+  get (i) {
+    return this.levels[i]
+  }
+}
+
+function inflate (buf) {
+  return new Pointers(buf)
+}
+
+function deflate (index) {
+  const levels = index.map(l => {
+    const keys = []
+    const children = []
+
+    for (let i = 0; i < l.keys.length; i++) {
+      keys.push(l.keys[i].seq)
+    }
+
+    for (let i = 0; i < l.children.length; i++) {
+      children.push(l.children[i].seq, l.children[i].offset)
+    }
+
+    return { keys, children }
+  })
+
+
+  return YoloIndex.encode({ levels })
+}
+
+class TreeNode {
+  constructor (block, keys, children) {
+    this.block = block
+    this.keys = keys
+    this.children = children
     this.changed = false
-    this._entry = entry
-    this._children = null
-    this._keys = entry ? entry.index[index].keys : []
-    this._tree = tree
   }
 
-  async loadAll () {
-    if (this._children) return
+  async insertKey (key, child = null) {
+    let s = 0
+    let e = this.keys.length
+    let c
 
-    const idx = this._entry.index[this.index].children
-    this._children = []
+    while (s < e) {
+      const mid = (s + e) >> 1
+      c = cmp(key.value, await this.getKey(mid))
 
-    for (const ptr of idx) {
-      this._children.push(await this._tree.getNode(ptr))
+      if (c === 0) {
+        this.changed = true
+        this.keys[mid] = key
+        return true
+      }
+
+      if (c < 0) e = mid
+      else s = mid + 1
     }
 
-    this._tree.keys.preload(this.keys)
-  }
-
-  async keys () {
-    const keys = new Array(this._keys.length)
-
-    this._tree.keys.preload(this._keys)
-    for (let i = 0; i < keys.length; i++) {
-      keys[i] = await this._tree.keys.get(this._keys[i])
-    }
-
-    return keys
-  }
-
-  async addKey (key, keyPtr) {
-    const keys = await this.keys()
-    keys.push(key)
-    keys.sort(cmp)
-
-    const i = keys.indexOf(key)
-    if (this._entry && this._keys === this._entry.index[this.index].keys) {
-      this._keys = this._keys.slice(0)
-    }
-    this._keys.splice(i, 0, keyPtr)
-    this.changed = true
-    return keys.length < MAX_CHILDREN
-  }
-
-  async addChild (keyPtr, child) {
-    let i = 0
-
-    const key = await this._tree.keys.get(keyPtr)
-    const keys = await this.keys()
-
-    for (; i < keys.length; i++) { // TODO: bisect
-      const v = keys[i]
-      if (key < v) break
-    }
-
-    await this.loadAll() // TODO: allow sparse loading
-
-    this._keys.splice(i, 0, keyPtr)
-    this._children.splice(i + 1, 0, child)
+    const i = c < 0 ? e : s
+    this.keys.splice(i, 0, key)
+    if (child) this.children.splice(i + 1, 0, new Child(0, 0, child))
     this.changed = true
 
-    return this._keys.length < MAX_CHILDREN
-  }
-
-  childCount () {
-    return this._children ? this._children.length : this._entry.index[this.index].children.length
-  }
-
-  async children () {
-    await this.loadAll()
-    return this._children
-  }
-
-  async child (i) {
-    await this.loadAll()
-    return this._children[i]
+    return this.keys.length < MAX_CHILDREN
   }
 
   async split () {
-    await this.loadAll()
+    const len = this.keys.length >> 1
+    const right = TreeNode.create(this.block.tree)
 
-    const len = (this._keys.length / 2) | 0
-    const right = Node.create(this._tree)
+    while (right.keys.length < len) right.keys.push(this.keys.pop())
+    right.keys.reverse()
 
-    while (right._keys.length < len) right._keys.push(this._keys.pop())
-    right._keys.reverse()
+    const median = this.keys.pop()
 
-    const median = this._keys.pop()
-
-    if (this._children.length) {
-      while (right._children.length < len + 1) right._children.push(this._children.pop())
-      right._children.reverse()
+    if (this.children.length) {
+      while (right.children.length < len + 1) right.children.push(this.children.pop())
+      right.children.reverse()
     }
 
     this.changed = true
@@ -283,129 +122,335 @@ class Node {
     }
   }
 
-  static create (tree) {
-    const node = new Node(0, 0, null, tree)
+  async getChildNode (index) {
+    const child = this.children[index]
+    if (child.value) return child.value
+    const block = child.seq === this.block.seq ? this.block : await this.block.tree.getBlock(child.seq)
+    return (child.value = block.getTreeNode(child.offset))
+  }
+
+  setKey (index, key) {
+    this.keys[index] = key
+    this.changed = true
+  }
+
+  async getKey (index) {
+    const key = this.keys[index]
+    if (key.value) return key.value
+    const k = key.seq === this.block.seq ? this.block.key : await this.block.tree.getKey(key.seq)
+    return (key.value = k)
+  }
+
+  buildIndex (index, seq) {
+    const offset = index.push(null) - 1
+    const keys = this.keys
+    const children = []
+
+    for (const child of this.children) {
+      if (!child.value || !child.value.changed) {
+        children.push(child)
+      } else {
+        children.push(new Child(seq, child.value.buildIndex(index, seq)))
+      }
+    }
+
+    index[offset] = { keys, children }
+    return offset
+  }
+
+  static create (block) {
+    const node = new TreeNode(block, [], [])
     node.changed = true
-    node._children = []
     return node
   }
 }
 
-async function indexify (node, index, seq) {
-  const i = index.push(null) - 1
-  const keys = node._keys.slice(0)
+class BlockEntry {
+  constructor (seq, tree, entry) {
+    this.seq = seq
+    this.tree = tree
+    this.index = null
+    this.indexBuffer = entry.index
+    this.key = entry.key
+    this.value = entry.value
+  }
 
-  const children = []
+  getTreeNode (offset) {
+    if (this.index === null) {
+      this.index = inflate(this.indexBuffer)
+      this.indexBuffer = null
+    }
+    const entry = this.index.get(offset)
+    return new TreeNode(this, entry.keys, entry.children)
+  }
+}
 
-  for (const child of (await node.children())) {
-    if (!child.changed) {
-      children.push([child.seq, child.index])
-    } else {
-      const i = await indexify(child, index, seq)
-      children.push([seq, i])
+class BTree {
+  constructor (feed) {
+    this.feed = feed
+  }
+
+  ready () {
+    return new Promise((resolve, reject) => {
+      this.feed.ready(err => {
+        if (err) return reject(err)
+        if (this.feed.length > 1) return resolve()
+
+        this.feed.append('header', (err) => {
+          if (err) return reject(err)
+          resolve()
+        })
+      })
+    })
+  }
+
+  async getRoot (batch = this) {
+    await this.ready()
+
+    if (this.feed.length < 2) return null
+    return (await this.getBlock(this.feed.length - 1, this)).getTreeNode(0)
+  }
+
+  async getKey (seq) {
+    return (await this.getBlock(seq)).key
+  }
+
+  async getBlock (seq, batch = this) {
+    return new Promise((resolve, reject) => {
+      this.feed.get(seq, { valueEncoding: Node }, (err, entry) => {
+        if (err) return reject(err)
+        resolve(new BlockEntry(seq, batch, entry))
+      })
+    })
+  }
+
+  get (key) {
+    const b = new Batch(this)
+    return b.get(key)
+  }
+
+  put (key, value) {
+    const b = new Batch(this)
+    return b.put(key, value)
+  }
+
+  async debugToString () {
+    return require('tree-to-string')(await load(await this.getRoot()))
+
+    async function load (node) {
+      const res = { values: [], children: [] }
+      for (let i = 0; i < node.keys.length; i++) {
+        res.values.push((await node.getKey(i)).toString())
+      }
+      for (let i = 0; i < node.children.length; i++) {
+        res.children.push(await load(await node.getChildNode(i)))
+      }
+      return res
+    }
+  }
+}
+
+class Batch {
+  constructor (tree) {
+    this.tree = tree
+    this.blocks = new Map()
+  }
+
+  ready () {
+    return this.tree.ready()
+  }
+
+  async getRoot () {
+    return this.tree.getRoot(this)
+  }
+
+  async getKey (seq) {
+    return (await this.getBlock(seq)).key
+  }
+
+  async getBlock (seq) {
+    let b = this.blocks.get(seq)
+    if (b) return b
+    b = await this.tree.getBlock(seq, this)
+    this.blocks.set(seq, b)
+    return b
+  }
+
+  async get (key) {
+    let node = await this.getRoot()
+    if (!node) return null
+
+    while (true) {
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+        c = cmp(key, await node.getKey(mid))
+
+        if (c === 0) {
+          return this.getBlock(node.keys[mid].seq)
+        }
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      if (!node.children.length) return null
+
+      const i = c < 0 ? e : s
+      node = await node.getChildNode(i)
     }
   }
 
-  index[i] = { keys, children }
-  return i
+  async put (key, value) {
+    if (typeof key === 'string') key = Buffer.from(key)
+
+    const index = []
+    const stack = []
+
+    let root
+    let node = root = await this.getRoot()
+
+    const seq = this.tree.feed.length
+    const target = new Key(seq, key)
+
+    if (!node) {
+      await this.append({
+        key: target.value,
+        index: deflate([{ keys: [target], children: [] }])
+      })
+      return
+    }
+
+    while (node.children.length) {
+      stack.push(node)
+      node.changed = true // changed, but compressible
+
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+        c = cmp(target.value, await node.getKey(mid))
+
+        if (c === 0) {
+          node.setKey(mid, target)
+          return this._append(root, seq, key, value)
+        }
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      const i = c < 0 ? e : s
+      node = await node.getChildNode(i)
+    }
+
+    let needsSplit = !(await node.insertKey(target, null))
+
+    while (needsSplit) {
+      const parent = stack.pop()
+      const { median, right } = await node.split()
+
+      if (parent) {
+        needsSplit = !(await parent.insertKey(median, right))
+        node = parent
+      } else {
+        root = TreeNode.create(node.block)
+        root.changed = true
+        root.keys.push(median)
+        root.children.push(new Child(0, 0, node), new Child(0, 0, right))
+        needsSplit = false
+      }
+    }
+
+    return this._append(root, seq, key, value)
+  }
+
+  _append (root, seq, key, value) {
+    const index = []
+
+    root.buildIndex(index, seq)
+
+    return this.append({
+      key,
+      value,
+      index: deflate(index)
+    })
+  }
+
+  append (raw) {
+    return new Promise((resolve, reject) => {
+      this.tree.feed.append(Node.encode(raw), err => {
+        if (err) return reject(err)
+        resolve()
+      })
+    })
+  }
 }
 
 function cmp (a, b) {
-  return a < b ? -1 : a > b ? 1 : 0
+  return a < b ? -1 : b < a ? 1 : 0
 }
 
-function decompress (node) {
-  const index = []
-  for (const idx of node.index) {
-    const children = []
-    for (const ptr of idx.children) children.push([node.seq - ptr[0], ptr[1]])
-    index.push({ keys: idx.keys, children })
-  }
-  return { ...node, index }
-}
+module.exports = BTree
 
-function compress (node) {
-  const index = []
-  for (const idx of node.index) {
-    const children = []
-    for (const ptr of idx.children) children.push([node.seq - ptr[0], ptr[1]])
-    index.push({ keys: idx.keys, children })
-  }
-  return { ...node, index }
-}
+if (require.main !== module) return
 
-const Cache = require('hypercore-cache')
-const hypercore = require('hypercore')
-const t = new BTree(hypercore('data', { cache: { data: 128 * 1024 * 1024 }, valueEncoding: 'json', crypto: { verify (a, b, c, cb) { cb(null, true) }, sign (a, b, cb) { cb(null, Buffer.alloc(32)) }} }))
-let n = 0
-let mag = 2
-let max = 0
+const t = new BTree(require('hypercore')('./data2'))
+let debug = 0
 
-let wait = 0
+main()
 
-process.once('SIGINT', function () {
-  wait = 3600 * 1000
-})
-
-async function push (l = 1) {
-  await t.ready()
-  console.log(t.feed.length, indexSize((await getFeed(t.feed, t.feed.length - 1)).index))
-
-  for (let i = 0; i < l; i++) {
-    // t.put('#' + (n++).toString().padStart(5, '0'))
-    // console.log(i)
-    const then = Date.now()
+async function main () {
+  // await t.put('b', Buffer.from('some b stuff'))
+// console.log(await t.debugToString())
+  console.log(await t.get('b'))
+  console.log(await t.get('aa'))
+  console.log(await t.get('bb'))
+// return
+  let max = 0
+  const speed = require('speedometer')()
+  setInterval(function () {
+    console.log(t.feed.length, speed())
+  }, 1000)
+  while (true) {
+    // const then = Date.now()
     await t.put(Math.random().toString(16).slice(2))
-    const d = Date.now() - then
-    if (d > max) console.log('max put time:', max = d)
-    if (++n >= mag) {
-      mag *= 2
-      console.log(n, t.feed.length, indexSize((await getFeed(t.feed, t.feed.length - 1)).index))
-    }
-
-    if (wait) await new Promise(r => setTimeout(r, wait))
+    // const delta = Date.now() - then
+    // if (delta > max) console.log(max = delta, t.feed.length)
+    speed(1)
+    // console.log(t.feed.length)
   }
+  await t.put('hi')
+  await t.put('ho')
+  // // debug = 1
+  // await t.put('ha')
+  // // debug = 0
+  // await t.put('a')
+  // await t.put('b', Buffer.from('some b stuff'))
+  // await t.put('c')
+  // await t.put('d')
+  // await t.put('a!')
+  // await t.put('a!!')
+  // // console.log(t.feed.length)
+  // // console.log(await t.getRoot())
+  // await t.put('a!!!')
+  // await t.put('a!!!!')
+  // await t.put('a!!!!!')
+  // debug = 1
+  // await t.put('a!')
+  // console.log('---')
+
+
+  // console.log(await t.get('b'))
+  // console.log(t)
 }
 
-// push(1e6)
-push(1e6).then(async () => {
-  // console.log(await t.stringify())
-})
+// const arr = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n']
+// const res = bisect('!', arr, cmp)
 
-// push(10)
-// push(10)
-
-require('util').inspect.defaultOptions.depth = Infinity
-
-function indexSize (index) {
-  const varint = require('varint')
-  const n = index.map(({ keys, children }) => {
-    let r = 1
-    for (const k of keys) r += varint.encodingLength(k)
-    for (const [d, i] of children) r += varint.encodingLength(d) + 1
-    return r
-  })
-
-  return 1 + // index.length
-    Math.ceil(n.length / 8) + // isLeafs
-    n.reduce((a, b) => a + b, 0)
-}
-
-// console.log(t.feed[t.feed.length - 1])
-// console.log(indexSize(t.feed[t.feed.length - 1].index))
-// t.put('a')
-// t.put('b')
-// t.put('c')
-// t.put('d')
-// t.put('e')
-// t.put('f')
-// // console.log(t + '')
-// // debug = true
-// t.put('g')
-// t.put('h')
-// t.put('i')
-// t.put('j')
-
-
-// console.log(t + '')
-// console.log(t.feed)
+// console.log(res)

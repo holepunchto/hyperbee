@@ -1,4 +1,5 @@
 const { YoloIndex, Node } = require('./messages')
+const { Readable } = require('streamx')
 
 const MAX_CHILDREN = 3
 
@@ -224,6 +225,10 @@ class BTree {
     })
   }
 
+  createReadStream () {
+    return createReadStream(this)
+  }
+
   get (key) {
     const b = new Batch(this)
     return b.get(key)
@@ -392,6 +397,70 @@ class Batch {
   }
 }
 
+function createReadStream (tree) {
+  const stack = []
+
+  return new Readable({
+    open (cb) {
+      call(open(this), cb)
+    },
+    read (cb) {
+      call(next(this), cb)
+    }
+  })
+
+  function call (p, cb) {
+    p.then((val) => process.nextTick(cb, null, val), (err) => process.nextTick(cb, err))
+  }
+
+  async function next (stream) {
+    while (stack.length) {
+      const top = stack[stack.length - 1]
+
+      if (!top.node.children.length) {
+        if (top.i >= top.node.keys.length) {
+          stack.pop()
+          continue
+        }
+        const key = top.node.keys[top.i++]
+        stream.push(await tree.getBlock(key.seq))
+        return
+      }
+
+      const isKey = (top.i & 1) === 1
+      const n = top.i++ >> 1
+
+      if (isKey) {
+        if (n >= top.node.keys.length) {
+          stack.pop()
+          continue
+        }
+        const key = top.node.keys[n]
+        stream.push(await tree.getBlock(key.seq))
+        return
+      } else {
+        stack.push({ i: 0, node: await top.node.getChildNode(n) })
+        continue
+      }
+    }
+
+    stream.push(null)
+  }
+
+  async function open () {
+    let node = await tree.getRoot()
+
+    while (true) {
+      const entry = { node, i: 0 }
+      stack.push(entry)
+      if (!node.children.length) break
+      entry.i++
+      node = await node.getChildNode(0)
+    }
+  }
+}
+
+
 function cmp (a, b) {
   return a < b ? -1 : b < a ? 1 : 0
 }
@@ -408,6 +477,26 @@ main()
 async function main () {
   // await t.put('b', Buffer.from('some b stuff'))
 // console.log(await t.debugToString())
+
+  const i = t.createReadStream()
+  const sp = require('speedometer')()
+  let cnt = 0
+
+  const s = setInterval(function () {
+    console.log(cnt, sp())
+  }, 1000)
+
+  i.on('data', function () {
+    cnt++
+    sp(1)
+  })
+
+  i.on('end', function () {
+    clearInterval(s)
+    console.log(cnt, sp())
+  })
+
+return
   console.log(await t.get('b'))
   console.log(await t.get('aa'))
   console.log(await t.get('bb'))
@@ -425,8 +514,8 @@ async function main () {
     speed(1)
     // console.log(t.feed.length)
   }
-  await t.put('hi')
-  await t.put('ho')
+  // await t.put('hi')
+  // await t.put('ho')
   // // debug = 1
   // await t.put('ha')
   // // debug = 0

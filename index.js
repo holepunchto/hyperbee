@@ -196,7 +196,7 @@ class BTree {
     return new Promise((resolve, reject) => {
       this.feed.ready(err => {
         if (err) return reject(err)
-        if (this.feed.length > 1) return resolve()
+        if (this.feed.length > 0) return resolve()
 
         this.feed.append('header', (err) => {
           if (err) return reject(err)

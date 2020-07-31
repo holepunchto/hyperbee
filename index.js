@@ -455,7 +455,7 @@ function createReverseReadStream (tree, opts) {
       if (!isKey) {
         if (!top.node.children.length) continue
         const node = await top.node.getChildNode(n)
-        stack.push({ i: node.children.length + node.keys.length - 1, node })
+        stack.push({ i: node.keys.length << 1, node })
         continue
       }
 
@@ -480,12 +480,12 @@ function createReverseReadStream (tree, opts) {
     if (!node) return
 
     if (!start) {
-      stack.push({ node, i: 0 })
+      stack.push({ root: true, node, i: node.keys.length << 1 })
       return
     }
 
     while (true) {
-      const entry = { node, i: node.children.length + node.keys.length - 1 }
+      const entry = { node, i: node.keys.length << 1 }
       stack.push(entry)
 
       let s = 0

@@ -225,8 +225,8 @@ class BTree {
     })
   }
 
-  createReadStream () {
-    return createReadStream(this)
+  createReadStream (opts) {
+    return createReadStream(this, opts)
   }
 
   get (key) {
@@ -399,6 +399,9 @@ class Batch {
 
 function createReadStream (tree, opts) {
   const stack = []
+  const start = opts && (opts.gt || opts.gte)
+  const end = opts && (opts.lt || opts.lte)
+  let limit = opts ? (typeof opts.limit === 'number' ? opts.limit : -1) : -1
 
   return new Readable({
     open (cb) {
@@ -414,7 +417,7 @@ function createReadStream (tree, opts) {
   }
 
   async function next (stream) {
-    while (stack.length) {
+    while (stack.length && (limit === -1 || limit > 0)) {
       const top = stack[stack.length - 1]
       const isKey = (top.i & 1) === 1
       const n = top.i++ >> 1
@@ -431,7 +434,14 @@ function createReadStream (tree, opts) {
       }
 
       const key = top.node.keys[n]
-      stream.push(await tree.getBlock(key.seq))
+      const block = await tree.getBlock(key.seq)
+      if (end) {
+        const c = cmp(block.key, end)
+        if (c === 0 && opts.lt) break
+        if (c > 0) break
+      }
+      if (limit > 0) limit--
+      stream.push(block)
       return
     }
 
@@ -441,12 +451,40 @@ function createReadStream (tree, opts) {
   async function open () {
     let node = await tree.getRoot()
 
+    if (!node) return
+
+    if (!start) {
+      stack.push({ node, i: 0 })
+      return
+    }
+
     while (true) {
       const entry = { node, i: 0 }
       stack.push(entry)
-      if (!node.children.length) break
-      entry.i++
-      node = await node.getChildNode(0)
+
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+        c = cmp(start, await node.getKey(mid))
+
+        if (c === 0) {
+          if (opts.gte) entry.i = mid * 2 + 1
+          else entry.i = mid * 2 + 2
+          return
+        }
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      const i = c < 0 ? e : s
+      entry.i = i + 1
+
+      if (!node.children.length) return
+      node = await node.getChildNode(i)
     }
   }
 }
@@ -469,16 +507,24 @@ async function main () {
   // await t.put('b', Buffer.from('some b stuff'))
 // console.log(await t.debugToString())
 
-  const i = t.createReadStream()
+  const i = t.createReadStream({ gt: '0243faebcb2', lte: '0248a397c491', limit: 3 })
   const sp = require('speedometer')()
   let cnt = 0
 
+  i.on('data', (data) => {
+    console.log(data.key.toString())
+    cnt++
+    if (cnt === 20) return i.pause()
+  })
+
+  return
+
   const s = setInterval(function () {
-    console.log(cnt, sp())
+    // console.log(cnt, sp())
   }, 1000)
 
   i.on('data', function (data) {
-    // console.log(cnt, data.key)
+    console.log(cnt, data.key.toString())
     cnt++
     sp(1)
   })

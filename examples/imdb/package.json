@@ -1,0 +1,17 @@
+{
+  "name": "hyperb-imdb-example",
+  "version": "0.0.0",
+  "description": "example data",
+  "main": "import.js",
+  "dependencies": {
+    "@hyperswarm/replicator": "^1.7.2",
+    "hypercore": "^9.5.0",
+    "split2": "^3.1.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

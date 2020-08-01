@@ -527,6 +527,7 @@ function createReverseReadStream (tree, opts) {
       if (!isKey) {
         if (!top.node.children.length) continue
         const node = await top.node.getChildNode(n)
+        top.node.children[n] = null // unlink it to save memory
         stack.push({ i: node.keys.length << 1, node })
         continue
       }
@@ -615,7 +616,9 @@ function createReadStream (tree, opts) {
 
       if (!isKey) {
         if (!top.node.children.length) continue
-        stack.push({ i: 0, node: await top.node.getChildNode(n) })
+        const node = await top.node.getChildNode(n)
+        top.node.children[n] = null // unlink it to save memory
+        stack.push({ i: 0, node })
         continue
       }
 

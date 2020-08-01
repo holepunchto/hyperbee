@@ -221,7 +221,7 @@ class BTree {
     return new Promise((resolve, reject) => {
       this.feed.ready(err => {
         if (err) return reject(err)
-        if (this.feed.length > 0) return resolve()
+        if (this.feed.length > 0 || !this.feed.writable) return resolve()
 
         this.feed.append('header', (err) => {
           if (err) return reject(err)
@@ -231,8 +231,15 @@ class BTree {
     })
   }
 
+  update () {
+    return new Promise((resolve) => {
+      this.feed.update({ ifAvailable: true, hash: false }, (err) => resolve(!err))
+    })
+  }
+
   async getRoot (batch = this) {
     await this.ready()
+    if (!this.feed.writable) await this.update()
     if (this.feed.length < 2) return null
     return (await batch.getBlock(this.feed.length - 1)).getTreeNode(0)
   }

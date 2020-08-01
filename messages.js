@@ -24,8 +24,16 @@ var Node = exports.Node = {
   decode: null
 }
 
+var Extension = exports.Extension = {
+  buffer: true,
+  encodingLength: null,
+  encode: null,
+  decode: null
+}
+
 defineYoloIndex()
 defineNode()
+defineExtension()
 
 function defineYoloIndex () {
   var Level = YoloIndex.Level = {
@@ -295,6 +303,279 @@ function defineNode () {
         case 3:
         obj.value = encodings.bytes.decode(buf, offset)
         offset += encodings.bytes.decode.bytes
+        break
+        default:
+        offset = skip(prefix & 7, buf, offset)
+      }
+    }
+  }
+}
+
+function defineExtension () {
+  var Get = Extension.Get = {
+    buffer: true,
+    encodingLength: null,
+    encode: null,
+    decode: null
+  }
+
+  var Cache = Extension.Cache = {
+    buffer: true,
+    encodingLength: null,
+    encode: null,
+    decode: null
+  }
+
+  defineGet()
+  defineCache()
+
+  function defineGet () {
+    Get.encodingLength = encodingLength
+    Get.encode = encode
+    Get.decode = decode
+
+    function encodingLength (obj) {
+      var length = 0
+      if (defined(obj.head)) {
+        var len = encodings.varint.encodingLength(obj.head)
+        length += 1 + len
+      }
+      if (defined(obj.key)) {
+        var len = encodings.bytes.encodingLength(obj.key)
+        length += 1 + len
+      }
+      return length
+    }
+
+    function encode (obj, buf, offset) {
+      if (!offset) offset = 0
+      if (!buf) buf = Buffer.allocUnsafe(encodingLength(obj))
+      var oldOffset = offset
+      if (defined(obj.head)) {
+        buf[offset++] = 8
+        encodings.varint.encode(obj.head, buf, offset)
+        offset += encodings.varint.encode.bytes
+      }
+      if (defined(obj.key)) {
+        buf[offset++] = 18
+        encodings.bytes.encode(obj.key, buf, offset)
+        offset += encodings.bytes.encode.bytes
+      }
+      encode.bytes = offset - oldOffset
+      return buf
+    }
+
+    function decode (buf, offset, end) {
+      if (!offset) offset = 0
+      if (!end) end = buf.length
+      if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
+      var oldOffset = offset
+      var obj = {
+        head: 0,
+        key: null
+      }
+      while (true) {
+        if (end <= offset) {
+          decode.bytes = offset - oldOffset
+          return obj
+        }
+        var prefix = varint.decode(buf, offset)
+        offset += varint.decode.bytes
+        var tag = prefix >> 3
+        switch (tag) {
+          case 1:
+          obj.head = encodings.varint.decode(buf, offset)
+          offset += encodings.varint.decode.bytes
+          break
+          case 2:
+          obj.key = encodings.bytes.decode(buf, offset)
+          offset += encodings.bytes.decode.bytes
+          break
+          default:
+          offset = skip(prefix & 7, buf, offset)
+        }
+      }
+    }
+  }
+
+  function defineCache () {
+    Cache.encodingLength = encodingLength
+    Cache.encode = encode
+    Cache.decode = decode
+
+    function encodingLength (obj) {
+      var length = 0
+      if (!defined(obj.start)) throw new Error("start is required")
+      var len = encodings.varint.encodingLength(obj.start)
+      length += 1 + len
+      if (!defined(obj.end)) throw new Error("end is required")
+      var len = encodings.varint.encodingLength(obj.end)
+      length += 1 + len
+      if (defined(obj.blocks)) {
+        var packedLen = 0
+        for (var i = 0; i < obj.blocks.length; i++) {
+          if (!defined(obj.blocks[i])) continue
+          var len = encodings.varint.encodingLength(obj.blocks[i])
+          packedLen += len
+        }
+        if (packedLen) {
+          length += 1 + packedLen + varint.encodingLength(packedLen)
+        }
+      }
+      return length
+    }
+
+    function encode (obj, buf, offset) {
+      if (!offset) offset = 0
+      if (!buf) buf = Buffer.allocUnsafe(encodingLength(obj))
+      var oldOffset = offset
+      if (!defined(obj.start)) throw new Error("start is required")
+      buf[offset++] = 8
+      encodings.varint.encode(obj.start, buf, offset)
+      offset += encodings.varint.encode.bytes
+      if (!defined(obj.end)) throw new Error("end is required")
+      buf[offset++] = 16
+      encodings.varint.encode(obj.end, buf, offset)
+      offset += encodings.varint.encode.bytes
+      if (defined(obj.blocks)) {
+        var packedLen = 0
+        for (var i = 0; i < obj.blocks.length; i++) {
+          if (!defined(obj.blocks[i])) continue
+          packedLen += encodings.varint.encodingLength(obj.blocks[i])
+        }
+        if (packedLen) {
+          buf[offset++] = 26
+          varint.encode(packedLen, buf, offset)
+          offset += varint.encode.bytes
+        }
+        for (var i = 0; i < obj.blocks.length; i++) {
+          if (!defined(obj.blocks[i])) continue
+          encodings.varint.encode(obj.blocks[i], buf, offset)
+          offset += encodings.varint.encode.bytes
+        }
+      }
+      encode.bytes = offset - oldOffset
+      return buf
+    }
+
+    function decode (buf, offset, end) {
+      if (!offset) offset = 0
+      if (!end) end = buf.length
+      if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
+      var oldOffset = offset
+      var obj = {
+        start: 0,
+        end: 0,
+        blocks: []
+      }
+      var found0 = false
+      var found1 = false
+      while (true) {
+        if (end <= offset) {
+          if (!found0 || !found1) throw new Error("Decoded message is not valid")
+          decode.bytes = offset - oldOffset
+          return obj
+        }
+        var prefix = varint.decode(buf, offset)
+        offset += varint.decode.bytes
+        var tag = prefix >> 3
+        switch (tag) {
+          case 1:
+          obj.start = encodings.varint.decode(buf, offset)
+          offset += encodings.varint.decode.bytes
+          found0 = true
+          break
+          case 2:
+          obj.end = encodings.varint.decode(buf, offset)
+          offset += encodings.varint.decode.bytes
+          found1 = true
+          break
+          case 3:
+          var packedEnd = varint.decode(buf, offset)
+          offset += varint.decode.bytes
+          packedEnd += offset
+          while (offset < packedEnd) {
+            obj.blocks.push(encodings.varint.decode(buf, offset))
+            offset += encodings.varint.decode.bytes
+          }
+          break
+          default:
+          offset = skip(prefix & 7, buf, offset)
+        }
+      }
+    }
+  }
+
+  Extension.encodingLength = encodingLength
+  Extension.encode = encode
+  Extension.decode = decode
+
+  function encodingLength (obj) {
+    var length = 0
+    if (defined(obj.cache)) {
+      var len = Cache.encodingLength(obj.cache)
+      length += varint.encodingLength(len)
+      length += 1 + len
+    }
+    if (defined(obj.get)) {
+      var len = Get.encodingLength(obj.get)
+      length += varint.encodingLength(len)
+      length += 1 + len
+    }
+    return length
+  }
+
+  function encode (obj, buf, offset) {
+    if (!offset) offset = 0
+    if (!buf) buf = Buffer.allocUnsafe(encodingLength(obj))
+    var oldOffset = offset
+    if (defined(obj.cache)) {
+      buf[offset++] = 10
+      varint.encode(Cache.encodingLength(obj.cache), buf, offset)
+      offset += varint.encode.bytes
+      Cache.encode(obj.cache, buf, offset)
+      offset += Cache.encode.bytes
+    }
+    if (defined(obj.get)) {
+      buf[offset++] = 18
+      varint.encode(Get.encodingLength(obj.get), buf, offset)
+      offset += varint.encode.bytes
+      Get.encode(obj.get, buf, offset)
+      offset += Get.encode.bytes
+    }
+    encode.bytes = offset - oldOffset
+    return buf
+  }
+
+  function decode (buf, offset, end) {
+    if (!offset) offset = 0
+    if (!end) end = buf.length
+    if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
+    var oldOffset = offset
+    var obj = {
+      cache: null,
+      get: null
+    }
+    while (true) {
+      if (end <= offset) {
+        decode.bytes = offset - oldOffset
+        return obj
+      }
+      var prefix = varint.decode(buf, offset)
+      offset += varint.decode.bytes
+      var tag = prefix >> 3
+      switch (tag) {
+        case 1:
+        var len = varint.decode(buf, offset)
+        offset += varint.decode.bytes
+        obj.cache = Cache.decode(buf, offset, offset + len)
+        offset += Cache.decode.bytes
+        break
+        case 2:
+        var len = varint.decode(buf, offset)
+        offset += varint.decode.bytes
+        obj.get = Get.decode(buf, offset, offset + len)
+        offset += Get.decode.bytes
         break
         default:
         offset = skip(prefix & 7, buf, offset)

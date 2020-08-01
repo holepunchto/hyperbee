@@ -12,3 +12,19 @@ message Node {
   required bytes key = 2;
   optional bytes value = 3;
 }
+
+message Extension {
+  message Get {
+    optional uint64 head = 1;
+    optional bytes key = 2;
+  }
+
+  message Cache {
+    required uint64 start = 1;
+    required uint64 end = 2;
+    repeated uint64 blocks = 3 [packed=true];
+  }
+
+  optional Cache cache = 1;
+  optional Get get = 2;
+}

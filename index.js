@@ -1,5 +1,6 @@
 const { YoloIndex, Node } = require('./messages')
 const { Readable } = require('streamx')
+const Extension = require('./lib/extension')
 
 const MAX_CHILDREN = 8
 
@@ -157,23 +158,6 @@ class TreeNode {
     return offset
   }
 
-  buildIndex (index, seq) {
-    const offset = index.push(null) - 1
-    const keys = this.keys
-    const children = []
-
-    for (const child of this.children) {
-      if (!child.value || !child.value.changed) {
-        children.push(child)
-      } else {
-        children.push(new Child(seq, child.value.buildIndex(index, seq)))
-      }
-    }
-
-    index[offset] = { keys, children }
-    return offset
-  }
-
   static create (block) {
     const node = new TreeNode(block, [], [])
     node.changed = true
@@ -215,6 +199,8 @@ class BatchEntry extends BlockEntry {
 class BTree {
   constructor (feed) {
     this.feed = feed
+    this.extension = new Extension(this)
+    this.extension.outgoing = this.feed.registerExtension('hyperb', this.extension)
   }
 
   ready () {
@@ -237,20 +223,20 @@ class BTree {
     })
   }
 
-  async getRoot (batch = this) {
+  async getRoot (opts, batch = this) {
     await this.ready()
-    if (!this.feed.writable) await this.update()
+    if (!this.feed.writable && (opts && opts.update) !== false) await this.update()
     if (this.feed.length < 2) return null
-    return (await batch.getBlock(this.feed.length - 1)).getTreeNode(0)
+    return (await batch.getBlock(this.feed.length - 1, opts)).getTreeNode(0)
   }
 
   async getKey (seq) {
     return (await this.getBlock(seq)).key
   }
 
-  async getBlock (seq, batch = this) {
+  async getBlock (seq, opts, batch = this) {
     return new Promise((resolve, reject) => {
-      this.feed.get(seq, { valueEncoding: Node }, (err, entry) => {
+      this.feed.get(seq, { ...opts, valueEncoding: Node }, (err, entry) => {
         if (err) return reject(err)
         resolve(new BlockEntry(seq, batch, entry))
       })
@@ -283,18 +269,18 @@ class BTree {
     })
   }
 
-  get (key) {
-    const b = new Batch(this)
+  get (key, opts) {
+    const b = new Batch(this, false, { ...opts })
     return b.get(key)
   }
 
-  put (key, value) {
-    const b = new Batch(this, false)
+  put (key, value, opts) {
+    const b = new Batch(this, true, opts)
     return b.put(key, value)
   }
 
-  batch () {
-    return new Batch(this, true)
+  batch (opts) {
+    return new Batch(this, false, opts)
   }
 
   async debugToString () {
@@ -314,12 +300,15 @@ class BTree {
 }
 
 class Batch {
-  constructor (tree, multi) {
+  constructor (tree, autoFlush, options = {}) {
     this.tree = tree
     this.blocks = new Map()
-    this.multi = multi
+    this.autoFlush = autoFlush
+    this.rootSeq = 0
     this.root = null
     this.length = 0
+    this.options = options
+    this.onseq = this.options.onseq || noop
   }
 
   ready () {
@@ -328,7 +317,7 @@ class Batch {
 
   getRoot () {
     if (this.root !== null) return this.root
-    return this.tree.getRoot(this)
+    return this.tree.getRoot(this.options, this)
   }
 
   async getKey (seq) {
@@ -336,14 +325,23 @@ class Batch {
   }
 
   async getBlock (seq) {
+    if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks.get(seq)
     if (b) return b
-    b = await this.tree.getBlock(seq, this)
+    this.onseq(seq)
+    b = await this.tree.getBlock(seq, this.options, this)
     this.blocks.set(seq, b)
     return b
   }
 
+  _onwait (key) {
+    this.options.onwait = null
+    this.tree.extension.get(this.rootSeq, key)
+  }
+
   async get (key) {
+    if (this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
+
     let node = await this.getRoot()
     if (!node) return null
 
@@ -474,7 +472,7 @@ class Batch {
     root.indexChanges(index, seq)
     index[0] = new Child(seq, 0, root)
 
-    if (this.multi) {
+    if (!this.autoFlush) {
       const block = new BatchEntry(seq, this, key, value, index)
       if (!root.block) root.block = block
       this.root = root
@@ -694,5 +692,7 @@ function createReadStream (tree, opts) {
 function cmp (a, b) {
   return a < b ? -1 : b < a ? 1 : 0
 }
+
+function noop () {}
 
 module.exports = BTree

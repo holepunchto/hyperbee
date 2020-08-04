@@ -283,6 +283,11 @@ class BTree {
     return new Batch(this, false, true, opts)
   }
 
+  del (key, opts) {
+    const b = new Batch(this, true, opts)
+    return b.del(key)
+  }
+
   async debugToString () {
     return require('tree-to-string')(await load(await this.getRoot()))
 
@@ -470,6 +475,10 @@ class Batch {
     }
 
     return this._append(root, seq, key, value)
+  }
+
+  async del (key) {
+    // TODO: Implement
   }
 
   flush () {

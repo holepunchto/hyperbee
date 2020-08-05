@@ -56,7 +56,7 @@ tape('out of bounds iterator, string encoding', async function (t) {
 tape('out of bounds iterator, larger db', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 8; i++) {
     await db.put('' + i, 'hello world')
   }
 

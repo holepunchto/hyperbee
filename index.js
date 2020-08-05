@@ -417,6 +417,7 @@ class Batch {
       const i = c < 0 ? e : s
       entry.i = 2 * (i + 1)
 
+      if (entry.i >= (node.children.length << 1)) stack.pop() // oob
       if (!node.children.length) return node
       node = await node.getChildNode(i)
     }

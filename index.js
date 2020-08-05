@@ -1,6 +1,8 @@
-const { YoloIndex, Node } = require('./messages')
+const codecs = require('codecs')
 const { Readable } = require('streamx')
+
 const Extension = require('./lib/extension')
+const { YoloIndex, Node } = require('./messages')
 
 const MAX_CHILDREN = 8
 
@@ -197,24 +199,43 @@ class BatchEntry extends BlockEntry {
 }
 
 class BTree {
-  constructor (feed) {
+  constructor (feed, opts = {}) {
     this.feed = feed
-    this.extension = new Extension(this)
-    this.extension.outgoing = this.feed.registerExtension('hyperb', this.extension)
+
+    this.keyEncoding = opts.keyEncoding && codecs(opts.keyEncoding)
+    this.valueEncoding = opts.valueEncoding && codecs(opts.valueEncoding)
+
+    this._checkout = opts.checkout
+    if (this._checkout === undefined) {
+      this.extension = new Extension(this)
+      this.extension.outgoing = this.feed.registerExtension('hyperb', this.extension)
+    }
+    this._readyOnce = this._ready()
   }
 
-  ready () {
+  _ready () {
     return new Promise((resolve, reject) => {
       this.feed.ready(err => {
         if (err) return reject(err)
+        if (this._checkout !== undefined) {
+          this._checkout = Math.min(this.feed.length - 1, Math.max(this._checkout, 2))
+          return resolve()
+        }
         if (this.feed.length > 0 || !this.feed.writable) return resolve()
-
         this.feed.append('header', (err) => {
           if (err) return reject(err)
           resolve()
         })
       })
     })
+  }
+
+  ready () {
+    return this._readyOnce
+  }
+
+  get version () {
+    return this._checkout || this.feed.length
   }
 
   update () {
@@ -227,7 +248,7 @@ class BTree {
     await this.ready()
     if (!this.feed.writable && (opts && opts.update) !== false) await this.update()
     if (this.feed.length < 2) return null
-    return (await batch.getBlock(this.feed.length - 1, opts)).getTreeNode(0)
+    return (await batch.getBlock(this._checkout || this.feed.length - 1, opts)).getTreeNode(0)
   }
 
   async getKey (seq) {
@@ -238,6 +259,8 @@ class BTree {
     return new Promise((resolve, reject) => {
       this.feed.get(seq, { ...opts, valueEncoding: Node }, (err, entry) => {
         if (err) return reject(err)
+        if (this.keyEncoding) entry.key = this.keyEncoding.decode(entry.key)
+        if (this.valueEncoding) entry.value = this.valueEncoding.decode(entry.value)
         resolve(new BlockEntry(seq, batch, entry))
       })
     })
@@ -286,6 +309,18 @@ class BTree {
   del (key, opts) {
     const b = new Batch(this, true, opts)
     return b.del(key)
+  }
+
+  checkout (version) {
+    return new BTree(this.feed, {
+      checkout: version,
+      keyEncoding: this.keyEncoding,
+      valueEncoding: this.valueEncoding
+    })
+  }
+
+  snapshot () {
+    return this.checkout(this.version)
   }
 
   async debugToString () {
@@ -478,7 +513,7 @@ class Batch {
   }
 
   async del (key) {
-    // TODO: Implement
+    return this.put(key, null)
   }
 
   flush () {
@@ -534,8 +569,8 @@ class Batch {
     }
 
     return this._appendBatch(Node.encode({
-      key,
-      value,
+      key: this.tree.keyEncoding ? this.tree.keyEncoding.encode(key) : key,
+      value: this.tree.valueEncoding? this.tree.valueEncoding.encode(value) : value,
       index: deflate(index)
     }))
   }

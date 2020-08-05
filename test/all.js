@@ -1,5 +1,5 @@
 const tape = require('tape')
-const Hyperbee = require('./')
+const Hyperbee = require('..')
 
 tape('out of bounds iterator', async function (t) {
   const db = create()

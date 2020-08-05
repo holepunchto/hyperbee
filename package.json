@@ -10,10 +10,12 @@
     "tree-to-string": "^1.1.1"
   },
   "devDependencies": {
+    "hypercore": "^9.5.0",
+    "random-access-memory": "^3.1.1",
     "tape": "^5.0.1"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "tape test/*.js"
   },
   "author": "",
   "license": "ISC"

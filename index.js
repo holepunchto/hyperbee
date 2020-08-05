@@ -348,7 +348,7 @@ class Batch {
     if (!node) return null
 
     if (!key) {
-      if (stack) stack.push({ node, i: node.keys.length << 1 })
+      if (stack) stack.push({ node, i: 0 })
       return node
     }
 

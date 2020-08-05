@@ -202,25 +202,24 @@ class BTree {
   constructor (feed, opts = {}) {
     this.feed = feed
 
-    this.keyEncoding = opts.keyEncoding && codecs(opts.keyEncoding)
-    this.valueEncoding = opts.valueEncoding && codecs(opts.valueEncoding)
+    this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
+    this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
+    this.extension = opts.extension || Extension.register(this)
 
-    this._checkout = opts.checkout
-    if (this._checkout === undefined) {
-      this.extension = new Extension(this)
-      this.extension.outgoing = this.feed.registerExtension('hyperb', this.extension)
-    }
-    this._readyOnce = this._ready()
+    this._checkout = opts.checkout || 0
+    this._ready = null
   }
 
-  _ready () {
+  ready () {
+    if (this._ready !== null) return this._ready
+    this._ready = this._open()
+    return this._ready
+  }
+
+  _open () {
     return new Promise((resolve, reject) => {
       this.feed.ready(err => {
         if (err) return reject(err)
-        if (this._checkout !== undefined) {
-          this._checkout = Math.min(this.feed.length - 1, Math.max(this._checkout, 2))
-          return resolve()
-        }
         if (this.feed.length > 0 || !this.feed.writable) return resolve()
         this.feed.append('header', (err) => {
           if (err) return reject(err)
@@ -230,12 +229,8 @@ class BTree {
     })
   }
 
-  ready () {
-    return this._readyOnce
-  }
-
   get version () {
-    return this._checkout || this.feed.length
+    return Math.max(1, this._checkout || this.feed.length)
   }
 
   update () {
@@ -246,9 +241,10 @@ class BTree {
 
   async getRoot (opts, batch = this) {
     await this.ready()
-    if (!this.feed.writable && (opts && opts.update) !== false) await this.update()
-    if (this.feed.length < 2) return null
-    return (await batch.getBlock(this._checkout || this.feed.length - 1, opts)).getTreeNode(0)
+    if (this._checkout !== 0 && !this.feed.writable && (opts && opts.update) !== false) await this.update()
+    const len = this._checkout || this.feed.length
+    if (len < 2) return null
+    return (await batch.getBlock(len - 1, opts)).getTreeNode(0)
   }
 
   async getKey (seq) {
@@ -307,13 +303,14 @@ class BTree {
   }
 
   del (key, opts) {
-    const b = new Batch(this, true, opts)
+    const b = new Batch(this, true, true, opts)
     return b.del(key)
   }
 
   checkout (version) {
     return new BTree(this.feed, {
       checkout: version,
+      extension: this.extension,
       keyEncoding: this.keyEncoding,
       valueEncoding: this.valueEncoding
     })

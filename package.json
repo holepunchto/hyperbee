@@ -8,7 +8,9 @@
     "streamx": "^2.6.6",
     "tree-to-string": "^1.1.1"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "tape": "^5.0.1"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

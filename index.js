@@ -270,17 +270,17 @@ class BTree {
   }
 
   get (key, opts) {
-    const b = new Batch(this, false, { ...opts })
+    const b = new Batch(this, false, true, { ...opts })
     return b.get(key)
   }
 
   put (key, value, opts) {
-    const b = new Batch(this, true, opts)
+    const b = new Batch(this, true, true, opts)
     return b.put(key, value)
   }
 
   batch (opts) {
-    return new Batch(this, false, opts)
+    return new Batch(this, false, true, opts)
   }
 
   async debugToString () {
@@ -300,9 +300,9 @@ class BTree {
 }
 
 class Batch {
-  constructor (tree, autoFlush, options = {}) {
+  constructor (tree, autoFlush, cache, options = {}) {
     this.tree = tree
-    this.blocks = new Map()
+    this.blocks = cache ? new Map() : null
     this.autoFlush = autoFlush
     this.rootSeq = 0
     this.root = null
@@ -326,17 +326,60 @@ class Batch {
 
   async getBlock (seq) {
     if (this.rootSeq === 0) this.rootSeq = seq
-    let b = this.blocks.get(seq)
+    let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
     b = await this.tree.getBlock(seq, this.options, this)
-    this.blocks.set(seq, b)
+    if (this.blocks) this.blocks.set(seq, b)
     return b
   }
 
   _onwait (key) {
     this.options.onwait = null
     this.tree.extension.get(this.rootSeq, key)
+  }
+
+  async getFirst (key, opts = {}) {
+    const stack = opts.stack || null
+    const gte = !opts.gt
+
+    let node = await this.getRoot()
+
+    if (!node) return null
+
+    if (!key) {
+      if (stack) stack.push({ node, i: node.keys.length << 1 })
+      return node
+    }
+
+    while (true) {
+      const entry = { node, i: 0 }
+      if (stack) stack.push(entry)
+
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+        c = cmp(key, await node.getKey(mid))
+
+        if (c === 0) {
+          if (gte) entry.i = mid * 2 + 1
+          else entry.i = mid * 2 + 2
+          return
+        }
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      const i = c < 0 ? e : s
+      entry.i = 2 * (i + 1)
+
+      if (!node.children.length) return node
+      node = await node.getChildNode(i)
+    }
   }
 
   async get (key) {
@@ -599,6 +642,7 @@ function createReadStream (tree, opts) {
   const start = opts && (opts.gt || opts.gte)
   const end = opts && (opts.lt || opts.lte)
   let limit = opts ? (typeof opts.limit === 'number' ? opts.limit : -1) : -1
+  const b = new Batch(tree, false, false)
 
   return new Readable({
     open (cb) {
@@ -633,7 +677,7 @@ function createReadStream (tree, opts) {
       }
 
       const key = top.node.keys[n]
-      const block = await tree.getBlock(key.seq)
+      const block = await b.getBlock(key.seq)
       if (end) {
         const c = cmp(block.key, end)
         if (c === 0 && opts.lt) break
@@ -648,43 +692,7 @@ function createReadStream (tree, opts) {
   }
 
   async function open () {
-    let node = await tree.getRoot()
-
-    if (!node) return
-
-    if (!start) {
-      stack.push({ node, i: 0 })
-      return
-    }
-
-    while (true) {
-      const entry = { node, i: 0 }
-      stack.push(entry)
-
-      let s = 0
-      let e = node.keys.length
-      let c
-
-      while (s < e) {
-        const mid = (s + e) >> 1
-        c = cmp(start, await node.getKey(mid))
-
-        if (c === 0) {
-          if (opts.gte) entry.i = mid * 2 + 1
-          else entry.i = mid * 2 + 2
-          return
-        }
-
-        if (c < 0) e = mid
-        else s = mid + 1
-      }
-
-      const i = c < 0 ? e : s
-      entry.i = 2 * (i + 1)
-
-      if (!node.children.length) return
-      node = await node.getChildNode(i)
-    }
+    await b.getFirst(start, { gt: !!opts.gt, stack })
   }
 }
 

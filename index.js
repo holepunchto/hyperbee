@@ -1,6 +1,6 @@
 const codecs = require('codecs')
 const { Readable } = require('streamx')
-
+const RangeIterator = require('./iterators/range')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node } = require('./messages')
 
@@ -263,7 +263,7 @@ class BTree {
   }
 
   createReadStream (opts) {
-    return (opts && opts.reverse) ? createReverseReadStream(this, opts) : createReadStream(this, opts)
+    return iteratorToStream(new RangeIterator(new Batch(this, false, false, opts), opts))
   }
 
   createHistoryStream () {
@@ -376,48 +376,10 @@ class Batch {
     this.tree.extension.get(this.rootSeq, key)
   }
 
-  async getFirst (key, opts = {}) {
-    const stack = opts.stack || null
-    const gte = !opts.gt
-
-    let node = await this.getRoot()
-
-    if (!node) return null
-
-    if (!key) {
-      if (stack) stack.push({ node, i: 0 })
-      return node
-    }
-
-    while (true) {
-      const entry = { node, i: 0 }
-      if (stack) stack.push(entry)
-
-      let s = 0
-      let e = node.keys.length
-      let c
-
-      while (s < e) {
-        const mid = (s + e) >> 1
-        c = cmp(key, await node.getKey(mid))
-
-        if (c === 0) {
-          if (gte) entry.i = mid * 2 + 1
-          else entry.i = mid * 2 + 2
-          return
-        }
-
-        if (c < 0) e = mid
-        else s = mid + 1
-      }
-
-      const i = c < 0 ? e : s
-      entry.i = 2 * (i + 1)
-
-      if (entry.i >= (node.children.length << 1)) stack.pop() // oob
-      if (!node.children.length) return node
-      node = await node.getChildNode(i)
-    }
+  async peek (range) {
+    const ite = new RangeIterator(range)
+    await ite.open()
+    return ite.next()
   }
 
   async get (key) {
@@ -583,161 +545,34 @@ class Batch {
   }
 }
 
-function createReverseReadStream (tree, opts) {
-  const stack = []
-  const start = opts && (opts.gt || opts.gte)
-  const end = opts && (opts.lt || opts.lte)
-  let limit = opts ? (typeof opts.limit === 'number' ? opts.limit : -1) : -1
-
-  return new Readable({
+function iteratorToStream (ite) {
+  let done
+  let rs = new Readable({
     open (cb) {
-      call(open(this), cb)
+      done = cb
+      ite.open().then(fin, fin)
     },
     read (cb) {
-      call(next(this), cb)
+      done = cb
+      ite.next().then(push, fin)
     }
   })
 
-  function call (p, cb) {
-    p.then((val) => process.nextTick(cb, null, val), (err) => process.nextTick(cb, err))
+  return rs
+
+  function fin (err) {
+    process.nextTick(done, err)
   }
 
-  async function next (stream) {
-    while (stack.length && (limit === -1 || limit > 0)) {
-      const top = stack[stack.length - 1]
-
-      if (top.i < 0) {
-        stack.pop()
-        continue
-      }
-
-      const isKey = (top.i & 1) === 1
-      const n = top.i-- >> 1
-
-      if (!isKey) {
-        if (!top.node.children.length) continue
-        const node = await top.node.getChildNode(n)
-        top.node.children[n] = null // unlink it to save memory
-        stack.push({ i: node.keys.length << 1, node })
-        continue
-      }
-
-      const key = top.node.keys[n]
-      const block = await tree.getBlock(key.seq)
-      if (start) {
-        const c = cmp(block.key, start)
-        if (c === 0 && opts.gt) break
-        if (c < 0) break
-      }
-      if (limit > 0) limit--
-      stream.push(block)
-      return
-    }
-
-    stream.push(null)
+  function push (val) {
+    process.nextTick(pushNT, val)
   }
 
-  async function open () {
-    let node = await tree.getRoot()
-
-    if (!node) return
-
-    if (!start) {
-      stack.push({ node, i: node.keys.length << 1 })
-      return
-    }
-
-    while (true) {
-      const entry = { node, i: node.keys.length << 1 }
-      stack.push(entry)
-
-      let s = 0
-      let e = node.keys.length
-      let c
-
-      while (s < e) {
-        const mid = (s + e) >> 1
-        c = cmp(end, await node.getKey(mid))
-
-        if (c === 0) {
-          if (opts.lte) entry.i = mid * 2 + 1
-          else entry.i = mid * 2
-          return
-        }
-
-        if (c < 0) e = mid
-        else s = mid + 1
-      }
-
-      const i = c < 0 ? e : s
-      entry.i = 2 * i - 2
-
-      if (!node.children.length) return
-      node = await node.getChildNode(i)
-    }
+  function pushNT (val) {
+    rs.push(val)
+    done(null)
   }
 }
-
-
-function createReadStream (tree, opts) {
-  const stack = []
-  const start = opts && (opts.gt || opts.gte)
-  const end = opts && (opts.lt || opts.lte)
-  let limit = opts ? (typeof opts.limit === 'number' ? opts.limit : -1) : -1
-  const b = new Batch(tree, false, false)
-
-  return new Readable({
-    open (cb) {
-      call(open(this), cb)
-    },
-    read (cb) {
-      call(next(this), cb)
-    }
-  })
-
-  function call (p, cb) {
-    p.then((val) => process.nextTick(cb, null, val), (err) => process.nextTick(cb, err))
-  }
-
-  async function next (stream) {
-    while (stack.length && (limit === -1 || limit > 0)) {
-      const top = stack[stack.length - 1]
-      const isKey = (top.i & 1) === 1
-      const n = top.i++ >> 1
-
-      if (!isKey) {
-        if (!top.node.children.length) continue
-        const node = await top.node.getChildNode(n)
-        top.node.children[n] = null // unlink it to save memory
-        stack.push({ i: 0, node })
-        continue
-      }
-
-      if (n >= top.node.keys.length) {
-        stack.pop()
-        continue
-      }
-
-      const key = top.node.keys[n]
-      const block = await b.getBlock(key.seq)
-      if (end) {
-        const c = cmp(block.key, end)
-        if (c === 0 && opts.lt) break
-        if (c > 0) break
-      }
-      if (limit > 0) limit--
-      stream.push(block)
-      return
-    }
-
-    stream.push(null)
-  }
-
-  async function open () {
-    await b.getFirst(start, { gt: !!opts.gt, stack })
-  }
-}
-
 
 function cmp (a, b) {
   return a < b ? -1 : b < a ? 1 : 0

@@ -45,16 +45,10 @@ module.exports = class RangeIterator {
         else s = mid + 1
       }
 
-      let i
-      if (c < 0) {
-        i = e
-        entry.i = 2 * i + (this._reverse ? -1 : 1)
-      } else {
-        i = s
-        entry.i = 2 * (i + (this._reverse ? -1 : 1)) + 1
-      }
+      let i = c < 0 ? e : s
+      entry.i = 2 * i + (this._reverse ? -1 : 1)
 
-      if (entry.i >= 0 && entry.i < (node.keys.length << 1)) this.stack.push(entry)
+      if (entry.i >= 0 && entry.i <= (node.keys.length << 1)) this.stack.push(entry)
       if (!node.children.length) return
 
       node = await node.getChildNode(i)

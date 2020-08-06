@@ -78,43 +78,56 @@ tape('out of bounds iterator, larger db', async function (t) {
 tape('test all short iterators', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 
-  const SIZE = 8
-  const reference = []
+  const MAX = 100
 
-  for (let i = 0; i < SIZE; i++) {
-    const key = '' + i
-    await db.put(key, 'hello world')
-    reference.push(key)
-  }
+  for (let size = 1; size <= MAX; size++) {
+    const reference = []
+    for (let i = 0; i < size; i++) {
+      const key = '' + i
+      await db.put(key, 'hello world')
+      reference.push(key)
+    }
+    reference.sort()
 
-  const boundsOpts = [['gte', 'lte'], ['gte', 'lt'], ['gt', 'lte'], ['gt', 'lt']]
-  for (let i = 0; i < SIZE; i++) {
-    for (let j = 0; j <= i; j++) {
-      for (const [greater, lesser] of boundsOpts) {
-        const opts = { [greater]: '' + j, [lesser]: '' + i }
-        const entries = await collect(db.createReadStream(opts))
-        if (!validate(opts, entries)) {
-          return t.end()
+    for (let i = 0; i < size; i++) {
+      for (let j = 0; j <= i; j++) {
+        for (let k = 0; k < 8; k++) {
+          const greater = (k & 1) ? 'gte' : 'gt'
+          const lesser = (k >> 1 & 1) ? 'lte' : 'lt'
+          const reverse = !!(k >> 2 & 1)
+          const opts = {
+            [greater]: '' + j,
+            [lesser]: '' + i,
+            reverse
+          }
+          const entries = await collect(db.createReadStream(opts))
+          if (!validate(size, reference, opts, entries)) {
+            return t.end()
+          }
         }
       }
     }
   }
 
-  function validate (opts, entries) {
+  t.pass('all iterations passed')
+  t.end()
+
+  function validate (size, reference, opts, entries) {
     const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
     const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
-    const range = reference.slice(start, end)
-    t.same(range.length, entries.length)
+    let range = reference.slice(start, end)
+    if (opts.reverse) range.reverse()
     for (let i = 0; i < range.length; i++) {
       if (!entries[i] || range[i] !== entries[i].key) {
+        console.log('========')
+        console.log('SIZE:', size)
         console.log('FAILED WITH OPTS:', opts)
-        console.log('  range length:', range, 'start:', start, 'end:', end)
-        console.log('  entries length:', entries.length)
-        t.fail(`ranges did not match: expected ${range} got ${entries.map(e => e.key)}`)
+        console.log('  expected:', range, 'start:', start, 'end:', end)
+        console.log('  actual:', entries.map(e => e.key))
+        t.fail(`ranges did not match`)
         return false
       }
     }
-    t.pass('range is ordered correctly')
     return true
   }
 })

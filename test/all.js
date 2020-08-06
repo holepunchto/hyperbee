@@ -89,9 +89,9 @@ tape('test all short iterators', async function (t) {
 
   const boundsOpts = [['gte', 'lte'], ['gte', 'lt'], ['gt', 'lte'], ['gt', 'lt']]
   for (let i = 0; i < SIZE; i++) {
-    for (let j = 0; j < SIZE; j++) {
+    for (let j = 0; j <= i; j++) {
       for (const [greater, lesser] of boundsOpts) {
-        const opts = { [greater]: '' + i, [lesser]: '' + j }
+        const opts = { [greater]: '' + j, [lesser]: '' + i }
         const entries = await collect(db.createReadStream(opts))
         if (!validate(opts, entries)) {
           return t.end()

@@ -125,6 +125,13 @@ class TreeNode {
     throw new Error('Bad parent')
   }
 
+  merge (node, median) {
+    this.changed = true
+    this.keys.push(median)
+    for (let i = 0; i < node.keys.length; i++) this.keys.push(node.keys[i])
+    for (let i = 0; i < node.children.length; i++) this.children.push(node.children[i])
+  }
+
   async split () {
     const len = this.keys.length >> 1
     const right = TreeNode.create(this.block)
@@ -517,17 +524,11 @@ class Batch {
         c = cmp(key, await node.getKey(mid))
 
         if (c === 0) {
-          if (node.children.length) {
-            const left = node.getChildNode(mid)
-            const right = node.getChildNode(mid + 1)
-            node.keys[mid] = await delBestLeaf(await left, await right, stack)
-          } else {
-            node.removeKey(mid)
-          }
-
+          if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
+          else node.removeKey(mid)
+          // we mark these as changed late, so we don't rewrite them if it is a 404
           for (const node of stack) node.changed = true
-          root = await rebalance(root, stack)
-          return this._append(root, seq, key, null)
+          return this._append(await rebalance(stack), seq, key, null)
         }
 
         if (c < 0) e = mid
@@ -610,32 +611,33 @@ class Batch {
   }
 }
 
-async function rightSize (node) {
-  while (node.children.length) node = await node.getChildNode(0)
+async function leafSize (node, goLeft) {
+  while (node.children.length) node = await node.getChildNode(goLeft ? 0 : node.children.length - 1)
   return node.keys.length
 }
 
-async function leftSize (node) {
-  while (node.children.length) node = await node.getChildNode(node.children.length - 1)
-  return node.keys.length
-}
-
-async function delBestLeaf (left, right, stack) {
-  const ls = leftSize(left)
-  const rs = rightSize(right)
+async function setKeyToNearestLeaf (node, index, stack) {
+  const l = node.getChildNode(index)
+  const r = node.getChildNode(index + 1)
+  const left = await l
+  const right = await r
+  const ls = leafSize(left, false)
+  const rs = leafSize(right, true)
 
   if ((await ls) < (await rs)) {
     stack.push(right)
     while (right.children.length) stack.push(right = right.children[0].value)
-    return right.keys.shift()
+    node.keys[index] = right.keys.shift()
+  } else {
+    stack.push(left)
+    while (left.children.length) stack.push(left = left.children[left.children.length - 1].value)
+    node.keys[index] = left.keys.pop()
   }
-
-  stack.push(left)
-  while (left.children.length) stack.push(left = left.children[left.children.length - 1].value)
-  return left.keys.pop()
 }
 
-async function rebalance (root, stack) {
+async function rebalance (stack) {
+  const root = stack[0]
+
   while (stack.length > 1) {
     const node = stack.pop()
     const parent = stack.length ? stack[stack.length - 1] : null
@@ -670,10 +672,7 @@ async function rebalance (root, stack) {
       left = node
     }
 
-    left.changed = true
-    left.keys.push(parent.keys[index])
-    for (let i = 0; i < right.keys.length; i++) left.keys.push(right.keys[i])
-    for (let i = 0; i < right.children.length; i++) left.children.push(right.children[i])
+    left.merge(right, parent.keys[index])
     parent.removeKey(index)
   }
 

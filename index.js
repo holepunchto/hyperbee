@@ -641,7 +641,7 @@ async function rebalance (stack) {
 
   while (stack.length > 1) {
     const node = stack.pop()
-    const parent = stack.length ? stack[stack.length - 1] : null
+    const parent = stack[stack.length - 1]
 
     if (node.keys.length >= MIN_KEYS) return root
 

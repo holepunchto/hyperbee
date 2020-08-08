@@ -78,7 +78,7 @@ tape('out of bounds iterator, larger db', async function (t) {
 tape('test all short iterators', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 
-  const MAX = 100
+  const MAX = 25
 
   for (let size = 1; size <= MAX; size++) {
     const reference = []

@@ -4,7 +4,9 @@ const RangeIterator = require('./iterators/range')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node } = require('./messages')
 
-const MAX_CHILDREN = 8
+const T = 5
+const MIN_KEYS = T - 1
+const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
 class Key {
   constructor (seq, value) {
@@ -64,7 +66,6 @@ function deflate (index) {
     return { keys, children }
   })
 
-
   return YoloIndex.encode({ levels })
 }
 
@@ -101,6 +102,27 @@ class TreeNode {
     this.changed = true
 
     return this.keys.length < MAX_CHILDREN
+  }
+
+  removeKey (index) {
+    this.keys.splice(index, 1)
+    if (this.children.length) {
+      this.children[index + 1].seq = 0 // mark as freed
+      this.children.splice(index + 1, 1)
+    }
+    this.changed = true
+  }
+
+  async siblings (parent) {
+    for (let i = 0; i < parent.children.length; i++) {
+      if (parent.children[i].value === this) {
+        const left = i ? parent.getChildNode(i - 1) : null
+        const right = i < parent.children.length - 1 ? parent.getChildNode(i + 1) : null
+        return { left: await left, index: i, right: await right }
+      }
+    }
+
+    throw new Error('Bad parent')
   }
 
   async split () {
@@ -281,6 +303,7 @@ class BTree {
         }
 
         tree.feed.get(seq, { valueEncoding: Node }, (err, data) => {
+          if (err) return cb(err)
           this.push(new BlockEntry(seq++, tree, data))
           cb(null)
         })
@@ -416,7 +439,6 @@ class Batch {
   async put (key, value) {
     if (typeof key === 'string') key = Buffer.from(key)
 
-    const index = []
     const stack = []
 
     let root
@@ -473,7 +495,50 @@ class Batch {
   }
 
   async del (key) {
-    return this.put(key, null)
+    if (typeof key === 'string') key = Buffer.from(key)
+
+    const stack = []
+
+    let root
+    let node = root = await this.getRoot()
+    if (!node) return
+
+    const seq = this.tree.feed.length + this.length
+
+    while (true) {
+      stack.push(node)
+
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+        c = cmp(key, await node.getKey(mid))
+
+        if (c === 0) {
+          if (node.children.length) {
+            const left = node.getChildNode(mid)
+            const right = node.getChildNode(mid + 1)
+            node.keys[mid] = await delBestLeaf(await left, await right, stack)
+          } else {
+            node.removeKey(mid)
+          }
+
+          for (const node of stack) node.changed = true
+          root = await rebalance(root, stack)
+          return this._append(root, seq, key, null)
+        }
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      if (!node.children.length) return
+
+      const i = c < 0 ? e : s
+      node = await node.getChildNode(i)
+    }
   }
 
   flush () {
@@ -530,7 +595,7 @@ class Batch {
 
     return this._appendBatch(Node.encode({
       key: this.tree.keyEncoding ? this.tree.keyEncoding.encode(key) : key,
-      value: this.tree.valueEncoding? this.tree.valueEncoding.encode(value) : value,
+      value: this.tree.valueEncoding ? this.tree.valueEncoding.encode(value) : value,
       index: deflate(index)
     }))
   }
@@ -545,9 +610,81 @@ class Batch {
   }
 }
 
+async function rightSize (node) {
+  while (node.children.length) node = await node.getChildNode(0)
+  return node.keys.length
+}
+
+async function leftSize (node) {
+  while (node.children.length) node = await node.getChildNode(node.children.length - 1)
+  return node.keys.length
+}
+
+async function delBestLeaf (left, right, stack) {
+  const ls = leftSize(left)
+  const rs = rightSize(right)
+
+  if ((await ls) < (await rs)) {
+    stack.push(right)
+    while (right.children.length) stack.push(right = right.children[0].value)
+    return right.keys.shift()
+  }
+
+  stack.push(left)
+  while (left.children.length) stack.push(left = left.children[left.children.length - 1].value)
+  return left.keys.pop()
+}
+
+async function rebalance (root, stack) {
+  while (stack.length > 1) {
+    const node = stack.pop()
+    const parent = stack.length ? stack[stack.length - 1] : null
+
+    if (node.keys.length >= MIN_KEYS) return root
+
+    let { left, index, right } = await node.siblings(parent)
+
+    // maybe borrow from left sibling?
+    if (left && left.keys.length > MIN_KEYS) {
+      left.changed = true
+      node.keys.unshift(parent.keys[index - 1])
+      if (left.children.length) node.children.unshift(left.children.pop())
+      parent.keys[index - 1] = left.keys.pop()
+      return root
+    }
+
+    // maybe borrow from right sibling?
+    if (right && right.keys.length > MIN_KEYS) {
+      right.changed = true
+      node.keys.push(parent.keys[index])
+      if (right.children.length) node.children.push(right.children.shift())
+      parent.keys[index] = right.keys.shift()
+      return root
+    }
+
+    // merge node with another sibling
+    if (left) {
+      index--
+      right = node
+    } else {
+      left = node
+    }
+
+    left.changed = true
+    left.keys.push(parent.keys[index])
+    for (let i = 0; i < right.keys.length; i++) left.keys.push(right.keys[i])
+    for (let i = 0; i < right.children.length; i++) left.children.push(right.children[i])
+    parent.removeKey(index)
+  }
+
+  // check if the tree shrunk
+  if (!root.keys.length && root.children.length) return root.getChildNode(0)
+  return root
+}
+
 function iteratorToStream (ite) {
   let done
-  let rs = new Readable({
+  const rs = new Readable({
     open (cb) {
       done = cb
       ite.open().then(fin, fin)

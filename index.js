@@ -286,7 +286,7 @@ class BTree {
       this.feed.get(seq, { ...opts, valueEncoding: Node }, (err, entry) => {
         if (err) return reject(err)
         if (this.keyEncoding) entry.key = this.keyEncoding.decode(entry.key)
-        if (this.valueEncoding) entry.value = this.valueEncoding.decode(entry.value)
+        if (this.valueEncoding && entry.value) entry.value = this.valueEncoding.decode(entry.value)
         resolve(new BlockEntry(seq, batch, entry))
       })
     })
@@ -416,6 +416,7 @@ class Batch {
 
   async put (key, value) {
     if (typeof key === 'string') key = Buffer.from(key)
+    if (value && this.valueEncoding) value = this.valueEncoding.encode(value)
 
     const stack = []
 
@@ -567,7 +568,7 @@ class Batch {
 
     return this._appendBatch(Node.encode({
       key: this.tree.keyEncoding ? this.tree.keyEncoding.encode(key) : key,
-      value: this.tree.valueEncoding ? this.tree.valueEncoding.encode(value) : value,
+      value,
       index: deflate(index)
     }))
   }

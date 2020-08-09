@@ -228,7 +228,7 @@ class BatchEntry extends BlockEntry {
   }
 }
 
-class BTree {
+class HyperBee {
   constructor (feed, opts = {}) {
     this.feed = feed
 
@@ -320,7 +320,7 @@ class BTree {
   }
 
   checkout (version) {
-    return new BTree(this.feed, {
+    return new HyperBee(this.feed, {
       checkout: version,
       extension: this.extension,
       keyEncoding: this.keyEncoding,
@@ -689,4 +689,4 @@ function cmp (a, b) {
 
 function noop () {}
 
-module.exports = BTree
+module.exports = HyperBee

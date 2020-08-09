@@ -2,7 +2,7 @@ const codecs = require('codecs')
 const { Readable } = require('streamx')
 const RangeIterator = require('./iterators/range')
 const Extension = require('./lib/extension')
-const { YoloIndex, Node } = require('./messages')
+const { YoloIndex, Node } = require('./lib/messages')
 
 const T = 5
 const MIN_KEYS = T - 1

@@ -1,5 +1,5 @@
 {
-  "name": "hyperb",
+  "name": "hyperbee",
   "version": "0.0.0",
   "description": "",
   "main": "index.js",
@@ -11,11 +11,13 @@
   },
   "devDependencies": {
     "hypercore": "^9.5.0",
+    "protocol-buffers": "^4.2.0",
     "random-access-memory": "^3.1.1",
     "tape": "^5.0.1"
   },
   "scripts": {
-    "test": "tape test/*.js"
+    "test": "tape test/*.js",
+    "protobuf": "protocol-buffers schema.proto -o ./lib/messages.js"
   },
   "author": "",
   "license": "ISC"

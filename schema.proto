@@ -7,6 +7,15 @@ message YoloIndex {
   repeated Level levels = 1;
 }
 
+message Header {
+  message Metadata {
+    optional bytes contentFeed = 1;
+  }
+
+  required string protocol = 1;
+  optional Metadata metadata = 2;
+}
+
 message Node {
   required bytes index = 1;
   required bytes key = 2;

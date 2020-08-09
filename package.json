@@ -1,7 +1,7 @@
 {
   "name": "hyperbee",
   "version": "0.0.0",
-  "description": "",
+  "description": "An append-only Btree running on a Hypercore.",
   "main": "index.js",
   "dependencies": {
     "codecs": "^2.1.0",
@@ -12,13 +12,22 @@
     "hypercore": "^9.5.0",
     "protocol-buffers": "^4.2.0",
     "random-access-memory": "^3.1.1",
+    "standard": "^14.3.4",
     "tape": "^5.0.1",
     "tree-to-string": "^1.1.1"
   },
   "scripts": {
-    "test": "tape test/*.js",
+    "test": "standard && tape test/*.js",
     "protobuf": "protocol-buffers schema.proto -o ./lib/messages.js"
   },
-  "author": "",
-  "license": "ISC"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafintosh/hyperbee.git"
+  },
+  "author": "Mathias Buus (@mafintosh)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mafintosh/hyperbee/issues"
+  },
+  "homepage": "https://github.com/mafintosh/hyperbee"
 }

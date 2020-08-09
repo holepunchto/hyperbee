@@ -34,3 +34,6 @@ const rs = db.createReadStream({ gte: 'a', lte: 'd' }) // anything >=a and <=d
 
 Some of the internals are still being tweaked but overall the API and feature set is pretty
 stable if you want to try it out.
+
+All of the above methods work with sparse feeds, meaning only a small subset of the full
+feed is downloaded to satisfy you queries.

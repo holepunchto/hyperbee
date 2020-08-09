@@ -1,6 +1,7 @@
 const codecs = require('codecs')
 const { Readable } = require('streamx')
 const RangeIterator = require('./iterators/range')
+const HistoryIterator = require('./iterators/history')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 
@@ -295,27 +296,8 @@ class BTree {
     return iteratorToStream(new RangeIterator(new Batch(this, false, false, opts), opts))
   }
 
-  createHistoryStream () {
-    let seq = 1
-    const tree = this
-
-    return new Readable({
-      open (cb) {
-        tree.feed.ready(cb)
-      },
-      read (cb) {
-        if (seq >= tree.feed.length) {
-          this.push(null)
-          return cb(null)
-        }
-
-        tree.feed.get(seq, { valueEncoding: Node }, (err, data) => {
-          if (err) return cb(err)
-          this.push(new BlockEntry(seq++, tree, data))
-          cb(null)
-        })
-      }
-    })
+  createHistoryStream (opts) {
+    return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts))
   }
 
   get (key, opts) {
@@ -349,21 +331,6 @@ class BTree {
   snapshot () {
     return this.checkout(this.version)
   }
-
-  async debugToString () {
-    return require('tree-to-string')(await load(await this.getRoot()))
-
-    async function load (node) {
-      const res = { values: [], children: [] }
-      for (let i = 0; i < node.keys.length; i++) {
-        res.values.push((await node.getKey(i)).toString())
-      }
-      for (let i = 0; i < node.children.length; i++) {
-        res.children.push(await load(await node.getChildNode(i)))
-      }
-      return res
-    }
-  }
 }
 
 class Batch {
@@ -380,6 +347,10 @@ class Batch {
 
   ready () {
     return this.tree.ready()
+  }
+
+  get version () {
+    return this.tree.version + this.length
   }
 
   getRoot () {

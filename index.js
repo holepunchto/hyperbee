@@ -2,7 +2,7 @@ const codecs = require('codecs')
 const { Readable } = require('streamx')
 const RangeIterator = require('./iterators/range')
 const Extension = require('./lib/extension')
-const { YoloIndex, Node } = require('./lib/messages')
+const { YoloIndex, Node, Header } = require('./lib/messages')
 
 const T = 5
 const MIN_KEYS = T - 1
@@ -250,7 +250,7 @@ class BTree {
       this.feed.ready(err => {
         if (err) return reject(err)
         if (this.feed.length > 0 || !this.feed.writable) return resolve()
-        this.feed.append('header', (err) => {
+        this.feed.append(Header.encode({ protocol: 'hyperbee' }), (err) => {
           if (err) return reject(err)
           resolve()
         })

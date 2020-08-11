@@ -478,8 +478,7 @@ class Batch {
 
     const stack = []
 
-    let root
-    let node = root = await this.getRoot()
+    let node = await this.getRoot()
     if (!node) return
 
     const seq = this.tree.feed.length + this.length

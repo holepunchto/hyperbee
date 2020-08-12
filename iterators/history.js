@@ -23,10 +23,10 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.since < 1) return null
-      return this.db.getBlock(this.since--, this.options)
+      return (await this.db.getBlock(this.since--, this.options)).final()
     }
 
     if (this.since >= this.end) return null
-    return this.db.getBlock(this.since++, this.options)
+    return (await this.db.getBlock(this.since++, this.options)).final()
   }
 }

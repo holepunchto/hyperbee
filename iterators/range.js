@@ -89,7 +89,7 @@ module.exports = class RangeIterator {
         }
       }
       if (this._limit > 0) this._limit--
-      return block
+      return block.final()
     }
 
     return null

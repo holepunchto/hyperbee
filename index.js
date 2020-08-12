@@ -207,6 +207,14 @@ class BlockEntry {
     this.value = entry.value
   }
 
+  final () {
+    return {
+      seq: this.seq,
+      key: this.tree.keyEncoding ? this.tree.keyEncoding.decode(this.key) : this.key,
+      value: this.value && (this.tree.valueEncoding ? this.tree.valueEncoding.decode(this.value) : this.value)
+    }
+  }
+
   getTreeNode (offset) {
     if (this.index === null) {
       this.index = inflate(this.indexBuffer)
@@ -285,8 +293,6 @@ class HyperBee {
     return new Promise((resolve, reject) => {
       this.feed.get(seq, { ...opts, valueEncoding: Node }, (err, entry) => {
         if (err) return reject(err)
-        if (this.keyEncoding) entry.key = this.keyEncoding.decode(entry.key)
-        if (this.valueEncoding && entry.value) entry.value = this.valueEncoding.decode(entry.value)
         resolve(new BlockEntry(seq, batch, entry))
       })
     })
@@ -336,6 +342,8 @@ class HyperBee {
 class Batch {
   constructor (tree, autoFlush, cache, options = {}) {
     this.tree = tree
+    this.keyEncoding = tree.keyEncoding
+    this.valueEncoding = tree.valueEncoding
     this.blocks = cache ? new Map() : null
     this.autoFlush = autoFlush
     this.rootSeq = 0
@@ -400,7 +408,7 @@ class Batch {
         c = cmp(key, await node.getKey(mid))
 
         if (c === 0) {
-          return this.getBlock(node.keys[mid].seq)
+          return (await this.getBlock(node.keys[mid].seq)).final()
         }
 
         if (c < 0) e = mid
@@ -414,9 +422,16 @@ class Batch {
     }
   }
 
+  _enc (enc, v) {
+    if (v === undefined || v === null) return null
+    if (enc !== null) return enc.encode(v)
+    if (typeof v === 'string') return Buffer.from(v)
+    return v
+  }
+
   async put (key, value) {
-    if (typeof key === 'string') key = Buffer.from(key)
-    if (value && this.valueEncoding) value = this.valueEncoding.encode(value)
+    key = this._enc(this.keyEncoding, key)
+    value = this._enc(this.valueEncoding, value)
 
     const stack = []
 
@@ -474,7 +489,7 @@ class Batch {
   }
 
   async del (key) {
-    if (typeof key === 'string') key = Buffer.from(key)
+    key = this._enc(this.keyEncoding, key)
 
     const stack = []
 
@@ -566,7 +581,7 @@ class Batch {
     }
 
     return this._appendBatch(Node.encode({
-      key: this.tree.keyEncoding ? this.tree.keyEncoding.encode(key) : key,
+      key,
       value,
       index: deflate(index)
     }))

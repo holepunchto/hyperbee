@@ -11,7 +11,10 @@ npm install hyperbee
 
 ``` js
 const Hyperbee = require('hyperbee')
-const db = new Hyperbee(feed)
+const db = new Hyperbee(feed, {
+  keyEncoding: 'utf-8', // can be set to undefined (binary), utf-8, ascii or and abstract-encoding
+  valueEncoding: 'binary' // same options as above
+})
 
 // if you own the feed
 await db.put('key', 'value')

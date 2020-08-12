@@ -27,6 +27,34 @@ tape('out of bounds iterator', async function (t) {
   })
 })
 
+tape('createHistoryStream reverse', async function (t) {
+  const db = create()
+
+  const b = db.batch()
+
+  await b.put('a', null)
+  await b.put('b', null)
+  await b.put('c', null)
+
+  await b.flush()
+
+  const s = db.createHistoryStream({ reverse: true })
+
+  let res = ''
+  s.on('data', function (data) {
+    const { key } = data
+    res += key.toString()
+  })
+
+  return new Promise(resolve => {
+    s.on('end', function () {
+      t.same(res, 'cba', 'reversed correctly')
+      resolve()
+    })
+  })
+})
+
+
 tape('out of bounds iterator, string encoding', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 

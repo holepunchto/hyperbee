@@ -33,6 +33,9 @@ const node = await db.get('key') // null or { key, value }
 // if you want to read a range
 const rs = db.createReadStream({ gt: 'a', lt: 'd' }) // anything >a and <d
 const rs = db.createReadStream({ gte: 'a', lte: 'd' }) // anything >=a and <=d
+
+// get the last written entry
+const rs = db.createHistoryStream({ reverse: true, limit: 1 })
 ```
 
 Some of the internals are still being tweaked but overall the API and feature set is pretty

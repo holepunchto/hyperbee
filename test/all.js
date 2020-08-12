@@ -115,7 +115,7 @@ tape('test all short iterators', async function (t) {
   function validate (size, reference, opts, entries) {
     const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
     const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
-    let range = reference.slice(start, end)
+    const range = reference.slice(start, end)
     if (opts.reverse) range.reverse()
     for (let i = 0; i < range.length; i++) {
       if (!entries[i] || range[i] !== entries[i].key) {
@@ -124,7 +124,7 @@ tape('test all short iterators', async function (t) {
         console.log('FAILED WITH OPTS:', opts)
         console.log('  expected:', range, 'start:', start, 'end:', end)
         console.log('  actual:', entries.map(e => e.key))
-        t.fail(`ranges did not match`)
+        t.fail('ranges did not match')
         return false
       }
     }

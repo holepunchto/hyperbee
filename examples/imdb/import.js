@@ -29,6 +29,7 @@ async function main () {
       id,
       titleType,
       primaryTitle,
+      originalTitle,
       isAdult: isAdult !== '0',
       startYear: startYear === '\\N' ? 0 : Number(startYear),
       endYear: endYear === '\\N' ? 0 : Number(endYear),

@@ -45,7 +45,7 @@ module.exports = class RangeIterator {
         else s = mid + 1
       }
 
-      let i = c < 0 ? e : s
+      const i = c < 0 ? e : s
       entry.i = 2 * i + (this._reverse ? -1 : 1)
 
       if (entry.i >= 0 && entry.i <= (node.keys.length << 1)) this.stack.push(entry)

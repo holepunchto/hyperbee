@@ -54,7 +54,6 @@ tape('createHistoryStream reverse', async function (t) {
   })
 })
 
-
 tape('out of bounds iterator, string encoding', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 

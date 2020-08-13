@@ -603,15 +603,10 @@ async function leafSize (node, goLeft) {
 }
 
 async function setKeyToNearestLeaf (node, index, stack) {
-  const l = node.getChildNode(index)
-  const r = node.getChildNode(index + 1)
-  let left = await l
-  let right = await r
+  const [left, right] = await Promise.all([node.getChildNode(index), node.getChildNode(index + 1)])
+  const [ls, rs] = await Promise.all([leafSize(left, false), leafSize(right, true)])
 
-  const ls = leafSize(left, false)
-  const rs = leafSize(right, true)
-
-  if ((await ls) < (await rs)) {
+  if (ls < rs) {
     stack.push(right)
     while (right.children.length) stack.push(right = right.children[0].value)
     node.keys[index] = right.keys.shift()

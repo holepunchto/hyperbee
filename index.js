@@ -2,6 +2,7 @@ const codecs = require('codecs')
 const { Readable } = require('streamx')
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
+const DiffIterator = require('./iterators/diff')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 
@@ -304,6 +305,11 @@ class HyperBee {
 
   createHistoryStream (opts) {
     return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts))
+  }
+
+  createDiffStream (right, opts) {
+    if (typeof right === 'number') right = this.checkout(right)
+    return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts))
   }
 
   get (key, opts) {

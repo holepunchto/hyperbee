@@ -15,15 +15,38 @@ class SubTree {
   next () {
     this.i++
     this.isKey = (this.i & 1) === 1
+    if (!this.isKey && !this.node.children.length) this.i++
+    return this.update()
+  }
 
-    if (!this.isKey && !this.node.children.length) {
-      this.i++
-      this.isKey = true
+  async bisect (key, incl) {
+    let s = 0
+    let e = this.node.keys.length
+    let c
+
+    while (s < e) {
+      const mid = (s + e) >> 1
+      c = cmp(key, await this.node.getKey(mid))
+
+      if (c === 0) {
+        if (incl) this.i = mid * 2 + 1
+        else this.i = mid * 2 + (this.node.children.length ? 2 : 3)
+        return true
+      }
+
+      if (c < 0) e = mid
+      else s = mid + 1
     }
 
+    const i = c < 0 ? e : s
+    this.i = 2 * i + (this.node.children.length ? 0 : 1)
+    return this.node.children.length === 0
+  }
+
+  update () {
+    this.isKey = (this.i & 1) === 1
     this.n = this.i >> 1
     if (this.n >= (this.isKey ? this.node.keys.length : this.node.children.length)) return false
-
     const child = this.isKey ? null : this.node.children[this.n]
     this.seq = child !== null ? child.seq : this.node.keys[this.n].seq
     this.offset = child !== null ? child.offset : 0
@@ -41,15 +64,32 @@ class SubTree {
 }
 
 class TreeIterator {
-  constructor (db) {
+  constructor (db, opts) {
     this.db = db
     this.stack = []
+    this.lt = opts.lt || opts.lte || null
+    this.lte = !!opts.lte
+    this.gt = opts.gt || opts.gte || null
+    this.gte = !!opts.gte
+    this.seeking = !!this.gt
   }
 
   async open () {
     const node = await this.db.getRoot()
     if (!node.keys.length) return
-    this.stack.push(new SubTree(node, null))
+    const tree = new SubTree(node, null)
+    if (this.seeking && !(await this._seek(tree))) return
+    this.stack.push(tree)
+  }
+
+  async _seek (tree) {
+    const done = await tree.bisect(this.gt, this.gte)
+    const oob = !tree.update()
+    if (done || oob) {
+      this.seeking = false
+      if (oob) return false
+    }
+    return true
   }
 
   peek () {
@@ -65,7 +105,12 @@ class TreeIterator {
   async nextKey () {
     let n = null
     while (this.stack.length && n === null) n = await this.next()
-    return n
+    if (!this.lt) return n.final()
+
+    const c = cmp(n.key, this.lt)
+    if (this.lte ? c <= 0 : c < 0) return n.final()
+    this.stack = []
+    return null
   }
 
   async next () {
@@ -74,22 +119,30 @@ class TreeIterator {
     const top = this.stack[this.stack.length - 1]
     const { isKey, n, seq } = top
 
-    if (!top.next()) this.stack.pop()
+    if (!top.next()) {
+      this.stack.pop()
+    }
 
-    if (isKey) return (await this.db.getBlock(seq)).final()
+    if (isKey) {
+      this.seeking = false
+      return this.db.getBlock(seq)
+    }
 
     const child = await top.node.getChildNode(n)
     top.node.children[n] = null // unlink to save memory
-    this.stack.push(new SubTree(child, top))
+    const tree = new SubTree(child, top)
+    if (this.seeking && !(await this._seek(tree))) return
+    this.stack.push(tree)
 
     return null
   }
 }
 
 module.exports = class DiffIterator {
-  constructor (left, right) {
-    this.left = new TreeIterator(left)
-    this.right = new TreeIterator(right)
+  constructor (left, right, opts = {}) {
+    this.left = new TreeIterator(left, opts)
+    this.right = new TreeIterator(right, opts)
+    this.limit = typeof opts.limit === 'number' ? opts.limit : -1
   }
 
   async open () {
@@ -97,6 +150,14 @@ module.exports = class DiffIterator {
   }
 
   async next () {
+    if (this.limit < 0) return null
+    const res = await this._next()
+    if (!res || (res.left === null && res.right === null)) return null
+    this.limit--
+    return res
+  }
+
+  async _next () {
     const a = this.left
     const b = this.right
 

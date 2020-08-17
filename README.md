@@ -131,7 +131,7 @@ Options include:
 }
 ````
 
-#### `stream = db.createDiffStream(otherVersion)`
+#### `stream = db.createDiffStream(otherVersion, [options])`
 
 Efficiently create a stream of the shallow changes between two versions of the db.
 Each entry is sorted by key and looks like this:
@@ -148,6 +148,8 @@ and `right` will be null, and vice versa.
 
 If the entries are causally equal (i.e. the have the same seq), they are not
 returned, only the diff.
+
+Currently accepts the same options as the read stream except for reverse.
 
 #### `dbCheckout = db.checkout(version)`
 

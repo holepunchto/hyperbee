@@ -79,6 +79,7 @@ class TreeIterator {
     if (isKey) return (await this.db.getBlock(seq)).final()
 
     const child = await top.node.getChildNode(n)
+    top.node.children[n] = null // unlink to save memory
     this.stack.push(new SubTree(child, top))
 
     return null
@@ -137,7 +138,6 @@ module.exports = class DiffIterator {
       else await a.next()
     }
   }
-
 }
 
 function cmp (a, b) {

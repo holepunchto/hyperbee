@@ -127,7 +127,8 @@ Options include:
 ``` js
 {
   reverse: false, // if true get from the newest to the oldest
-  since: seq // start with this seq
+  since: seq // start with this seq,
+  limit: -1 // set to the max number of entries you want
 }
 ````
 

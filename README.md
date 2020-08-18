@@ -126,11 +126,19 @@ Options include:
 
 ``` js
 {
+  live: false, // if true the stream will wait for new data and never end
   reverse: false, // if true get from the newest to the oldest
-  since: seq // start with this seq,
+  gte: seq, // start with this seq (inclusive)
+  gt: seq, // start after this index
+  lte: seq, // stop after this index
+  lt: seq, // stop before this index
   limit: -1 // set to the max number of entries you want
 }
 ````
+
+If any of the gte, gt, lte, lt arguments are `< 0` then
+they'll implicitly be added with the version before starting so
+doing `{ gte: -1 }` makes a stream starting at the last index.
 
 #### `stream = db.createDiffStream(otherVersion, [options])`
 

@@ -299,6 +299,11 @@ class HyperBee {
     })
   }
 
+  async peek (opts) {
+    const b = new Batch(this, false, true, { ...opts })
+    return b.peek(opts)
+  }
+
   createReadStream (opts) {
     return iteratorToStream(new RangeIterator(new Batch(this, false, false, opts), opts))
   }
@@ -392,7 +397,7 @@ class Batch {
   }
 
   async peek (range) {
-    const ite = new RangeIterator(range)
+    const ite = new RangeIterator(this, range)
     await ite.open()
     return ite.next()
   }

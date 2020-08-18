@@ -1,5 +1,5 @@
 const tape = require('tape')
-const Hyperbee = require('..')
+const { create, collect } = require('./helpers')
 
 tape('out of bounds iterator', async function (t) {
   const db = create()
@@ -158,16 +158,3 @@ tape('test all short iterators', async function (t) {
     return true
   }
 })
-
-function collect (stream) {
-  return new Promise(resolve => {
-    const entries = []
-    stream.on('data', d => entries.push(d))
-    stream.on('end', () => resolve(entries))
-  })
-}
-
-function create (opts) {
-  const feed = require('hypercore')(require('random-access-memory'))
-  return new Hyperbee(feed, opts)
-}

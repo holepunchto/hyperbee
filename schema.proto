@@ -24,8 +24,19 @@ message Node {
 
 message Extension {
   message Get {
-    optional uint64 head = 1;
+    optional uint64 version = 1;
     optional bytes key = 2;
+  }
+
+  message Iterator {
+    optional uint64 version = 1;
+    optional bytes gte = 2;
+    optional bytes gt = 3;
+    optional bytes lte = 4;
+    optional bytes lt = 5;
+    optional uint64 limit = 6; // 0 means no limit here
+    optional bool reverse = 7;
+    repeated uint64 checkpoint = 8 [packed=true];
   }
 
   message Cache {
@@ -36,4 +47,5 @@ message Extension {
 
   optional Cache cache = 1;
   optional Get get = 2;
+  optional Iterator iterator = 3;
 }

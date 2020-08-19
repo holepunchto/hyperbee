@@ -72,8 +72,9 @@ function deflate (index) {
 }
 
 class TreeNode {
-  constructor (block, keys, children) {
+  constructor (block, keys, children, offset) {
     this.block = block
+    this.offset = offset
     this.keys = keys
     this.children = children
     this.changed = false
@@ -192,7 +193,7 @@ class TreeNode {
   }
 
   static create (block) {
-    const node = new TreeNode(block, [], [])
+    const node = new TreeNode(block, [], [], 0)
     node.changed = true
     return node
   }
@@ -222,7 +223,7 @@ class BlockEntry {
       this.indexBuffer = null
     }
     const entry = this.index.get(offset)
-    return new TreeNode(this, entry.keys, entry.children)
+    return new TreeNode(this, entry.keys, entry.children, offset)
   }
 }
 
@@ -300,12 +301,45 @@ class HyperBee {
   }
 
   async peek (opts) {
-    const b = new Batch(this, false, true, { ...opts })
-    return b.peek(opts)
+    // copied from the batch since we can then use the iterator warmup ext...
+    // TODO: figure out how to not simply copy the code
+
+    const ite = this.createRangeIterator({ ...opts, limit: 1 })
+    await ite.open()
+    return ite.next()
+  }
+
+  createRangeIterator (opts = {}) {
+    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
+
+    if (extension) {
+      const { onseq, onwait } = opts
+      let version = 0
+      let next = 0
+
+      opts = {
+        ...opts,
+        onseq (seq) {
+          if (!version) version = seq + 1
+          if (next) next--
+          if (onseq) onseq(seq)
+        },
+        onwait (seq) {
+          if (!next) {
+            next = Extension.BATCH_SIZE
+            extension.iterator(ite.snapshot(version))
+          }
+          if (onwait) onwait(seq)
+        }
+      }
+    }
+
+    const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
+    return ite
   }
 
   createReadStream (opts) {
-    return iteratorToStream(new RangeIterator(new Batch(this, false, false, opts), opts))
+    return iteratorToStream(this.createRangeIterator(opts))
   }
 
   createHistoryStream (opts) {

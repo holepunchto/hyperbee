@@ -9,9 +9,43 @@ module.exports = class RangeIterator {
     this._lIncl = !opts.lt
     this._lKey = opts.lt || opts.lte || null
     this._reverse = !!opts.reverse
+    this._version = 0
+    this._checkpoint = (opts.checkpoint && opts.checkpoint.length) ? opts.checkpoint : null
+  }
+
+  snapshot (version = this.db.version) {
+    const checkpoint = []
+    for (const { node, i } of this.stack) {
+      if (!node.block) continue
+      checkpoint.push(node.block.seq, node.offset, i)
+    }
+
+    return {
+      version,
+      gte: this._gIncl ? this._gKey : null,
+      gt: this._gIncl ? null : this._gKey,
+      lte: this._lIncl ? this._lKey : null,
+      lt: this._lIncl ? null : this._lKey,
+      limit: this._limit,
+      reverse: this._reverse,
+      checkpoint
+    }
   }
 
   async open () {
+    if (this._checkpoint) {
+      for (let j = 0; j < this._checkpoint.length; j += 3) {
+        const seq = this._checkpoint[j]
+        const offset = this._checkpoint[j + 1]
+        const i = this._checkpoint[j + 2]
+        this.stack.push({
+          node: (await this.db.getBlock(seq)).getTreeNode(offset),
+          i
+        })
+      }
+      return
+    }
+
     let node = await this.db.getRoot()
     if (!node) return
 

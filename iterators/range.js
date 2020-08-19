@@ -2,6 +2,7 @@ module.exports = class RangeIterator {
   constructor (db, opts = {}) {
     this.db = db
     this.stack = []
+    this.opened = false
 
     this._limit = typeof opts.limit === 'number' ? opts.limit : -1
     this._gIncl = !opts.gt
@@ -28,11 +29,16 @@ module.exports = class RangeIterator {
       lt: this._lIncl ? null : this._lKey,
       limit: this._limit,
       reverse: this._reverse,
-      checkpoint
+      checkpoint: this.opened ? checkpoint : []
     }
   }
 
   async open () {
+    await this._open()
+    this.opened = true
+  }
+
+  async _open () {
     if (this._checkpoint) {
       for (let j = 0; j < this._checkpoint.length; j += 3) {
         const seq = this._checkpoint[j]

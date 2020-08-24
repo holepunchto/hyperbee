@@ -30,7 +30,7 @@ module.exports = class RangeIterator {
       lt: this._lIncl ? null : this._lKey,
       limit: this._limit,
       reverse: this._reverse,
-      ended: this.opened && !!checkpoint.length,
+      ended: this.opened && !checkpoint.length,
       checkpoint: this.opened ? checkpoint : []
     }
   }

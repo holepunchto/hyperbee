@@ -18,6 +18,7 @@ module.exports = class RangeIterator {
     const checkpoint = []
     for (const { node, i } of this.stack) {
       if (!node.block) continue
+      if (i < 0) continue
       checkpoint.push(node.block.seq, node.offset, i)
     }
 
@@ -29,6 +30,7 @@ module.exports = class RangeIterator {
       lt: this._lIncl ? null : this._lKey,
       limit: this._limit,
       reverse: this._reverse,
+      ended: this.opened && !!checkpoint.length,
       checkpoint: this.opened ? checkpoint : []
     }
   }

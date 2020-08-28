@@ -317,7 +317,7 @@ class HyperBee {
       let version = 0
       let next = 0
 
-      opts = {
+      opts = encRange(this.keyEncoding, {
         ...opts,
         onseq (seq) {
           if (!version) version = seq + 1
@@ -331,7 +331,9 @@ class HyperBee {
           }
           if (onwait) onwait(seq)
         }
-      }
+      })
+    } else {
+      opts = encRange(this.keyEncoding, { ...opts })
     }
 
     const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
@@ -348,6 +350,7 @@ class HyperBee {
 
   createDiffStream (right, opts) {
     if (typeof right === 'number') right = this.checkout(right)
+    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts })
     return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts))
   }
 
@@ -467,16 +470,9 @@ class Batch {
     }
   }
 
-  _enc (enc, v) {
-    if (v === undefined || v === null) return null
-    if (enc !== null) return enc.encode(v)
-    if (typeof v === 'string') return Buffer.from(v)
-    return v
-  }
-
   async put (key, value) {
-    key = this._enc(this.keyEncoding, key)
-    value = this._enc(this.valueEncoding, value)
+    key = enc(this.keyEncoding, key)
+    value = enc(this.valueEncoding, value)
 
     const stack = []
 
@@ -739,6 +735,22 @@ function iteratorToStream (ite) {
 
 function cmp (a, b) {
   return a < b ? -1 : b < a ? 1 : 0
+}
+
+function encRange (e, opts) {
+  if (!e) return opts
+  if (opts.gt !== undefined) opts.gt = enc(e, opts.gt)
+  if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
+  if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
+  if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
+  return opts
+}
+
+function enc (e, v) {
+  if (v === undefined || v === null) return null
+  if (e !== null) return e.encode(v)
+  if (typeof v === 'string') return Buffer.from(v)
+  return v
 }
 
 function noop () {}

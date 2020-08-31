@@ -4,6 +4,7 @@ const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
 const Extension = require('./lib/extension')
+const mutexify = require('mutexify/promise')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 
 const T = 5
@@ -246,6 +247,7 @@ class HyperBee {
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
     this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
     this.metadata = opts.metadata || null
+    this.lock = opts.lock || mutexify()
 
     this._checkout = opts.checkout || 0
     this._ready = null
@@ -402,11 +404,16 @@ class Batch {
     this.root = null
     this.length = 0
     this.options = options
+    this.locked = null
     this.onseq = this.options.onseq || noop
   }
 
   ready () {
     return this.tree.ready()
+  }
+
+  async lock () {
+    if (this.locked === null) this.locked = await this.tree.lock()
   }
 
   get version () {
@@ -475,6 +482,8 @@ class Batch {
   }
 
   async put (key, value) {
+    if (!this.locked) await this.lock()
+
     key = enc(this.keyEncoding, key)
     value = enc(this.valueEncoding, value)
 
@@ -534,6 +543,8 @@ class Batch {
   }
 
   async del (key) {
+    if (!this.locked) await this.lock()
+
     key = enc(this.keyEncoding, key)
 
     const stack = []
@@ -611,6 +622,12 @@ class Batch {
     return this._appendBatch(batch)
   }
 
+  _unlock () {
+    const locked = this.locked
+    this.locked = null
+    if (locked !== null) locked()
+  }
+
   _append (root, seq, key, value) {
     const index = []
     root.indexChanges(index, seq)
@@ -635,8 +652,9 @@ class Batch {
   _appendBatch (raw) {
     return new Promise((resolve, reject) => {
       this.tree.feed.append(raw, err => {
-        if (err) return reject(err)
-        resolve()
+        if (err) reject(err)
+        else resolve()
+        this._unlock()
       })
     })
   }

@@ -530,7 +530,7 @@ class Batch {
   }
 
   async del (key) {
-    key = this._enc(this.keyEncoding, key)
+    key = enc(this.keyEncoding, key)
 
     const stack = []
 

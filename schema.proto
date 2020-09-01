@@ -10,6 +10,7 @@ message YoloIndex {
 message Header {
   message Metadata {
     optional bytes contentFeed = 1;
+    optional bytes userData = 2;
   }
 
   required string protocol = 1;

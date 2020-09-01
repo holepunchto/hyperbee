@@ -19,8 +19,8 @@ module.exports = class HistoryIterator {
   }
 
   async next () {
-    if (this._limit === 0) return null
-    if (this._limit > 0) this._limit--
+    if (this.limit === 0) return null
+    if (this.limit > 0) this.limit--
 
     if (this.gte >= this.lt) return null
 

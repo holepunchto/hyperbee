@@ -245,6 +245,7 @@ class HyperBee {
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
     this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
+    this.metadata = opts.metadata
 
     this._checkout = opts.checkout || 0
     this._ready = null
@@ -261,7 +262,10 @@ class HyperBee {
       this.feed.ready(err => {
         if (err) return reject(err)
         if (this.feed.length > 0 || !this.feed.writable) return resolve()
-        this.feed.append(Header.encode({ protocol: 'hyperbee' }), (err) => {
+        this.feed.append(Header.encode({
+          protocol: 'hyperbee',
+          metadata: this.metadata
+        }), (err) => {
           if (err) return reject(err)
           resolve()
         })

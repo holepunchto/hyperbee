@@ -245,7 +245,7 @@ class HyperBee {
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
     this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
-    this.metadata = opts.metadata
+    this.metadata = opts.metadata || null
 
     this._checkout = opts.checkout || 0
     this._ready = null

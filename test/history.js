@@ -161,3 +161,22 @@ tape('negative indexes is implicit + version', async function (t) {
     { seq: 10, key: '09' }
   ])
 })
+
+tape('live history can be destroyed', async function (t) {
+  const db = await createRange(1)
+
+  let done
+  const end = new Promise(resolve => { done = resolve })
+
+  const stream = db.createHistoryStream({ live: true })
+
+  stream.on('data', function () {
+    process.nextTick(() => stream.destroy())
+  })
+
+  stream.on('close', function () {
+    done()
+  })
+
+  return end
+})

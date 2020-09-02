@@ -239,6 +239,27 @@ class BatchEntry extends BlockEntry {
   }
 }
 
+// small abstraction to track feed "get"s so they can be cancelled.
+// we might wanna fold something like this into hypercore
+class ActiveRequests {
+  constructor (feed) {
+    this.feed = feed
+    this.requests = new Set()
+  }
+
+  add (req) {
+    this.requests.add(req)
+  }
+
+  remove (req) {
+    this.requests.delete(req)
+  }
+
+  cancel () {
+    for (const req of this.requests) this.feed.cancel(req)
+  }
+}
+
 class HyperBee {
   constructor (feed, opts = {}) {
     this.feed = feed
@@ -299,10 +320,14 @@ class HyperBee {
 
   async getBlock (seq, opts, batch = this) {
     return new Promise((resolve, reject) => {
-      this.feed.get(seq, { ...opts, valueEncoding: Node }, (err, entry) => {
+      const active = opts.active
+      const cancel = this.feed.get(seq, { ...opts, valueEncoding: Node }, (err, entry) => {
+        if (active) active.remove(cancel)
         if (err) return reject(err)
         resolve(new BlockEntry(seq, batch, entry))
       })
+
+      if (active) active.add(cancel)
     })
   }
 
@@ -315,7 +340,7 @@ class HyperBee {
     return ite.next()
   }
 
-  createRangeIterator (opts = {}) {
+  createRangeIterator (opts = {}, active = null) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
 
     if (extension) {
@@ -325,6 +350,7 @@ class HyperBee {
 
       opts = encRange(this.keyEncoding, {
         ...opts,
+        active,
         onseq (seq) {
           if (!version) version = seq + 1
           if (next) next--
@@ -339,7 +365,7 @@ class HyperBee {
         }
       })
     } else {
-      opts = encRange(this.keyEncoding, { ...opts })
+      opts = encRange(this.keyEncoding, { ...opts, active })
     }
 
     const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
@@ -347,17 +373,21 @@ class HyperBee {
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
+    return iteratorToStream(this.createRangeIterator(opts, new ActiveRequests(this.feed)))
   }
 
   createHistoryStream (opts) {
-    return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts))
+    const active = new ActiveRequests(this.feed)
+    opts = { active, ...opts }
+    return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts), active)
   }
 
   createDiffStream (right, opts) {
+    const active = new ActiveRequests(this.feed)
     if (typeof right === 'number') right = this.checkout(right)
-    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts })
-    return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts))
+    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, active })
+    else opts = { ...opts, active }
+    return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts), active)
   }
 
   get (key, opts) {
@@ -726,9 +756,12 @@ async function rebalance (stack) {
   return root
 }
 
-function iteratorToStream (ite) {
+function iteratorToStream (ite, active) {
   let done
   const rs = new Readable({
+    predestroy () {
+      if (active) active.cancel()
+    },
     open (cb) {
       done = cb
       ite.open().then(fin, fin)

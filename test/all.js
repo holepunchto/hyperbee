@@ -174,3 +174,19 @@ tape('can create block pointers with the link flag', async function (t) {
 
   t.end()
 })
+
+tape('getting a pointer with the noResolve flag returns the pointer block', async function (t) {
+  const db = create({
+    keyEncoding: 'utf-8',
+    valueEncoding: 'utf-8'
+  })
+
+  await db.put('hello', 'world')
+  await db.put('pointer', 'hello', { link: true })
+
+  const node = await db.get('pointer', { noResolve: true })
+  t.same(node.key, 'pointer')
+  t.same(node.value, 'hello')
+
+  t.end()
+})

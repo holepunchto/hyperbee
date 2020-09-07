@@ -214,7 +214,7 @@ class BlockEntry {
   async final () {
     const key = this.tree.keyEncoding ? this.tree.keyEncoding.decode(this.key) : this.key
     const value = this.value && (this.tree.valueEncoding ? this.tree.valueEncoding.decode(this.value) : this.value)
-    if (this.link) {
+    if (this.link && !this.tree.options.noResolve) {
       const node = await this.tree.get(value)
       return {
         seq: this.seq,
@@ -447,6 +447,7 @@ class Batch {
     this.options = options
     this.locked = null
     this.onseq = this.options.onseq || noop
+    this.noResolve = this.options.noResolve
   }
 
   ready () {

@@ -158,3 +158,19 @@ tape('test all short iterators', async function (t) {
     return true
   }
 })
+
+tape('can create block pointers with the link flag', async function (t) {
+  const db = create({
+    keyEncoding: 'utf-8',
+    valueEncoding: 'utf-8'
+  })
+
+  await db.put('hello', 'world')
+  await db.put('pointer', 'hello', { link: true })
+
+  const node = await db.get('pointer')
+  t.same(node.key, 'pointer')
+  t.same(node.value, 'world')
+
+  t.end()
+})

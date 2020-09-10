@@ -150,7 +150,7 @@ module.exports = class DiffIterator {
   }
 
   async next () {
-    if (this.limit < 0) return null
+    if (this.limit === 0) return null
     const res = await this._next()
     if (!res || (res.left === null && res.right === null)) return null
     this.limit--

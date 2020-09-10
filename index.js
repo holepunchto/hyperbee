@@ -580,7 +580,7 @@ class Batch {
     const stack = []
 
     let node = await this.getRoot()
-    if (!node) return
+    if (!node) return this._unlockMaybe()
 
     const seq = this.tree.feed.length + this.length
 
@@ -607,7 +607,7 @@ class Batch {
         else s = mid + 1
       }
 
-      if (!node.children.length) return
+      if (!node.children.length) return this._unlockMaybe()
 
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
@@ -650,6 +650,10 @@ class Batch {
     this.length = 0
 
     return this._appendBatch(batch)
+  }
+
+  _unlockMaybe () {
+    if (this.autoFlush) this._unlock()
   }
 
   _unlock () {

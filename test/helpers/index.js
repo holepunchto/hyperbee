@@ -4,6 +4,7 @@ module.exports = {
   toString,
   create,
   createRange,
+  insertRange,
   rangeify,
   collect
 }
@@ -31,15 +32,22 @@ function rangeify (start, end) {
   return r
 }
 
-async function createRange (start, end, opts = end) {
+async function insertRange (db, start, end) {
   if (typeof end !== 'number') end = undefined
 
-  const db = create(opts)
   const b = db.batch()
   for (const r of rangeify(start, end)) {
     await b.put(r)
   }
+
   await b.flush()
+}
+
+async function createRange (start, end, opts = end) {
+  if (typeof end !== 'number') end = undefined
+
+  const db = create(opts)
+  await insertRange(db, start, end)
   return db
 }
 

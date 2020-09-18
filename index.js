@@ -11,6 +11,8 @@ const T = 5
 const MIN_KEYS = T - 1
 const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
+const SEP = Buffer.alloc(1)
+
 class Key {
   constructor (seq, value) {
     this.seq = seq
@@ -270,6 +272,7 @@ class HyperBee {
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
 
+    this._sub = !!opts._sub
     this._checkout = opts.checkout || 0
     this._ready = null
   }
@@ -350,6 +353,7 @@ class HyperBee {
 
       opts = encRange(this.keyEncoding, {
         ...opts,
+        sub: this._sub,
         active,
         onseq (seq) {
           if (!version) version = seq + 1
@@ -365,7 +369,7 @@ class HyperBee {
         }
       })
     } else {
-      opts = encRange(this.keyEncoding, { ...opts, active })
+      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     }
 
     const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
@@ -385,7 +389,7 @@ class HyperBee {
   createDiffStream (right, opts) {
     const active = new ActiveRequests(this.feed)
     if (typeof right === 'number') right = this.checkout(right)
-    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, active })
+    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     else opts = { ...opts, active }
     return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts), active)
   }
@@ -420,6 +424,22 @@ class HyperBee {
 
   snapshot () {
     return this.checkout(this.version)
+  }
+
+  sub (prefix) {
+    prefix = Buffer.concat([enc(this.keyEncoding, prefix), SEP])
+    return new HyperBee(this.feed, {
+      _sub: true,
+      extension: this.extension,
+      valueEncoding: this.valueEncoding,
+      keyEncoding: {
+        encode: key => Buffer.concat([prefix, enc(this.keyEncoding, key)]),
+        decode: key => {
+          const sliced = key.slice(prefix.length, key.length)
+          return this.keyEncoding ? this.keyEncoding.decode(sliced) : sliced
+        }
+      }
+    })
   }
 }
 
@@ -802,6 +822,8 @@ function encRange (e, opts) {
   if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
   if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
+  if (!opts.gt && !opts.gte && opts.sub) opts.gt = enc(e, Buffer.alloc(1))
+  if (!opts.lt && !opts.lte && opts.sub) opts.lt = enc(e, Buffer.alloc(1).fill(255))
   return opts
 }
 

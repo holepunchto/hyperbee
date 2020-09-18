@@ -12,11 +12,14 @@ module.exports = class RangeIterator {
     this._reverse = !!opts.reverse
     this._version = 0
     this._checkpoint = (opts.checkpoint && opts.checkpoint.length) ? opts.checkpoint : null
+    this._nexting = false
   }
 
   snapshot (version = this.db.version) {
     const checkpoint = []
-    for (const { node, i } of this.stack) {
+    for (const s of this.stack) {
+      let { node, i } = s
+      if (this._nexting && s === this.stack[this.stack.length - 1]) i = this._reverse ? i + 1 : i - 1
       if (!node.block) continue
       if (i < 0) continue
       checkpoint.push(node.block.seq, node.offset, i)
@@ -54,14 +57,20 @@ module.exports = class RangeIterator {
       return
     }
 
+    this._nexting = true
+
     let node = await this.db.getRoot()
-    if (!node) return
+    if (!node) {
+      this._nexting = false
+      return
+    }
 
     const incl = this._reverse ? this._lIncl : this._gIncl
     const start = this._reverse ? this._lKey : this._gKey
 
     if (!start) {
       this.stack.push({ node, i: this._reverse ? node.keys.length << 1 : 0 })
+      this._nexting = false
       return
     }
 
@@ -80,7 +89,7 @@ module.exports = class RangeIterator {
           if (incl) entry.i = mid * 2 + 1
           else entry.i = mid * 2 + (this._reverse ? 0 : 2)
           this.stack.push(entry)
-          return
+          break
         }
 
         if (c < 0) e = mid
@@ -91,13 +100,21 @@ module.exports = class RangeIterator {
       entry.i = 2 * i + (this._reverse ? -1 : 1)
 
       if (entry.i >= 0 && entry.i <= (node.keys.length << 1)) this.stack.push(entry)
-      if (!node.children.length) return
+      if (!node.children.length) break
 
       node = await node.getChildNode(i)
     }
+
+    this._nexting = false
   }
 
   async next () {
+    // TODO: this nexting flag is only needed if someone asks for a snapshot during
+    // a lookup (ie the extension, pretty important...).
+    // A better solution would be to refactor this so top.i is incremented eagerly
+    // to get the current block instead of the way it is done now (++i vs i++)
+    this._nexting = true
+
     const end = this._reverse ? this._gKey : this._lKey
     const incl = this._reverse ? this._gIncl : this._lIncl
 
@@ -131,9 +148,11 @@ module.exports = class RangeIterator {
         }
       }
       if (this._limit > 0) this._limit--
+      this._nexting = false
       return block.final()
     }
 
+    this._nexting = false
     return null
   }
 }

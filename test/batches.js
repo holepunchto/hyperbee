@@ -77,3 +77,39 @@ tape('parallel batches', async function (t) {
     return b.flush()
   }
 })
+
+tape.only('batch with sub', async function (t) {
+  const db = create()
+
+  {
+    const sub = db.sub('sub1')
+    const b = sub.batch()
+    await b.put('a', '1')
+    await b.put('b', '2')
+    await b.flush()
+
+    const all = await collect(sub.createReadStream())
+
+    t.same(all, [
+      { seq: 1, key: 'a', value: '1' },
+      { seq: 2, key: 'b', value: '2' }
+    ])
+  }
+
+  {
+    const sub = db.sub('sub2')
+    const b = sub.batch()
+    await b.put('a', '1')
+    await b.put('b', '2')
+    await b.flush()
+
+    const all = await collect(sub.createReadStream())
+
+    t.same(all, [
+      { seq: 3, key: 'a', value: '1' },
+      { seq: 4, key: 'b', value: '2' }
+    ])
+  }
+
+  t.end()
+})

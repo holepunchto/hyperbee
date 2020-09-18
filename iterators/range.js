@@ -89,7 +89,8 @@ module.exports = class RangeIterator {
           if (incl) entry.i = mid * 2 + 1
           else entry.i = mid * 2 + (this._reverse ? 0 : 2)
           this.stack.push(entry)
-          break
+          this._nexting = false
+          return
         }
 
         if (c < 0) e = mid
@@ -100,12 +101,13 @@ module.exports = class RangeIterator {
       entry.i = 2 * i + (this._reverse ? -1 : 1)
 
       if (entry.i >= 0 && entry.i <= (node.keys.length << 1)) this.stack.push(entry)
-      if (!node.children.length) break
+      if (!node.children.length) {
+        this._nexting = false
+        return
+      }
 
       node = await node.getChildNode(i)
     }
-
-    this._nexting = false
   }
 
   async next () {

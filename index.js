@@ -822,8 +822,8 @@ function encRange (e, opts) {
   if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
   if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
-  if (!opts.gt && !opts.gte && opts.sub) opts.gt = enc(e, Buffer.alloc(1))
-  if (!opts.lt && !opts.lte && opts.sub) opts.lt = enc(e, Buffer.alloc(1).fill(255))
+  if (opts.sub && !opts.gt && !opts.gte) opts.gt = enc(e, Buffer.alloc(1))
+  if (opts.sub && !opts.lt && !opts.lte) opts.lt = enc(e, Buffer.alloc(1).fill(255))
   return opts
 }
 

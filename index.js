@@ -12,6 +12,7 @@ const MIN_KEYS = T - 1
 const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
 const SEP = Buffer.alloc(1)
+const MAX = Buffer.from([255])
 
 class Key {
   constructor (seq, value) {
@@ -818,8 +819,8 @@ function encRange (e, opts) {
   if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
   if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
-  if (opts.sub && !opts.gt && !opts.gte) opts.gt = enc(e, Buffer.alloc(1))
-  if (opts.sub && !opts.lt && !opts.lte) opts.lt = enc(e, Buffer.alloc(1).fill(255))
+  if (opts.sub && !opts.gt && !opts.gte) opts.gt = enc(e, SEP)
+  if (opts.sub && !opts.lt && !opts.lte) opts.lt = enc(e, MAX)
   return opts
 }
 

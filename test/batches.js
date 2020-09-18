@@ -78,7 +78,7 @@ tape('parallel batches', async function (t) {
   }
 })
 
-tape.only('batch with sub', async function (t) {
+tape('batch with sub', async function (t) {
   const db = create()
 
   {

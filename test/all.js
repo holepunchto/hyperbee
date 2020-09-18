@@ -158,3 +158,61 @@ tape('test all short iterators', async function (t) {
     return true
   }
 })
+
+tape('test all short iterators, sub database', async function (t) {
+  const parent = create({ keyEncoding: 'utf8' })
+  const db = parent.sub('sub1')
+
+  const MAX = 25
+
+  for (let size = 1; size <= MAX; size++) {
+    const reference = []
+    for (let i = 0; i < size; i++) {
+      const key = '' + i
+      await db.put(key, 'hello world')
+      reference.push(key)
+    }
+    reference.sort()
+
+    for (let i = 0; i < size; i++) {
+      for (let j = 0; j <= i; j++) {
+        for (let k = 0; k < 8; k++) {
+          const greater = (k & 1) ? 'gte' : 'gt'
+          const lesser = (k >> 1 & 1) ? 'lte' : 'lt'
+          const reverse = !!(k >> 2 & 1)
+          const opts = {
+            [greater]: '' + j,
+            [lesser]: '' + i,
+            reverse
+          }
+          const entries = await collect(db.createReadStream(opts))
+          if (!validate(size, reference, opts, entries)) {
+            return t.end()
+          }
+        }
+      }
+    }
+  }
+
+  t.pass('all iterations passed')
+  t.end()
+
+  function validate (size, reference, opts, entries) {
+    const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
+    const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
+    const range = reference.slice(start, end)
+    if (opts.reverse) range.reverse()
+    for (let i = 0; i < range.length; i++) {
+      if (!entries[i] || range[i] !== entries[i].key) {
+        console.log('========')
+        console.log('SIZE:', size)
+        console.log('FAILED WITH OPTS:', opts)
+        console.log('  expected:', range, 'start:', start, 'end:', end)
+        console.log('  actual:', entries.map(e => e.key))
+        t.fail('ranges did not match')
+        return false
+      }
+    }
+    return true
+  }
+})

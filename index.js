@@ -467,7 +467,7 @@ class Batch {
 
   _maskTree (block) {
     return new Proxy(block, {
-      get: (target, prop, receiver) => {
+      get: (target, prop) => {
         if (prop === 'tree') return this
         return target[prop]
       }

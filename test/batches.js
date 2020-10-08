@@ -113,3 +113,99 @@ tape('batch with sub', async function (t) {
 
   t.end()
 })
+
+tape('batch with sub-batches', async function (t) {
+  const db = create()
+
+  const parent = db.batch()
+
+  {
+    const sub = db.sub('sub1')
+    const b = sub.batch({ batch: parent })
+    await b.put('a', '1')
+    await b.put('b', '2')
+
+    const all = await collect(b.createReadStream())
+
+    t.same(all, [
+      { seq: 1, key: 'a', value: '1' },
+      { seq: 2, key: 'b', value: '2' }
+    ])
+  }
+
+  {
+    const sub = db.sub('sub2')
+    const b = sub.batch({ batch: parent })
+    await b.put('c', '1')
+    await b.put('d', '2')
+
+    const all = await collect(b.createReadStream())
+
+    t.same(all, [
+      { seq: 3, key: 'c', value: '1' },
+      { seq: 4, key: 'd', value: '2' }
+    ])
+  }
+
+  await parent.flush()
+
+  const all = await collect(db.createReadStream())
+  t.same(all.length, 4)
+
+  t.end()
+})
+
+tape('batch with sub-batches and deletion', async function (t) {
+  const db = create()
+
+  const parent = db.batch()
+
+  {
+    const sub = db.sub('sub1')
+    const b = sub.batch({ batch: parent })
+    await b.put('a', '1')
+    await b.put('b', '2')
+
+    const all = await collect(b.createReadStream())
+
+    t.same(all, [
+      { seq: 1, key: 'a', value: '1' },
+      { seq: 2, key: 'b', value: '2' }
+    ])
+  }
+
+  {
+    const sub = db.sub('sub2')
+    const b = sub.batch({ batch: parent })
+    await b.put('c', '1')
+    await b.put('d', '2')
+
+    const all = await collect(b.createReadStream())
+
+    t.same(all, [
+      { seq: 3, key: 'c', value: '1' },
+      { seq: 4, key: 'd', value: '2' }
+    ])
+  }
+
+  {
+    const sub = db.sub('sub2')
+    const b = sub.batch({ batch: parent })
+    await b.del('c', '1')
+    await b.put('e', '3')
+
+    const all = await collect(b.createReadStream())
+
+    t.same(all, [
+      { seq: 4, key: 'd', value: '2' },
+      { seq: 6, key: 'e', value: '3' }
+    ])
+  }
+
+  await parent.flush()
+
+  const all = await collect(db.createReadStream())
+  t.same(all.length, 4)
+
+  t.end()
+})

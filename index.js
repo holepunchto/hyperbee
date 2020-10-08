@@ -345,54 +345,27 @@ class HyperBee {
   }
 
   createRangeIterator (opts = {}, active = null) {
-    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
-
-    if (extension) {
-      const { onseq, onwait } = opts
-      let version = 0
-      let next = 0
-
-      opts = encRange(this.keyEncoding, {
-        ...opts,
-        sub: this._sub,
-        active,
-        onseq (seq) {
-          if (!version) version = seq + 1
-          if (next) next--
-          if (onseq) onseq(seq)
-        },
-        onwait (seq) {
-          if (!next) {
-            next = Extension.BATCH_SIZE
-            extension.iterator(ite.snapshot(version))
-          }
-          if (onwait) onwait(seq)
-        }
-      })
-    } else {
-      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
-    }
-
-    const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
-    return ite
+    const batch = new Batch(this, false, false, opts)
+    return batch.createRangeIterator(opts, active)
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts, new ActiveRequests(this.feed)))
+    const batch = new Batch(this, false, false, opts)
+    return batch.createReadStream(opts)
   }
 
   createHistoryStream (opts) {
     const active = new ActiveRequests(this.feed)
     opts = { active, ...opts }
-    return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts), active)
+    const batch = new Batch(this, false, false, opts)
+    return batch.createHistoryStream(opts, active)
   }
 
   createDiffStream (right, opts) {
     const active = new ActiveRequests(this.feed)
-    if (typeof right === 'number') right = this.checkout(right)
-    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
-    else opts = { ...opts, active }
-    return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts), active)
+    opts = { active, ...opts }
+    const left = new Batch(this, false, false, opts)
+    return left.createDiffStream(right, opts)
   }
 
   get (key, opts) {
@@ -453,17 +426,28 @@ class Batch {
     this.autoFlush = autoFlush
     this.rootSeq = 0
     this.root = null
-    this.length = 0
     this.options = options
     this.locked = null
     this.onseq = this.options.onseq || noop
+    this.parentBatch = this.options.batch
+    this._length = 0
   }
 
   ready () {
     return this.tree.ready()
   }
 
+  get length () {
+    return this.parentBatch ? this.parentBatch.length : this._length
+  }
+
+  set length (len) {
+    if (this.parentBatch) this.parentBatch.length = len
+    else this._length = len
+  }
+
   async lock () {
+    if (this.parentBatch) return this.parentBatch.lock()
     if (this.locked === null) this.locked = await this.tree.lock()
   }
 
@@ -472,6 +456,7 @@ class Batch {
   }
 
   getRoot () {
+    if (this.parentBatch) return this.parentBatch.getRoot()
     if (this.root !== null) return this.root
     return this.tree.getRoot(this.options, this)
   }
@@ -480,14 +465,25 @@ class Batch {
     return (await this.getBlock(seq)).key
   }
 
+  _maskTree (block) {
+    if (!this.parentBatch) return block
+    return new Proxy(block, {
+      get: (target, prop, receiver) => {
+        if (prop === 'tree') return this
+        return target[prop]
+      }
+    })
+  }
+
   async getBlock (seq) {
+    const blocks = this.parentBatch ? this.parentBatch.blocks : this.blocks
     if (this.rootSeq === 0) this.rootSeq = seq
-    let b = this.blocks && this.blocks.get(seq)
-    if (b) return b
+    let b = blocks && blocks.get(seq)
+    if (b) return this._maskTree(b)
     this.onseq(seq)
     b = await this.tree.getBlock(seq, this.options, this)
-    if (this.blocks) this.blocks.set(seq, b)
-    return b
+    if (blocks) blocks.set(seq, b)
+    return this._maskTree(b)
   }
 
   _onwait (key) {
@@ -501,7 +497,69 @@ class Batch {
     return ite.next()
   }
 
+  createRangeIterator (opts = {}, active = null) {
+    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.tree.extension
+
+    if (extension) {
+      const { onseq, onwait } = opts
+      let version = 0
+      let next = 0
+
+      opts = encRange(this.tree.keyEncoding, {
+        ...opts,
+        sub: this.tree._sub,
+        active,
+        onseq (seq) {
+          if (!version) version = seq + 1
+          if (next) next--
+          if (onseq) onseq(seq)
+        },
+        onwait (seq) {
+          if (!next) {
+            next = Extension.BATCH_SIZE
+            extension.iterator(ite.snapshot(version))
+          }
+          if (onwait) onwait(seq)
+        }
+      })
+    } else {
+      opts = encRange(this.tree.keyEncoding, { ...opts, sub: this.tree._sub, active })
+    }
+
+    const ite = new RangeIterator(this, opts)
+    return ite
+  }
+
+  createReadStream (opts) {
+    return iteratorToStream(this.createRangeIterator(opts, new ActiveRequests(this.tree.feed)))
+  }
+
+  createHistoryStream (opts) {
+    let active = opts.active
+    if (!active) {
+      active = new ActiveRequests(this.tree.feed)
+      opts = { active, ...opts }
+    }
+    return iteratorToStream(new HistoryIterator(this, opts), active)
+  }
+
+  createDiffStream (right, opts) {
+    let active = opts.active
+    if (!active) {
+      active = new ActiveRequests(this.tree.feed)
+      opts = { active, ...opts }
+    }
+    if (typeof right === 'number') right = this.tree.checkout(right)
+    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
+    else opts = { ...opts, active }
+    return iteratorToStream(new DiffIterator(this, new Batch(right, false, false, opts), opts), active)
+  }
+
   async get (key) {
+    if (this.parentBatch) {
+      if (this.keyEncoding) key = enc(this.keyEncoding, key)
+      return this.parentBatch.get(key)
+    }
     if (this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 
     let node = await this.getRoot()
@@ -537,6 +595,8 @@ class Batch {
 
     key = enc(this.keyEncoding, key)
     value = enc(this.valueEncoding, value)
+
+    if (this.parentBatch) return this.parentBatch.put(key, value)
 
     const stack = []
 
@@ -598,6 +658,8 @@ class Batch {
 
     key = enc(this.keyEncoding, key)
 
+    if (this.parentBatch) return this.parentBatch.del(key)
+
     const stack = []
 
     let node = await this.getRoot()
@@ -636,6 +698,7 @@ class Batch {
   }
 
   flush () {
+    if (this.parentBatch) throw new Error('Can only flush a top-level batch.')
     if (!this.length) return Promise.resolve()
 
     const batch = new Array(this.length)
@@ -693,7 +756,8 @@ class Batch {
       if (!root.block) root.block = block
       this.root = root
       this.length++
-      this.blocks.set(seq, block)
+      if (this.parentBatch) this.parentBatch.blocks.set(seq, block)
+      else this.blocks.set(seq, block)
       return
     }
 

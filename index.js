@@ -466,7 +466,6 @@ class Batch {
   }
 
   _maskTree (block) {
-    if (!this.parentBatch) return block
     return new Proxy(block, {
       get: (target, prop, receiver) => {
         if (prop === 'tree') return this
@@ -479,11 +478,11 @@ class Batch {
     const blocks = this.parentBatch ? this.parentBatch.blocks : this.blocks
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = blocks && blocks.get(seq)
-    if (b) return this._maskTree(b)
+    if (b) return this.parentBatch ? this._maskTree(b) : b
     this.onseq(seq)
     b = await this.tree.getBlock(seq, this.options, this)
     if (blocks) blocks.set(seq, b)
-    return this._maskTree(b)
+    return this.parentBatch ? this._maskTree(b) : b
   }
 
   _onwait (key) {

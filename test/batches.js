@@ -114,7 +114,7 @@ tape('batch with sub', async function (t) {
   t.end()
 })
 
-tape('batch with sub-batches', async function (t) {
+tape('batch with child batches', async function (t) {
   const db = create()
 
   const parent = db.batch()
@@ -155,7 +155,7 @@ tape('batch with sub-batches', async function (t) {
   t.end()
 })
 
-tape('batch with sub-batches and deletion', async function (t) {
+tape('batch with child batches and deletion', async function (t) {
   const db = create()
 
   const parent = db.batch()

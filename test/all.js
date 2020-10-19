@@ -216,3 +216,35 @@ tape('test all short iterators, sub database', async function (t) {
     return true
   }
 })
+
+tape('simple sub put/get', async t => {
+  const db = create()
+  const sub = db.sub('hello')
+  await sub.put('world', 'hello world')
+  const node = await sub.get('world')
+  t.same(node && node.key, 'world')
+  t.same(node && node.value, 'hello world')
+  t.end()
+})
+
+tape('multiple levels of sub', async t => {
+  const db = create({ sep: '!' })
+  const sub = db.sub('hello').sub('world')
+  await sub.put('a', 'b')
+  const node = await sub.get('a')
+  t.same(node && node.key, 'a')
+  t.same(node && node.value, 'b')
+  t.end()
+})
+
+tape('read stream on a checkout', async t => {
+  const db = create()
+  await db.put('a', 'b')
+  await db.put('b', 'c')
+  const version = db.version
+  await db.put('c', 'd')
+  const checkout = db.checkout(version)
+  const nodes = await collect(checkout.createReadStream())
+  t.same(nodes.map(n => n.key), ['a', 'b'])
+  t.end()
+})

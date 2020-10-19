@@ -272,6 +272,7 @@ class HyperBee {
     this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
+    this.sep = opts.sep || SEP
 
     this._sub = !!opts._sub
     this._checkout = opts.checkout || 0
@@ -389,6 +390,7 @@ class HyperBee {
 
   checkout (version) {
     return new HyperBee(this.feed, {
+      sep: this.sep,
       checkout: version,
       extension: this.extension,
       keyEncoding: this.keyEncoding,
@@ -400,14 +402,23 @@ class HyperBee {
     return this.checkout(this.version)
   }
 
-  sub (prefix) {
-    prefix = Buffer.concat([enc(this.keyEncoding, prefix), SEP])
+  sub (prefix, opts = {}) {
+    let sep = opts.sep || this.sep
+    if (!Buffer.isBuffer(sep)) sep = Buffer.from(sep)
+    prefix = Buffer.concat([Buffer.from(prefix), sep])
+
     return new HyperBee(this.feed, {
       _sub: true,
+      sep: this.sep,
+      lock: this.lock,
+      checkout: this._checkout,
       extension: this.extension,
       valueEncoding: this.valueEncoding,
       keyEncoding: {
-        encode: key => Buffer.concat([prefix, enc(this.keyEncoding, key)]),
+        encode: key => {
+          if (!Buffer.isBuffer(key)) key = Buffer.from(key)
+          return enc(this.keyEncoding, Buffer.concat([prefix, key]))
+        },
         decode: key => {
           const sliced = key.slice(prefix.length, key.length)
           return this.keyEncoding ? this.keyEncoding.decode(sliced) : sliced
@@ -555,10 +566,8 @@ class Batch {
   }
 
   async get (key) {
-    if (this.parentBatch) {
-      if (this.keyEncoding) key = enc(this.keyEncoding, key)
-      return this.parentBatch.get(key)
-    }
+    if (this.keyEncoding) key = enc(this.keyEncoding, key)
+    if (this.parentBatch) return this.parentBatch.get(key)
     if (this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 
     let node = await this.getRoot()
@@ -603,7 +612,7 @@ class Batch {
     let node = root = await this.getRoot()
     if (!node) node = root = TreeNode.create(null)
 
-    const seq = this.tree.feed.length + this.length
+    const seq = (this.tree._checkout ? this.tree._checkout : this.tree.feed.length) + this.length
     const target = new Key(seq, key)
 
     while (node.children.length) {
@@ -696,14 +705,14 @@ class Batch {
     }
   }
 
-  flush () {
-    if (this.parentBatch) throw new Error('Can only flush a top-level batch.')
-    if (!this.length) return Promise.resolve()
+  getRawBatch () {
+    if (this.parentBatch) throw new Error('Can only get a raw top-level batch.')
+    if (!this.length) return []
 
     const batch = new Array(this.length)
 
     for (let i = 0; i < this.length; i++) {
-      const seq = this.tree.feed.length + i
+      const seq = (this.tree._checkout ? this.tree._checkout : this.tree.feed.length) + i
       const { pendingIndex, key, value } = this.blocks.get(seq)
 
       if (i < this.length - 1) {
@@ -728,11 +737,24 @@ class Batch {
       })
     }
 
+    return batch
+  }
+
+  flush (batch) {
+    if (this.parentBatch) throw new Error('Can only flush a top-level batch.')
+    if (!this.length) return Promise.resolve()
+
+    if (!batch) batch = this.getRawBatch()
+
     this.root = null
     this.blocks.clear()
     this.length = 0
 
     return this._appendBatch(batch)
+  }
+
+  destroy () {
+    return this._unlock()
   }
 
   _unlockMaybe () {

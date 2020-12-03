@@ -11,6 +11,9 @@ const T = 5
 const MIN_KEYS = T - 1
 const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
+const SEP = Buffer.alloc(1)
+const MAX = Buffer.from([255])
+
 class Key {
   constructor (seq, value) {
     this.seq = seq
@@ -226,6 +229,14 @@ class BlockEntry {
     const entry = this.index.get(offset)
     return new TreeNode(this, entry.keys, entry.children, offset)
   }
+
+  copy (tree) {
+    return new BlockEntry(this.seq, tree, {
+      key: this.key,
+      value: this.value,
+      index: this.indexBuffer
+    })
+  }
 }
 
 class BatchEntry extends BlockEntry {
@@ -269,7 +280,9 @@ class HyperBee {
     this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
+    this.sep = opts.sep || SEP
 
+    this._sub = !!opts._sub
     this._checkout = opts.checkout || 0
     this._ready = null
   }
@@ -341,53 +354,27 @@ class HyperBee {
   }
 
   createRangeIterator (opts = {}, active = null) {
-    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
-
-    if (extension) {
-      const { onseq, onwait } = opts
-      let version = 0
-      let next = 0
-
-      opts = encRange(this.keyEncoding, {
-        ...opts,
-        active,
-        onseq (seq) {
-          if (!version) version = seq + 1
-          if (next) next--
-          if (onseq) onseq(seq)
-        },
-        onwait (seq) {
-          if (!next) {
-            next = Extension.BATCH_SIZE
-            extension.iterator(ite.snapshot(version))
-          }
-          if (onwait) onwait(seq)
-        }
-      })
-    } else {
-      opts = encRange(this.keyEncoding, { ...opts, active })
-    }
-
-    const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
-    return ite
+    const batch = new Batch(this, false, false, opts)
+    return batch.createRangeIterator(opts, active)
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts, new ActiveRequests(this.feed)))
+    const batch = new Batch(this, false, false, opts)
+    return batch.createReadStream(opts)
   }
 
   createHistoryStream (opts) {
     const active = new ActiveRequests(this.feed)
     opts = { active, ...opts }
-    return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts), active)
+    const batch = new Batch(this, false, false, opts)
+    return batch.createHistoryStream(opts, active)
   }
 
   createDiffStream (right, opts) {
     const active = new ActiveRequests(this.feed)
-    if (typeof right === 'number') right = this.checkout(right)
-    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, active })
-    else opts = { ...opts, active }
-    return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts), active)
+    opts = { active, ...opts }
+    const left = new Batch(this, false, false, opts)
+    return left.createDiffStream(right, opts)
   }
 
   get (key, opts) {
@@ -411,6 +398,7 @@ class HyperBee {
 
   checkout (version) {
     return new HyperBee(this.feed, {
+      sep: this.sep,
       checkout: version,
       extension: this.extension,
       keyEncoding: this.keyEncoding,
@@ -420,6 +408,31 @@ class HyperBee {
 
   snapshot () {
     return this.checkout(this.version)
+  }
+
+  sub (prefix, opts = {}) {
+    let sep = opts.sep || this.sep
+    if (!Buffer.isBuffer(sep)) sep = Buffer.from(sep)
+    prefix = Buffer.concat([Buffer.from(prefix), sep])
+
+    return new HyperBee(this.feed, {
+      _sub: true,
+      sep: this.sep,
+      lock: this.lock,
+      checkout: this._checkout,
+      extension: this.extension,
+      valueEncoding: this.valueEncoding,
+      keyEncoding: {
+        encode: key => {
+          if (!Buffer.isBuffer(key)) key = Buffer.from(key)
+          return enc(this.keyEncoding, Buffer.concat([prefix, key]))
+        },
+        decode: key => {
+          const sliced = key.slice(prefix.length, key.length)
+          return this.keyEncoding ? this.keyEncoding.decode(sliced) : sliced
+        }
+      }
+    })
   }
 }
 
@@ -432,17 +445,28 @@ class Batch {
     this.autoFlush = autoFlush
     this.rootSeq = 0
     this.root = null
-    this.length = 0
     this.options = options
     this.locked = null
     this.onseq = this.options.onseq || noop
+    this.parentBatch = this.options.batch
+    this._length = 0
   }
 
   ready () {
     return this.tree.ready()
   }
 
+  get length () {
+    return this.parentBatch ? this.parentBatch.length : this._length
+  }
+
+  set length (len) {
+    if (this.parentBatch) this.parentBatch.length = len
+    else this._length = len
+  }
+
   async lock () {
+    if (this.parentBatch) return this.parentBatch.lock()
     if (this.locked === null) this.locked = await this.tree.lock()
   }
 
@@ -451,6 +475,7 @@ class Batch {
   }
 
   getRoot () {
+    if (this.parentBatch) return this.parentBatch.getRoot()
     if (this.root !== null) return this.root
     return this.tree.getRoot(this.options, this)
   }
@@ -460,13 +485,14 @@ class Batch {
   }
 
   async getBlock (seq) {
+    const blocks = this.parentBatch ? this.parentBatch.blocks : this.blocks
     if (this.rootSeq === 0) this.rootSeq = seq
-    let b = this.blocks && this.blocks.get(seq)
-    if (b) return b
+    let b = blocks && blocks.get(seq)
+    if (b) return this.parentBatch ? b.copy(this) : b
     this.onseq(seq)
     b = await this.tree.getBlock(seq, this.options, this)
-    if (this.blocks) this.blocks.set(seq, b)
-    return b
+    if (blocks) blocks.set(seq, b)
+    return this.parentBatch ? b.copy(this) : b
   }
 
   _onwait (key) {
@@ -480,7 +506,67 @@ class Batch {
     return ite.next()
   }
 
+  createRangeIterator (opts = {}, active = null) {
+    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.tree.extension
+
+    if (extension) {
+      const { onseq, onwait } = opts
+      let version = 0
+      let next = 0
+
+      opts = encRange(this.tree.keyEncoding, {
+        ...opts,
+        sub: this.tree._sub,
+        active,
+        onseq (seq) {
+          if (!version) version = seq + 1
+          if (next) next--
+          if (onseq) onseq(seq)
+        },
+        onwait (seq) {
+          if (!next) {
+            next = Extension.BATCH_SIZE
+            extension.iterator(ite.snapshot(version))
+          }
+          if (onwait) onwait(seq)
+        }
+      })
+    } else {
+      opts = encRange(this.tree.keyEncoding, { ...opts, sub: this.tree._sub, active })
+    }
+
+    const ite = new RangeIterator(this, opts)
+    return ite
+  }
+
+  createReadStream (opts) {
+    return iteratorToStream(this.createRangeIterator(opts, new ActiveRequests(this.tree.feed)))
+  }
+
+  createHistoryStream (opts) {
+    let active = opts.active
+    if (!active) {
+      active = new ActiveRequests(this.tree.feed)
+      opts = { active, ...opts }
+    }
+    return iteratorToStream(new HistoryIterator(this, opts), active)
+  }
+
+  createDiffStream (right, opts) {
+    let active = opts.active
+    if (!active) {
+      active = new ActiveRequests(this.tree.feed)
+      opts = { active, ...opts }
+    }
+    if (typeof right === 'number') right = this.tree.checkout(right)
+    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
+    else opts = { ...opts, active }
+    return iteratorToStream(new DiffIterator(this, new Batch(right, false, false, opts), opts), active)
+  }
+
   async get (key) {
+    if (this.keyEncoding) key = enc(this.keyEncoding, key)
+    if (this.parentBatch) return this.parentBatch.get(key)
     if (this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 
     let node = await this.getRoot()
@@ -517,13 +603,15 @@ class Batch {
     key = enc(this.keyEncoding, key)
     value = enc(this.valueEncoding, value)
 
+    if (this.parentBatch) return this.parentBatch.put(key, value)
+
     const stack = []
 
     let root
     let node = root = await this.getRoot()
     if (!node) node = root = TreeNode.create(null)
 
-    const seq = this.tree.feed.length + this.length
+    const seq = (this.tree._checkout ? this.tree._checkout : this.tree.feed.length) + this.length
     const target = new Key(seq, key)
 
     while (node.children.length) {
@@ -577,6 +665,8 @@ class Batch {
 
     key = enc(this.keyEncoding, key)
 
+    if (this.parentBatch) return this.parentBatch.del(key)
+
     const stack = []
 
     let node = await this.getRoot()
@@ -614,13 +704,14 @@ class Batch {
     }
   }
 
-  flush () {
-    if (!this.length) return Promise.resolve()
+  getRawBatch () {
+    if (this.parentBatch) throw new Error('Can only get a raw top-level batch.')
+    if (!this.length) return []
 
     const batch = new Array(this.length)
 
     for (let i = 0; i < this.length; i++) {
-      const seq = this.tree.feed.length + i
+      const seq = (this.tree._checkout ? this.tree._checkout : this.tree.feed.length) + i
       const { pendingIndex, key, value } = this.blocks.get(seq)
 
       if (i < this.length - 1) {
@@ -645,11 +736,24 @@ class Batch {
       })
     }
 
+    return batch
+  }
+
+  flush (batch) {
+    if (this.parentBatch) throw new Error('Can only flush a top-level batch.')
+    if (!this.length) return Promise.resolve()
+
+    if (!batch) batch = this.getRawBatch()
+
     this.root = null
     this.blocks.clear()
     this.length = 0
 
     return this._appendBatch(batch)
+  }
+
+  destroy () {
+    return this._unlock()
   }
 
   _unlockMaybe () {
@@ -672,7 +776,8 @@ class Batch {
       if (!root.block) root.block = block
       this.root = root
       this.length++
-      this.blocks.set(seq, block)
+      if (this.parentBatch) this.parentBatch.blocks.set(seq, block)
+      else this.blocks.set(seq, block)
       return
     }
 
@@ -802,6 +907,8 @@ function encRange (e, opts) {
   if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
   if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
+  if (opts.sub && !opts.gt && !opts.gte) opts.gt = enc(e, SEP)
+  if (opts.sub && !opts.lt && !opts.lte) opts.lt = enc(e, MAX)
   return opts
 }
 

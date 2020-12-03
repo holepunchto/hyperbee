@@ -168,6 +168,31 @@ Get a readonly db checkout of a previous version.
 
 Shorthand for getting a checkout for the current version.
 
+#### `const sub = db.sub('sub-prefix', opts = {})`
+
+Create a sub-database where all entries will be prefixed by a given value.
+
+This makes it easy to create namespaces within a single Hyperbee.
+
+Options include:
+```js
+{
+  sep: Buffer.alloc(1) // A namespace separator
+}
+```
+
+For example:
+```js
+const rootDb = new Hyperbee(core)
+const subDb = rootDb.sub('a')
+
+// In rootDb, this will have the key ('a' + separator + 'b')
+await subDb.put('b', 'hello')
+
+// Returns { key: 'b', value: 'hello')
+await subDb.get('b')
+```
+
 #### `db.version`
 
 Current version.

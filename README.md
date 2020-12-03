@@ -76,9 +76,21 @@ Get a key, value. If the key does not exist, `null` is returned.
 
 Delete a key
 
-#### `batch = db.batch()`
+#### `batch = db.batch(opts = {})`
 
 Make a new batch.
+
+Options include:
+```js
+{
+  parent // An optional parent batch object
+}
+```
+
+Once you call `put` on a batch, it will lock the Hyperbee until it is flushed.
+
+With the `parent` option, you can create many batches at once, then you can flush the top-level batch
+to flush all of them. This is particularly useful when working with sub-databases.
 
 #### `await batch.put(key, [value])`
 
@@ -167,6 +179,31 @@ Get a readonly db checkout of a previous version.
 #### `dbCheckout = db.snapshot()`
 
 Shorthand for getting a checkout for the current version.
+
+#### `const sub = db.sub('sub-prefix', opts = {})`
+
+Create a sub-database where all entries will be prefixed by a given value.
+
+This makes it easy to create namespaces within a single Hyperbee.
+
+Options include:
+```js
+{
+  sep: Buffer.alloc(1) // A namespace separator
+}
+```
+
+For example:
+```js
+const rootDb = new Hyperbee(core)
+const subDb = rootDb.sub('a')
+
+// In rootDb, this will have the key ('a' + separator + 'b')
+await subDb.put('b', 'hello')
+
+// Returns { key: 'b', value: 'hello')
+await subDb.get('b')
+```
 
 #### `db.version`
 

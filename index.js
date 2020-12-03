@@ -11,6 +11,9 @@ const T = 5
 const MIN_KEYS = T - 1
 const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
+const SEP = Buffer.alloc(1)
+const MAX = Buffer.from([255])
+
 class Key {
   constructor (seq, value) {
     this.seq = seq
@@ -269,7 +272,9 @@ class HyperBee {
     this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
+    this.sep = opts.sep || SEP
 
+    this._sub = !!opts._sub
     this._checkout = opts.checkout || 0
     this._ready = null
   }
@@ -411,6 +416,7 @@ class HyperBee {
 
   checkout (version) {
     return new HyperBee(this.feed, {
+      sep: this.sep,
       checkout: version,
       extension: this.extension,
       keyEncoding: this.keyEncoding,
@@ -420,6 +426,31 @@ class HyperBee {
 
   snapshot () {
     return this.checkout(this.version)
+  }
+
+  sub (prefix, opts = {}) {
+    let sep = opts.sep || this.sep
+    if (!Buffer.isBuffer(sep)) sep = Buffer.from(sep)
+    prefix = Buffer.concat([Buffer.from(prefix), sep])
+
+    return new HyperBee(this.feed, {
+      _sub: true,
+      sep: this.sep,
+      lock: this.lock,
+      checkout: this._checkout,
+      extension: this.extension,
+      valueEncoding: this.valueEncoding,
+      keyEncoding: {
+        encode: key => {
+          if (!Buffer.isBuffer(key)) key = Buffer.from(key)
+          return enc(this.keyEncoding, Buffer.concat([prefix, key]))
+        },
+        decode: key => {
+          const sliced = key.slice(prefix.length, key.length)
+          return this.keyEncoding ? this.keyEncoding.decode(sliced) : sliced
+        }
+      }
+    })
   }
 }
 
@@ -481,6 +512,7 @@ class Batch {
   }
 
   async get (key) {
+    if (this.keyEncoding) key = enc(this.keyEncoding, key)
     if (this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 
     let node = await this.getRoot()
@@ -802,6 +834,8 @@ function encRange (e, opts) {
   if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
   if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
+  if (opts.sub && !opts.gt && !opts.gte) opts.gt = enc(e, SEP)
+  if (opts.sub && !opts.lt && !opts.lte) opts.lt = enc(e, MAX)
   return opts
 }
 

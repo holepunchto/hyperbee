@@ -229,6 +229,14 @@ class BlockEntry {
     const entry = this.index.get(offset)
     return new TreeNode(this, entry.keys, entry.children, offset)
   }
+
+  copy (tree) {
+    return new BlockEntry(this.seq, tree, {
+      key: this.key,
+      value: this.value,
+      index: this.indexBuffer
+    })
+  }
 }
 
 class BatchEntry extends BlockEntry {
@@ -476,24 +484,15 @@ class Batch {
     return (await this.getBlock(seq)).key
   }
 
-  _maskTree (block) {
-    return new Proxy(block, {
-      get: (target, prop) => {
-        if (prop === 'tree') return this
-        return target[prop]
-      }
-    })
-  }
-
   async getBlock (seq) {
     const blocks = this.parentBatch ? this.parentBatch.blocks : this.blocks
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = blocks && blocks.get(seq)
-    if (b) return this.parentBatch ? this._maskTree(b) : b
+    if (b) return this.parentBatch ? b.copy(this) : b
     this.onseq(seq)
     b = await this.tree.getBlock(seq, this.options, this)
     if (blocks) blocks.set(seq, b)
-    return this.parentBatch ? this._maskTree(b) : b
+    return this.parentBatch ? b.copy(this) : b
   }
 
   _onwait (key) {

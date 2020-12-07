@@ -1,10 +1,12 @@
 const codecs = require('codecs')
 const { Readable } = require('streamx')
+const mutexify = require('mutexify/promise')
+const { toPromises } = require('hypercore-promisifier')
+
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
 const Extension = require('./lib/extension')
-const mutexify = require('mutexify/promise')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 
 const T = 5
@@ -265,7 +267,7 @@ class ActiveRequests {
 
 class HyperBee {
   constructor (feed, opts = {}) {
-    this.feed = feed
+    this.feed = toPromises(feed)
 
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
@@ -285,20 +287,13 @@ class HyperBee {
     return this._ready
   }
 
-  _open () {
-    return new Promise((resolve, reject) => {
-      this.feed.ready(err => {
-        if (err) return reject(err)
-        if (this.feed.length > 0 || !this.feed.writable) return resolve()
-        this.feed.append(Header.encode({
-          protocol: 'hyperbee',
-          metadata: this.metadata
-        }), (err) => {
-          if (err) return reject(err)
-          resolve()
-        })
-      })
-    })
+  async _open () {
+    await this.feed.ready()
+    if (this.feed.length > 0 || !this.feed.writable) return
+    return this.feed.append(Header.encode({
+      protocol: 'hyperbee',
+      metadata: this.metadata
+    }))
   }
 
   get version () {
@@ -306,9 +301,7 @@ class HyperBee {
   }
 
   update () {
-    return new Promise((resolve) => {
-      this.feed.update({ ifAvailable: true, hash: false }, (err) => resolve(!err))
-    })
+    return this.feed.update({ ifAvailable: true, hash: false }).then(() => true, () => false)
   }
 
   async getRoot (opts, batch = this) {
@@ -324,16 +317,15 @@ class HyperBee {
   }
 
   async getBlock (seq, opts, batch = this) {
-    return new Promise((resolve, reject) => {
-      const active = opts.active
-      const cancel = this.feed.get(seq, { ...opts, valueEncoding: Node }, (err, entry) => {
-        if (active) active.remove(cancel)
-        if (err) return reject(err)
-        resolve(new BlockEntry(seq, batch, entry))
-      })
-
-      if (active) active.add(cancel)
-    })
+    const active = opts.active
+    const request = this.feed.get(seq, { ...opts, valueEncoding: Node })
+    if (active) active.add(request)
+    try {
+      const entry = await request
+      return new BlockEntry(seq, batch, entry)
+    } finally {
+      if (active) active.remove(request)
+    }
   }
 
   async peek (opts) {
@@ -716,13 +708,9 @@ class Batch {
   }
 
   _appendBatch (raw) {
-    return new Promise((resolve, reject) => {
-      this.tree.feed.append(raw, err => {
-        if (err) reject(err)
-        else resolve()
-        this._unlock()
-      })
-    })
+    const prom = this.tree.feed.append(raw)
+    this._unlock()
+    return prom
   }
 }
 

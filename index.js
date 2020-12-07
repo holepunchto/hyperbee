@@ -707,10 +707,12 @@ class Batch {
     }))
   }
 
-  _appendBatch (raw) {
-    const prom = this.tree.feed.append(raw)
-    this._unlock()
-    return prom
+  async _appendBatch (raw) {
+    try {
+      await this.tree.feed.append(raw)
+    } finally {
+      this._unlock()
+    }
   }
 }
 

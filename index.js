@@ -355,6 +355,7 @@ class HyperBee {
 
       opts = encRange(this.keyEncoding, {
         ...opts,
+        sub: this._sub,
         active,
         onseq (seq) {
           if (!version) version = seq + 1
@@ -370,7 +371,7 @@ class HyperBee {
         }
       })
     } else {
-      opts = encRange(this.keyEncoding, { ...opts, active })
+      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     }
 
     const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
@@ -390,7 +391,7 @@ class HyperBee {
   createDiffStream (right, opts) {
     const active = new ActiveRequests(this.feed)
     if (typeof right === 'number') right = this.checkout(right)
-    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, active })
+    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     else opts = { ...opts, active }
     return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts), active)
   }

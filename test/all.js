@@ -170,6 +170,7 @@ tape('test all short iterators, sub database', async function (t) {
     for (let i = 0; i < size; i++) {
       const key = '' + i
       await db.put(key, 'hello world')
+      await parent.put(key, 'parent hello world')
       reference.push(key)
     }
     reference.sort()
@@ -234,5 +235,27 @@ tape('multiple levels of sub', async t => {
   const node = await sub.get('a')
   t.same(node && node.key, 'a')
   t.same(node && node.value, 'b')
+  t.end()
+})
+
+tape('multiple levels of sub, entries outside sub', async t => {
+  const db = create({ sep: '!' })
+  const helloSub = db.sub('hello')
+  const worldSub = helloSub.sub('world')
+  await helloSub.put('a', 'b')
+  await worldSub.put('b', 'c')
+
+  const expected = [['b', 'c']]
+  for await (const { key, value } of worldSub.createReadStream()) {
+    const next = expected.shift()
+    if (!next) {
+      t.fail('iterated unexpected value')
+      break
+    }
+    t.same(key, next[0])
+    t.same(value, next[1])
+  }
+  t.same(expected.length, 0)
+
   t.end()
 })

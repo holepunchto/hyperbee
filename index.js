@@ -84,7 +84,7 @@ class TreeNode {
     this.changed = false
   }
 
-  async insertKey (key, child = null) {
+  async insertKey (key, child = null, overwrite = true) {
     let s = 0
     let e = this.keys.length
     let c
@@ -94,6 +94,7 @@ class TreeNode {
       c = cmp(key.value, await this.getKey(mid))
 
       if (c === 0) {
+        if (!overwrite) return true
         this.changed = true
         this.keys[mid] = key
         return true
@@ -466,6 +467,7 @@ class Batch {
     this.root = null
     this.length = 0
     this.options = options
+    this.overwrite = options.overwrite !== false
     this.locked = null
     this.onseq = this.options.onseq || noop
   }
@@ -572,6 +574,7 @@ class Batch {
         c = cmp(target.value, await node.getKey(mid))
 
         if (c === 0) {
+          if (!this.overwrite) return this._unlockMaybe()
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
         }
@@ -584,14 +587,15 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(target, null))
+    let needsSplit = !(await node.insertKey(target, null, this.overwrite))
+    if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
       const parent = stack.pop()
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right))
+        needsSplit = !(await parent.insertKey(median, right, false))
         node = parent
       } else {
         root = TreeNode.create(node.block)

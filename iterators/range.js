@@ -83,7 +83,7 @@ module.exports = class RangeIterator {
 
       while (s < e) {
         const mid = (s + e) >> 1
-        c = cmp(start, await node.getKey(mid))
+        c = Buffer.compare(start, await node.getKey(mid))
 
         if (c === 0) {
           if (incl) entry.i = mid * 2 + 1
@@ -143,7 +143,7 @@ module.exports = class RangeIterator {
       const key = top.node.keys[n]
       const block = await this.db.getBlock(key.seq)
       if (end) {
-        const c = cmp(block.key, end)
+        const c = Buffer.compare(block.key, end)
         if (c === 0 ? !incl : (this._reverse ? c < 0 : c > 0)) {
           this._limit = 0
           break
@@ -157,8 +157,4 @@ module.exports = class RangeIterator {
     this._nexting = false
     return null
   }
-}
-
-function cmp (a, b) {
-  return a < b ? -1 : b < a ? 1 : 0
 }

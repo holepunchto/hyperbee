@@ -290,14 +290,22 @@ class HyperBee {
     return new Promise((resolve, reject) => {
       this.feed.ready(err => {
         if (err) return reject(err)
-        if (this.feed.length > 0 || !this.feed.writable) return resolve()
-        this.feed.append(Header.encode({
-          protocol: 'hyperbee',
-          metadata: this.metadata
-        }), (err) => {
-          if (err) return reject(err)
-          resolve()
-        })
+        if (this.feed.length > 0 || !this.feed.writable) {
+          this.feed.get(0, (err, data) => {
+            if (err) return reject(err)
+            const header = Header.decode(data)
+            this.metadata = header.metadata
+            return resolve()
+          })
+        } else {
+          this.feed.append(Header.encode({
+            protocol: 'hyperbee',
+            metadata: this.metadata
+          }), (err) => {
+            if (err) return reject(err)
+            resolve()
+          })
+        }
       })
     })
   }

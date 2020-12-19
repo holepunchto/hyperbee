@@ -204,5 +204,5 @@ module.exports = class DiffIterator {
 function cmp (a, b) {
   if (!a) return b ? 1 : 0
   if (!b) return a ? -1 : 0
-  return a < b ? -1 : b < a ? 1 : 0
+  return Buffer.compare(a, b)
 }

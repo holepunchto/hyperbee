@@ -91,7 +91,7 @@ class TreeNode {
 
     while (s < e) {
       const mid = (s + e) >> 1
-      c = cmp(key.value, await this.getKey(mid))
+      c = Buffer.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
         if (!overwrite) return true
@@ -537,7 +537,7 @@ class Batch {
       while (s < e) {
         const mid = (s + e) >> 1
 
-        c = cmp(key, await node.getKey(mid))
+        c = Buffer.compare(key, await node.getKey(mid))
 
         if (c === 0) {
           return (await this.getBlock(node.keys[mid].seq)).final()
@@ -579,7 +579,7 @@ class Batch {
 
       while (s < e) {
         const mid = (s + e) >> 1
-        c = cmp(target.value, await node.getKey(mid))
+        c = Buffer.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
           if (!this.overwrite) return this._unlockMaybe()
@@ -638,7 +638,7 @@ class Batch {
 
       while (s < e) {
         const mid = (s + e) >> 1
-        c = cmp(key, await node.getKey(mid))
+        c = Buffer.compare(key, await node.getKey(mid))
 
         if (c === 0) {
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
@@ -835,10 +835,6 @@ function iteratorToStream (ite, active) {
     rs.push(val)
     done(null)
   }
-}
-
-function cmp (a, b) {
-  return a < b ? -1 : b < a ? 1 : 0
 }
 
 function encRange (e, opts) {

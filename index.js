@@ -292,7 +292,6 @@ class HyperBee {
       this.feed.ready(err => {
         if (err) return reject(err)
         if (this.feed.length > 0 || !this.feed.writable) return resolve()
-        console.log('APPENDING IN OPEN')
         this.feed.append(Header.encode({
           protocol: 'hyperbee',
           metadata: this.metadata

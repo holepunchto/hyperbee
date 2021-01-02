@@ -277,7 +277,7 @@ class HyperBee {
 
     this._sub = !!opts._sub
     this._checkout = opts.checkout || 0
-    this._ready = null
+    this._ready = opts._ready || null
   }
 
   ready () {
@@ -418,6 +418,7 @@ class HyperBee {
 
   checkout (version) {
     return new HyperBee(this.feed, {
+      _ready: this.ready(),
       sep: this.sep,
       checkout: version,
       extension: this.extension,
@@ -437,6 +438,7 @@ class HyperBee {
 
     return new HyperBee(this.feed, {
       _sub: true,
+      _ready: this.ready(),
       sep: this.sep,
       lock: this.lock,
       checkout: this._checkout,

@@ -286,8 +286,8 @@ class HyperBee {
     return this._ready
   }
 
-  async _open () {
-    await new Promise((resolve, reject) => {
+  _open () {
+    return new Promise((resolve, reject) => {
       this.feed.ready(err => {
         if (err) return reject(err)
         if (this.feed.length > 0 || !this.feed.writable) return resolve()

@@ -286,11 +286,13 @@ class HyperBee {
     return this._ready
   }
 
-  _open () {
-    return new Promise((resolve, reject) => {
+  async _open () {
+    const release = !this.lock.locked ? await this.lock() : null
+    await new Promise((resolve, reject) => {
       this.feed.ready(err => {
         if (err) return reject(err)
         if (this.feed.length > 0 || !this.feed.writable) return resolve()
+        console.log('APPENDING IN OPEN')
         this.feed.append(Header.encode({
           protocol: 'hyperbee',
           metadata: this.metadata
@@ -300,6 +302,7 @@ class HyperBee {
         })
       })
     })
+    if (release) release()
   }
 
   get version () {

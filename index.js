@@ -264,27 +264,34 @@ class ActiveRequests {
   }
 }
 
-class HyperBee {
-  constructor (feed, opts = {}) {
-    this.feed = feed
+function HyperBee (feed, opts = {}) {
+  if (!(this instanceof HyperBee)) return new HyperBee(feed, opts)
+  this.feed = feed
 
-    this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
-    this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
-    this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
-    this.metadata = opts.metadata || null
-    this.lock = opts.lock || mutexify()
-    this.sep = opts.sep || SEP
+  this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
+  this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
+  this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
+  this.metadata = opts.metadata || null
+  this.lock = opts.lock || mutexify()
+  this.sep = opts.sep || SEP
 
-    this._sub = !!opts._sub
-    this._checkout = opts.checkout || 0
-    this._ready = opts._ready || null
+  this._sub = !!opts._sub
+  this._checkout = opts.checkout || 0
+  this._ready = opts._ready || null
+}
+
+Object.defineProperty(HyperBee.prototype, 'version', {
+  get () {
+    return Math.max(1, this._checkout || this.feed.length)
   }
+})
 
+Object.assign(HyperBee.prototype, {
   ready () {
     if (this._ready !== null) return this._ready
     this._ready = this._open()
     return this._ready
-  }
+  },
 
   _open () {
     return new Promise((resolve, reject) => {
@@ -300,17 +307,13 @@ class HyperBee {
         })
       })
     })
-  }
-
-  get version () {
-    return Math.max(1, this._checkout || this.feed.length)
-  }
+  },
 
   update () {
     return new Promise((resolve) => {
       this.feed.update({ ifAvailable: true, hash: false }, (err) => resolve(!err))
     })
-  }
+  },
 
   async getRoot (opts, batch = this) {
     await this.ready()
@@ -318,11 +321,11 @@ class HyperBee {
     const len = this._checkout || this.feed.length
     if (len < 2) return null
     return (await batch.getBlock(len - 1, opts)).getTreeNode(0)
-  }
+  },
 
   async getKey (seq) {
     return (await this.getBlock(seq)).key
-  }
+  },
 
   async getBlock (seq, opts, batch = this) {
     return new Promise((resolve, reject) => {
@@ -335,7 +338,7 @@ class HyperBee {
 
       if (active) active.add(cancel)
     })
-  }
+  },
 
   async peek (opts) {
     // copied from the batch since we can then use the iterator warmup ext...
@@ -344,7 +347,7 @@ class HyperBee {
     const ite = this.createRangeIterator({ ...opts, limit: 1 })
     await ite.open()
     return ite.next()
-  }
+  },
 
   createRangeIterator (opts = {}, active = null) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
@@ -377,17 +380,17 @@ class HyperBee {
 
     const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
     return ite
-  }
+  },
 
   createReadStream (opts) {
     return iteratorToStream(this.createRangeIterator(opts, new ActiveRequests(this.feed)))
-  }
+  },
 
   createHistoryStream (opts) {
     const active = new ActiveRequests(this.feed)
     opts = { active, ...opts }
     return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts), active)
-  }
+  },
 
   createDiffStream (right, opts) {
     const active = new ActiveRequests(this.feed)
@@ -395,26 +398,26 @@ class HyperBee {
     if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     else opts = { ...opts, active }
     return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts), active)
-  }
+  },
 
   get (key, opts) {
     const b = new Batch(this, false, true, { ...opts })
     return b.get(key)
-  }
+  },
 
   put (key, value, opts) {
     const b = new Batch(this, true, true, opts)
     return b.put(key, value)
-  }
+  },
 
   batch (opts) {
     return new Batch(this, false, true, opts)
-  }
+  },
 
   del (key, opts) {
     const b = new Batch(this, true, true, opts)
     return b.del(key)
-  }
+  },
 
   checkout (version) {
     return new HyperBee(this.feed, {
@@ -425,11 +428,11 @@ class HyperBee {
       keyEncoding: this.keyEncoding,
       valueEncoding: this.valueEncoding
     })
-  }
+  },
 
   snapshot () {
     return this.checkout(this.version)
-  }
+  },
 
   sub (prefix, opts = {}) {
     let sep = opts.sep || this.sep
@@ -456,7 +459,7 @@ class HyperBee {
       }
     })
   }
-}
+})
 
 class Batch {
   constructor (tree, autoFlush, cache, options = {}) {

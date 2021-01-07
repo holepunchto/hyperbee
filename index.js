@@ -302,12 +302,12 @@ class HyperBee {
     })
   }
 
-  retrieveMetadata () {
+  getMetadata () {
     return new Promise((resolve, reject) => {
-      if (this.metadata !== null) resolve(this.metadata)
+      if (this.metadata !== null) return resolve(this.metadata)
 
       this.feed.get(0, (err, data) => {
-        if (err) reject(err)
+        if (err) return reject(err)
         const header = Header.decode(data)
         this.metadata = header.metadata
         resolve(this.metadata)

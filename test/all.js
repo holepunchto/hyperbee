@@ -261,15 +261,15 @@ tape('multiple levels of sub, entries outside sub', async t => {
 })
 
 tape('setting writable flag to false disables header write', async t => {
-  const db = create({ writable: false })
+  const db = create({ readOnly: true })
   await db.ready()
   t.same(db.feed.length, 0)
-  t.false(db.writable)
+  t.true(db.readOnly)
   t.end()
 })
 
 tape('cannot append to non-writable db', async t => {
-  const db = create({ writable: false })
+  const db = create({ readOnly: true })
   await db.ready()
   try {
     await db.append('hello', 'world')

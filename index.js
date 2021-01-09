@@ -473,7 +473,7 @@ class Batch {
   }
 
   async lock () {
-    if (this.tree.writable === false) throw new Error('Tree is not writable')
+    if (this.tree.writable === false) throw new Error('Hyperbee is marked as non-writable')
     if (this.locked === null) this.locked = await this.tree.lock()
   }
 

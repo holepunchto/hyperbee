@@ -292,7 +292,7 @@ class HyperBee {
   async _open () {
     await this.feed.ready()
     if (this.feed.length > 0 || !this.feed.writable || this.writable === false) return
-    this.writable = this.writable ?? this.feed.writable
+    this.writable = true
     return this.feed.append(Header.encode({
       protocol: 'hyperbee',
       metadata: this.metadata
@@ -473,6 +473,7 @@ class Batch {
   }
 
   async lock () {
+    if (this.tree.writable === false) throw new Error('Tree is not writable')
     if (this.locked === null) this.locked = await this.tree.lock()
   }
 

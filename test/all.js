@@ -259,3 +259,22 @@ tape('multiple levels of sub, entries outside sub', async t => {
 
   t.end()
 })
+
+tape('setting read-only flag to false disables header write', async t => {
+  const db = create({ readonly: true })
+  await db.ready()
+  t.same(db.feed.length, 0)
+  t.true(db.readonly)
+  t.end()
+})
+
+tape('cannot append to read-only db', async t => {
+  const db = create({ readonly: true })
+  await db.ready()
+  try {
+    await db.append('hello', 'world')
+  } catch (err) {
+    t.true(err)
+  }
+  t.end()
+})

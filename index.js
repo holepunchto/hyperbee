@@ -276,6 +276,7 @@ class HyperBee {
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
+    this.readonly = !!opts.readonly
 
     this._sub = !!opts._sub
     this._checkout = opts.checkout || 0
@@ -290,7 +291,7 @@ class HyperBee {
 
   async _open () {
     await this.feed.ready()
-    if (this.feed.length > 0 || !this.feed.writable) return
+    if (this.feed.length > 0 || !this.feed.writable || this.readonly) return
     return this.feed.append(Header.encode({
       protocol: 'hyperbee',
       metadata: this.metadata
@@ -471,6 +472,7 @@ class Batch {
   }
 
   async lock () {
+    if (this.tree.readonly) throw new Error('Hyperbee is marked as read-only')
     if (this.locked === null) this.locked = await this.tree.lock()
   }
 

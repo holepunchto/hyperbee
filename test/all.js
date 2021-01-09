@@ -267,3 +267,14 @@ tape('setting writable flag to false disables header write', async t => {
   t.false(db.writable)
   t.end()
 })
+
+tape('cannot append to non-writable db', async t => {
+  const db = create({ writable: false })
+  await db.ready()
+  try {
+    await db.append('hello', 'world')
+  } catch (err) {
+    t.true(err)
+  }
+  t.end()
+})

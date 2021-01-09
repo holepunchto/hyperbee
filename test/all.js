@@ -259,3 +259,11 @@ tape('multiple levels of sub, entries outside sub', async t => {
 
   t.end()
 })
+
+tape('setting writable flag to false disables header write', async t => {
+  const db = create({ writable: false })
+  await db.ready()
+  t.same(db.feed.length, 0)
+  t.false(db.writable)
+  t.end()
+})

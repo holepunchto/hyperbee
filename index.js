@@ -276,6 +276,7 @@ class HyperBee {
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
+    this.writable = opts.writable
 
     this._sub = !!opts._sub
     this._checkout = opts.checkout || 0
@@ -290,7 +291,8 @@ class HyperBee {
 
   async _open () {
     await this.feed.ready()
-    if (this.feed.length > 0 || !this.feed.writable) return
+    if (this.feed.length > 0 || !this.feed.writable || this.writable === false) return
+    this.writable = this.writable ?? this.feed.writable
     return this.feed.append(Header.encode({
       protocol: 'hyperbee',
       metadata: this.metadata

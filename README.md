@@ -177,7 +177,9 @@ This makes it easy to create namespaces within a single Hyperbee.
 Options include:
 ```js
 {
-  sep: Buffer.alloc(1) // A namespace separator
+  sep: Buffer.alloc(1), // A namespace separator
+  valueEncoding, // optional sub valueEncoding (defaults to the parents)
+  keyEncoding // optional sub keyEncoding (defaults to the parents)
 }
 ```
 

@@ -434,6 +434,9 @@ class HyperBee {
     if (!Buffer.isBuffer(sep)) sep = Buffer.from(sep)
     prefix = Buffer.concat([Buffer.from(prefix), sep])
 
+    const valueEncoding = opts.valueEncoding || this.valueEncoding
+    const keyEncoding = opts.keyEncoding || this.keyEncoding
+
     return new HyperBee(this._feed, {
       _sub: true,
       _ready: this.ready(),
@@ -441,15 +444,15 @@ class HyperBee {
       lock: this.lock,
       checkout: this._checkout,
       extension: this.extension,
-      valueEncoding: this.valueEncoding,
+      valueEncoding,
       keyEncoding: {
         encode: key => {
           if (!Buffer.isBuffer(key)) key = Buffer.from(key)
-          return enc(this.keyEncoding, Buffer.concat([prefix, key]))
+          return enc(keyEncoding, Buffer.concat([prefix, key]))
         },
         decode: key => {
           const sliced = key.slice(prefix.length, key.length)
-          return this.keyEncoding ? this.keyEncoding.decode(sliced) : sliced
+          return keyEncoding ? keyEncoding.decode(sliced) : sliced
         }
       }
     })

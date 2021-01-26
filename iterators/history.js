@@ -26,11 +26,16 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.lt <= 1) return null
-      return (await this.db.getBlock(--this.lt, this.options)).final()
+      return final(await this.db.getBlock(--this.lt, this.options))
     }
 
-    return (await this.db.getBlock(this.gte++, this.options)).final()
+    return final(await this.db.getBlock(this.gte++, this.options))
   }
+}
+
+function final (node) {
+  const type = node.isDeletion() ? 'del' : 'put'
+  return { type, ...node.final() }
 }
 
 function gte (opts, version) {

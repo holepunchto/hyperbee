@@ -52,6 +52,15 @@ class Pointers {
   get (i) {
     return this.levels[i]
   }
+
+  hasKey (seq) {
+    for (const lvl of this.levels) {
+      for (const key of lvl.keys) {
+        if (key.seq === seq) return true
+      }
+    }
+    return false
+  }
 }
 
 function inflate (buf) {
@@ -214,6 +223,17 @@ class BlockEntry {
     this.indexBuffer = entry.index
     this.key = entry.key
     this.value = entry.value
+  }
+
+  isDeletion () {
+    if (this.value !== null) return false
+
+    if (this.index === null) {
+      this.index = inflate(this.indexBuffer)
+      this.indexBuffer = null
+    }
+
+    return !this.index.hasKey(this.seq)
   }
 
   final () {

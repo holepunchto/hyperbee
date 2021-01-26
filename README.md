@@ -121,6 +121,7 @@ Similar to doing a read stream and returning the first value, but a bit faster t
 #### `stream = db.createHistoryStream([options])`
 
 Create a stream of all entries ever inserted or deleted from the db.
+Each entry has an additional `type` property indicating if it was a `put` or `del` operation.
 
 Options include:
 

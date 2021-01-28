@@ -14,7 +14,7 @@ const MIN_KEYS = T - 1
 const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
 const SEP = Buffer.alloc(1)
-const MAX = Buffer.from([255])
+const EMPTY = Buffer.alloc(0)
 
 class Key {
   constructor (seq, value) {
@@ -857,8 +857,14 @@ function encRange (e, opts) {
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
   if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
   if (opts.sub && !opts.gt && !opts.gte) opts.gt = enc(e, SEP)
-  if (opts.sub && !opts.lt && !opts.lte) opts.lt = enc(e, MAX)
+  if (opts.sub && !opts.lt && !opts.lte) opts.lt = bump(enc(e, EMPTY))
   return opts
+}
+
+function bump (key) {
+  // key should have been copied by enc above before hitting this
+  key[key.length - 1]++
+  return key
 }
 
 function enc (e, v) {

@@ -263,6 +263,8 @@ tape('multiple levels of sub, entries outside sub', async t => {
 })
 
 tape('sub respects keyEncoding', async t => {
+  t.plan(2)
+
   const db = create({ sep: '!' })
   const helloSub = db.sub('hello', {
     keyEncoding: {

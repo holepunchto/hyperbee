@@ -262,6 +262,30 @@ tape('multiple levels of sub, entries outside sub', async t => {
   t.end()
 })
 
+tape('sub respects keyEncoding', async t => {
+  const db = create({ sep: '!' })
+  const helloSub = db.sub('hello', {
+    keyEncoding: {
+      encode (key) {
+        return Buffer.from(key.key)
+      },
+      decode (buf) {
+        return { key: buf.toString() }
+      }
+    }
+  })
+
+  await helloSub.put({ key: 'hello' }, 'val')
+
+  for await (const data of helloSub.createReadStream()) {
+    t.same(data.key, { key: 'hello' })
+  }
+
+  const node = await helloSub.get({ key: 'hello' })
+  t.ok(node)
+  t.end()
+})
+
 tape('setting read-only flag to false disables header write', async t => {
   const db = create({ readonly: true })
   await db.ready()

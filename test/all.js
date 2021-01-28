@@ -262,6 +262,25 @@ tape('multiple levels of sub, entries outside sub', async t => {
   t.end()
 })
 
+tape.only('sub with a key that starts with 0xff', async t => {
+  t.plan(2)
+
+  const db = create({ sep: '!', keyEncoding: 'binary' })
+  const helloSub = db.sub('hello')
+  const key = Buffer.from([0xff, 0x01, 0x02])
+
+  await helloSub.put(key, 'val')
+
+  for await (const data of helloSub.createReadStream()) {
+    console.log('i should fire', data)
+    t.same(data.key, key)
+  }
+
+  const node = await helloSub.get(key)
+  t.ok(node)
+  t.end()
+})
+
 tape('setting read-only flag to false disables header write', async t => {
   const db = create({ readonly: true })
   await db.ready()

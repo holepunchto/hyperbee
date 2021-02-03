@@ -230,7 +230,7 @@ tape('simple sub put/get', async t => {
   t.end()
 })
 
-tape.only('multiple levels of sub', async t => {
+tape('multiple levels of sub', async t => {
   const db = create({ sep: '!' })
   const sub = db.sub('hello').sub('world')
   await sub.put('a', 'b')
@@ -250,8 +250,8 @@ tape.only('multiple levels of sub', async t => {
   }
 
   {
-    const key = Buffer.from('hello' + db.sep + 'world' + db.sep + 'a', 'utf-8')
-    t.true(key.equals(encoded))
+    const key = 'hello' + db.sep + 'world' + db.sep + 'a'
+    t.same(key, encoded.toString('utf-8'))
     const node = await db.get(key)
     t.same(node && node.key, key)
     t.same(node && node.value, 'b')

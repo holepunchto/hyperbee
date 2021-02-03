@@ -297,10 +297,14 @@ class HyperBee {
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
     this.readonly = !!opts.readonly
+    this.prefix = opts.prefix || null
 
-    this._sub = !!opts._sub
+    this._unprefixedKeyEncoding = this.keyEncoding
+    this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
     this._ready = opts._ready || null
+
+    if (this.prefix) this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
   }
 
   get feed () {
@@ -452,28 +456,21 @@ class HyperBee {
   sub (prefix, opts = {}) {
     let sep = opts.sep || this.sep
     if (!Buffer.isBuffer(sep)) sep = Buffer.from(sep)
-    prefix = Buffer.concat([Buffer.from(prefix), sep])
+
+    prefix = Buffer.concat([this.prefix || EMPTY, Buffer.from(prefix), sep])
 
     const valueEncoding = codecs(opts.valueEncoding || this.valueEncoding)
-    const keyEncoding = codecs(opts.keyEncoding || this.keyEncoding)
+    const keyEncoding = codecs(opts.keyEncoding || this._unprefixedKeyEncoding)
 
     return new HyperBee(this._feed, {
-      _sub: true,
       _ready: this.ready(),
+      prefix,
       sep: this.sep,
       lock: this.lock,
       checkout: this._checkout,
       extension: this.extension,
       valueEncoding,
-      keyEncoding: {
-        encode (key) {
-          return Buffer.concat([prefix, Buffer.isBuffer(key) ? key : enc(keyEncoding, key)])
-        },
-        decode (key) {
-          const sliced = key.slice(prefix.length, key.length)
-          return keyEncoding ? keyEncoding.decode(sliced) : sliced
-        }
-      }
+      keyEncoding
     })
   }
 }
@@ -872,6 +869,18 @@ function enc (e, v) {
   if (e !== null) return e.encode(v)
   if (typeof v === 'string') return Buffer.from(v)
   return v
+}
+
+function prefixEncoding (prefix, keyEncoding) {
+  return {
+    encode (key) {
+      return Buffer.concat([prefix, Buffer.isBuffer(key) ? key : enc(keyEncoding, key)])
+    },
+    decode (key) {
+      const sliced = key.slice(prefix.length, key.length)
+      return keyEncoding ? keyEncoding.decode(sliced) : sliced
+    }
+  }
 }
 
 function noop () {}

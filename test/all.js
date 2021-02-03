@@ -257,10 +257,6 @@ tape('multiple levels of sub', async t => {
     t.same(node && node.value, 'b')
   }
 
-  for await (const { key, value } of db.createReadStream()) {
-    console.log(`${key} -> ${value}`)
-  }
-
   t.end()
 })
 

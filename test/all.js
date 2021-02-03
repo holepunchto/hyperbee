@@ -234,9 +234,29 @@ tape('multiple levels of sub', async t => {
   const db = create({ sep: '!' })
   const sub = db.sub('hello').sub('world')
   await sub.put('a', 'b')
-  const node = await sub.get('a')
-  t.same(node && node.key, 'a')
-  t.same(node && node.value, 'b')
+
+  const encoded = sub.keyEncoding.encode('a')
+
+  {
+    const node = await sub.get('a')
+    t.same(node && node.key, 'a')
+    t.same(node && node.value, 'b')
+  }
+
+  {
+    const node = await db.get(encoded)
+    t.same(node && node.key, encoded.toString('utf-8'))
+    t.same(node && node.value, 'b')
+  }
+
+  {
+    const key = 'hello' + db.sep + 'world' + db.sep + 'a'
+    t.same(key, encoded.toString('utf-8'))
+    const node = await db.get(key)
+    t.same(node && node.key, key)
+    t.same(node && node.value, 'b')
+  }
+
   t.end()
 })
 

@@ -230,13 +230,37 @@ tape('simple sub put/get', async t => {
   t.end()
 })
 
-tape('multiple levels of sub', async t => {
+tape.only('multiple levels of sub', async t => {
   const db = create({ sep: '!' })
   const sub = db.sub('hello').sub('world')
   await sub.put('a', 'b')
-  const node = await sub.get('a')
-  t.same(node && node.key, 'a')
-  t.same(node && node.value, 'b')
+
+  const encoded = sub.keyEncoding.encode('a')
+
+  {
+    const node = await sub.get('a')
+    t.same(node && node.key, 'a')
+    t.same(node && node.value, 'b')
+  }
+
+  {
+    const node = await db.get(encoded)
+    t.same(node && node.key, encoded.toString('utf-8'))
+    t.same(node && node.value, 'b')
+  }
+
+  {
+    const key = Buffer.from('hello' + db.sep + 'world' + db.sep + 'a', 'utf-8')
+    t.true(key.equals(encoded))
+    const node = await db.get(key)
+    t.same(node && node.key, key)
+    t.same(node && node.value, 'b')
+  }
+
+  for await (const { key, value } of db.createReadStream()) {
+    console.log(`${key} -> ${value}`)
+  }
+
   t.end()
 })
 

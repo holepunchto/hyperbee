@@ -337,7 +337,7 @@ class HyperBee {
 
   async getRoot (opts, batch = this) {
     await this.ready()
-    if (this._checkout === 0 && !this._feed.writable && (opts && opts.update) !== false) await this.update()
+    if (this._checkout === 0 && (opts && opts.update) !== false) await this.update()
     const len = this._checkout || this._feed.length
     if (len < 2) return null
     return (await batch.getBlock(len - 1, opts)).getTreeNode(0)

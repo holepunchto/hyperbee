@@ -536,7 +536,7 @@ class Batch {
 
   async get (key) {
     if (this.keyEncoding) key = enc(this.keyEncoding, key)
-    if (this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
+    if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 
     let node = await this.getRoot()
     if (!node) return null

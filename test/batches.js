@@ -77,3 +77,27 @@ tape('parallel batches', async function (t) {
     return b.flush()
   }
 })
+
+tape('batches can survive parallel ops', async function (t) {
+  const db = create()
+
+  const a = db.batch()
+  const expected = []
+  const p = []
+
+  for (let i = 0; i < 100; i++) {
+    const key = 'i-' + i
+    const value = key
+    expected.push({ seq: 1 + i, key, value })
+    p.push(a.put(key, value))
+  }
+
+  expected.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+
+  await Promise.all(p)
+  await a.flush()
+
+  const all = await collect(db.createReadStream())
+  t.same(all, expected)
+  t.end()
+})

@@ -96,6 +96,11 @@ Delete a key into the batch.
 
 Commit the batch to the database.
 
+#### `batch.destroy()`
+
+Destroy a batch and releases any locks it has aquired on the db.
+Call this if you want to abort a batch without flushing it.
+
 #### `stream = db.createReadStream([options])`
 
 Make a read stream. All entries in the stream are similar to the ones returned from .get and the

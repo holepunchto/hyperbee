@@ -694,6 +694,13 @@ class Batch {
     }
   }
 
+  destroy () {
+    this.root = null
+    this.blocks.clear()
+    this.length = 0
+    this._unlock()
+  }
+
   flush () {
     if (!this.length) return Promise.resolve()
 

@@ -397,7 +397,7 @@ class HyperBee {
       opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     }
 
-    const ite = new RangeIterator(new Batch(this, false, false, opts), opts)
+    const ite = new RangeIterator(new Batch(this, null, false, opts), opts)
     return ite
   }
 
@@ -408,7 +408,7 @@ class HyperBee {
   createHistoryStream (opts) {
     const active = new ActiveRequests(this._feed)
     opts = { active, ...opts }
-    return iteratorToStream(new HistoryIterator(new Batch(this, false, false, opts), opts), active)
+    return iteratorToStream(new HistoryIterator(new Batch(this, null, false, opts), opts), active)
   }
 
   createDiffStream (right, opts) {
@@ -416,25 +416,25 @@ class HyperBee {
     if (typeof right === 'number') right = this.checkout(right)
     if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     else opts = { ...opts, active }
-    return iteratorToStream(new DiffIterator(new Batch(this, false, false, opts), new Batch(right, false, false, opts), opts), active)
+    return iteratorToStream(new DiffIterator(new Batch(this, null, false, opts), new Batch(right, null, false, opts), opts), active)
   }
 
   get (key, opts) {
-    const b = new Batch(this, false, true, { ...opts })
+    const b = new Batch(this, null, true, { ...opts })
     return b.get(key)
   }
 
   put (key, value, opts) {
-    const b = new Batch(this, true, true, opts)
+    const b = new Batch(this, null, true, opts)
     return b.put(key, value)
   }
 
   batch (opts) {
-    return new Batch(this, false, true, opts)
+    return new Batch(this, mutexify(), true, opts)
   }
 
   del (key, opts) {
-    const b = new Batch(this, true, true, opts)
+    const b = new Batch(this, null, true, opts)
     return b.del(key)
   }
 
@@ -476,18 +476,19 @@ class HyperBee {
 }
 
 class Batch {
-  constructor (tree, autoFlush, cache, options = {}) {
+  constructor (tree, batchLock, cache, options = {}) {
     this.tree = tree
     this.keyEncoding = tree.keyEncoding
     this.valueEncoding = tree.valueEncoding
     this.blocks = cache ? new Map() : null
-    this.autoFlush = autoFlush
+    this.autoFlush = !batchLock
     this.rootSeq = 0
     this.root = null
     this.length = 0
     this.options = options
     this.overwrite = options.overwrite !== false
     this.locked = null
+    this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
   }
 
@@ -567,8 +568,19 @@ class Batch {
   }
 
   async put (key, value) {
-    if (!this.locked) await this.lock()
+    const release = this.batchLock ? await this.batchLock() : null
 
+    if (!this.locked) await this.lock()
+    if (!release) return this._put(key, value)
+
+    try {
+      return await this._put(key, value)
+    } finally {
+      release()
+    }
+  }
+
+  async _put (key, value) {
     key = enc(this.keyEncoding, key)
     value = enc(this.valueEncoding, value)
 
@@ -630,8 +642,19 @@ class Batch {
   }
 
   async del (key) {
-    if (!this.locked) await this.lock()
+    const release = this.batchLock ? await this.batchLock() : null
 
+    if (!this.locked) await this.lock()
+    if (!release) return this._del(key)
+
+    try {
+      return await this._del(key)
+    } finally {
+      release()
+    }
+  }
+
+  async _del (key) {
     key = enc(this.keyEncoding, key)
 
     const stack = []

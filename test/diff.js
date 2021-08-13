@@ -59,3 +59,33 @@ test('diff stream on sub + checkout', async function (t) {
 
   t.end()
 })
+
+test('diff on multi-level sub db with parent checkout', async function (t) {
+  const db = await create()
+  const sub = db.sub('hello').sub('world')
+
+  await sub.put('a', 'b')
+  await sub.put('b', 'c')
+
+  const v1 = sub.version
+
+  await sub.put('c', 'd')
+  await sub.del('a')
+
+  const v2 = sub.version
+
+  await sub.put('e', 'f')
+  await sub.put('g', 'h')
+
+  const c1 = db.checkout(v2).sub('hello').sub('world')
+  const c2 = sub.checkout(v2)
+  const entries = await collect(c1.createDiffStream(v1))
+  const entries2 = await collect(c2.createDiffStream(v1))
+
+  t.same(entries.length, 2)
+  t.same(entries2.length, 2)
+  t.same(entries[0].right.key, entries2[0].right.key)
+  t.same(entries[1].left.key, entries2[1].left.key)
+
+  t.end()
+})

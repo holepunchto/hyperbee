@@ -304,7 +304,9 @@ class HyperBee {
     this._checkout = opts.checkout || 0
     this._ready = opts._ready || null
 
-    if (this.prefix && !this._checkout) this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
+    if (this.prefix && opts._sub && !opts._checkout) {
+      this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
+    }
   }
 
   get feed () {
@@ -441,6 +443,7 @@ class HyperBee {
   checkout (version) {
     return new HyperBee(this._feed, {
       _ready: this.ready(),
+      _checkout: true,
       sep: this.sep,
       prefix: this.prefix,
       checkout: version,
@@ -465,6 +468,7 @@ class HyperBee {
 
     return new HyperBee(this._feed, {
       _ready: this.ready(),
+      _sub: true,
       prefix,
       sep: this.sep,
       lock: this.lock,

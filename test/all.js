@@ -346,7 +346,32 @@ tape('read stream on sub checkout returns only sub keys', async t => {
   for await (const { key } of checkout.createReadStream()) {
     keys.push(key)
   }
-  console.log('keys:', keys)
+
+  t.same(keys.length, 2)
+  t.same(keys[0], 'sa')
+  t.same(keys[1], 'sb')
+
+  t.end()
+})
+
+tape('read stream on double sub checkout', async t => {
+  t.plan(3)
+
+  const db = create({ sep: '!', keyEncoding: 'utf-8' })
+  const sub = db.sub('sub')
+
+  await db.put('a', 'a')
+  await sub.put('sa', 'sa')
+  await sub.put('sb', 'sb')
+
+  const checkout = sub.snapshot().snapshot()
+
+  await db.put('b', 'b')
+
+  const keys = []
+  for await (const { key } of checkout.createReadStream()) {
+    keys.push(key)
+  }
 
   t.same(keys.length, 2)
   t.same(keys[0], 'sa')

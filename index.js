@@ -299,6 +299,7 @@ class HyperBee {
     this.readonly = !!opts.readonly
     this.prefix = opts.prefix || null
 
+    this._disabledExtension = opts.extension === false
     this._unprefixedKeyEncoding = this.keyEncoding
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
@@ -473,9 +474,9 @@ class HyperBee {
       sep: this.sep,
       lock: this.lock,
       checkout: this._checkout,
-      extension: this.extension,
       valueEncoding,
-      keyEncoding
+      keyEncoding,
+      extension: this._disabledExtension ? false : this.extension
     })
   }
 }

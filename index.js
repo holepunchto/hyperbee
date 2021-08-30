@@ -447,9 +447,9 @@ class HyperBee {
       sep: this.sep,
       prefix: this.prefix,
       checkout: version,
-      extension: this.extension,
       keyEncoding: this.keyEncoding,
-      valueEncoding: this.valueEncoding
+      valueEncoding: this.valueEncoding,
+      extension: this.extension !== null ? this.extension : false
     })
   }
 
@@ -473,9 +473,9 @@ class HyperBee {
       sep: this.sep,
       lock: this.lock,
       checkout: this._checkout,
-      extension: this.extension,
       valueEncoding,
-      keyEncoding
+      keyEncoding,
+      extension: this.extension !== null ? this.extension : false
     })
   }
 }

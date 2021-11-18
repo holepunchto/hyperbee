@@ -13,7 +13,7 @@ module.exports = class HistoryIterator {
   }
 
   async open () {
-    await this.db.getRoot() // does the update dance
+    await this.db.getRoot(false) // does the update dance
     this.gte = gte(this.options, this.db.version)
     this.lt = this.live ? Infinity : lt(this.options, this.db.version)
   }

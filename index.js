@@ -316,17 +316,8 @@ class HyperBee {
 
   ready () {
     if (this._ready !== null) return this._ready
-    this._ready = this._open()
+    this._ready = this._feed.ready()
     return this._ready
-  }
-
-  async _open () {
-    await this._feed.ready()
-    if (this._feed.length > 0 || !this._feed.writable || this.readonly) return
-    return this._feed.append(Header.encode({
-      protocol: 'hyperbee',
-      metadata: this.metadata
-    }))
   }
 
   get version () {
@@ -337,8 +328,16 @@ class HyperBee {
     return this._feed.update({ ifAvailable: true, hash: false }).then(() => true, () => false)
   }
 
-  async getRoot (opts, batch = this) {
+  async getRoot (ensureHeader, opts, batch = this) {
     await this.ready()
+    if (ensureHeader) {
+      if (this._feed.length === 0 && this._feed.writable && !this.readonly) {
+        await this._feed.append(Header.encode({
+          protocol: 'hyperbee',
+          metadata: this.metadata
+        }))
+      }
+    }
     if (this._checkout === 0 && (opts && opts.update) !== false) await this.update()
     const len = this._checkout || this._feed.length
     if (len < 2) return null
@@ -510,9 +509,9 @@ class Batch {
     return this.tree.version + this.length
   }
 
-  getRoot () {
+  getRoot (ensureHeader) {
     if (this.root !== null) return this.root
-    return this.tree.getRoot(this.options, this)
+    return this.tree.getRoot(ensureHeader, this.options, this)
   }
 
   async getKey (seq) {
@@ -544,7 +543,7 @@ class Batch {
     if (this.keyEncoding) key = enc(this.keyEncoding, key)
     if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 
-    let node = await this.getRoot()
+    let node = await this.getRoot(false)
     if (!node) return null
 
     while (true) {
@@ -592,7 +591,7 @@ class Batch {
     const stack = []
 
     let root
-    let node = root = await this.getRoot()
+    let node = root = await this.getRoot(true)
     if (!node) node = root = TreeNode.create(null)
 
     const seq = this.tree._feed.length + this.length
@@ -664,7 +663,7 @@ class Batch {
 
     const stack = []
 
-    let node = await this.getRoot()
+    let node = await this.getRoot(true)
     if (!node) return this._unlockMaybe()
 
     const seq = this.tree._feed.length + this.length

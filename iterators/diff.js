@@ -75,7 +75,7 @@ class TreeIterator {
   }
 
   async open () {
-    const node = await this.db.getRoot()
+    const node = await this.db.getRoot(false)
     if (!node.keys.length) return
     const tree = new SubTree(node, null)
     if (this.seeking && !(await this._seek(tree))) return

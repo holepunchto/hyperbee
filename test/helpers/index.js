@@ -52,7 +52,7 @@ async function createRange (start, end, opts = end) {
 }
 
 async function toString (tree) {
-  return require('tree-to-string')(await load(await tree.getRoot()))
+  return require('tree-to-string')(await load(await tree.getRoot(false)))
 
   async function load (node) {
     const res = { values: [], children: [] }

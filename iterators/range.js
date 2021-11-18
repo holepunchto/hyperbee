@@ -59,7 +59,7 @@ module.exports = class RangeIterator {
 
     this._nexting = true
 
-    let node = await this.db.getRoot()
+    let node = await this.db.getRoot(false)
     if (!node) {
       this._nexting = false
       return

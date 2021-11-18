@@ -315,9 +315,7 @@ class HyperBee {
   }
 
   ready () {
-    if (this._ready !== null) return this._ready
-    this._ready = this._feed.ready()
-    return this._ready
+    return this._feed.ready()
   }
 
   get version () {

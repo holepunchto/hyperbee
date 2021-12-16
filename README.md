@@ -123,6 +123,10 @@ Options include:
 
 Similar to doing a read stream and returning the first value, but a bit faster than that.
 
+#### `const bool = await db.hasPrefix(prefix)`
+
+Check if any key starts with`prefix`.
+
 #### `stream = db.createHistoryStream([options])`
 
 Create a stream of all entries ever inserted or deleted from the db.

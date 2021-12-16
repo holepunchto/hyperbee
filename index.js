@@ -418,6 +418,12 @@ class HyperBee {
     return iteratorToStream(new DiffIterator(new Batch(this, null, false, opts), new Batch(right, null, false, opts), opts), active)
   }
 
+  async hasPrefix (prefix) {
+    const ite = this.createRangeIterator({ gte: prefix })
+    await ite.open()
+    return ite.next()
+  }
+
   get (key, opts) {
     const b = new Batch(this, null, true, { ...opts })
     return b.get(key)

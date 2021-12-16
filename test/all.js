@@ -406,3 +406,44 @@ tape('feed is unwrapped in getter', async t => {
   t.same(feed, db.feed)
   t.end()
 })
+
+tape('hasPrefix returns true if prefix is present ', async t => {
+  const prefix = 'prefix'
+  const db = create()
+  await db.ready()
+  await db.put(prefix)
+
+  t.ok(await db.hasPrefix(prefix))
+  t.end()
+})
+
+tape('hasPrefix returns false if prefix is not present ', async t => {
+  const db = create()
+  await db.ready()
+
+  const prefix = 'prefix'
+  t.notOk(await db.hasPrefix(prefix))
+  t.end()
+})
+
+tape('hasPrefix returns true if sub with given prefix is present ', async t => {
+  const prefix = 'prefix'
+  const subPrefix = 'subPrefix'
+  const db = create()
+  await db.ready()
+  const sub = db.sub(prefix)
+  await sub.put(subPrefix)
+
+  t.ok(await db.hasPrefix(prefix))
+  t.end()
+})
+
+tape('hasPrefix returns false if sub with given prefix has 0 entries ', async t => {
+  const prefix = 'prefix'
+  const db = create()
+  await db.ready()
+  db.sub(prefix)
+
+  t.notOk(await db.hasPrefix(prefix))
+  t.end()
+})

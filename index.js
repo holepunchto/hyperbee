@@ -419,7 +419,7 @@ class HyperBee {
   }
 
   async hasPrefix (prefix) {
-    const ite = this.createRangeIterator({ gte: prefix })
+    const ite = this.createRangeIterator({ gte: prefix, limit: 1 })
     await ite.open()
     const entry = await ite.next()
     return entry ? entry.key.indexOf(prefix) === 0 : false

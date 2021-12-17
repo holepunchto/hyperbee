@@ -420,9 +420,9 @@ tape('hasPrefix returns true if prefix is present ', async t => {
 tape('hasPrefix returns false if prefix is not present ', async t => {
   const db = create()
   await db.ready()
+  await db.put('z')
 
-  const prefix = 'prefix'
-  t.notOk(await db.hasPrefix(prefix))
+  t.notOk(await db.hasPrefix('a'))
   t.end()
 })
 

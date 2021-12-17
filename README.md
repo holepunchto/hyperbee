@@ -125,7 +125,7 @@ Similar to doing a read stream and returning the first value, but a bit faster t
 
 #### `const bool = await db.hasPrefix(prefix)`
 
-Check if any key starts with`prefix`.
+Check if any key starts with `prefix`.
 
 #### `stream = db.createHistoryStream([options])`
 

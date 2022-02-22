@@ -267,24 +267,6 @@ class BatchEntry extends BlockEntry {
 
 // small abstraction to track feed "get"s so they can be cancelled.
 // we might wanna fold something like this into hypercore
-class ActiveRequests {
-  constructor (feed) {
-    this.feed = feed
-    this.requests = new Set()
-  }
-
-  add (req) {
-    this.requests.add(req)
-  }
-
-  remove (req) {
-    this.requests.delete(req)
-  }
-
-  cancel () {
-    for (const req of this.requests) this.feed.cancel(req)
-  }
-}
 
 class HyperBee {
   constructor (feed, opts = {}) {
@@ -347,15 +329,9 @@ class HyperBee {
   }
 
   async getBlock (seq, opts, batch = this) {
-    const active = opts.active
-    const request = this._feed.get(seq, { ...opts, valueEncoding: Node })
-    if (active) active.add(request)
-    try {
-      const entry = await request
-      return new BlockEntry(seq, batch, entry)
-    } finally {
-      if (active) active.remove(request)
-    }
+    const snapshot = opts.snapshot || this._feed
+    const entry = await snapshot.get(seq, { ...opts, valueEncoding: Node })
+    return new BlockEntry(seq, batch, entry)
   }
 
   async peek (opts) {
@@ -367,7 +343,7 @@ class HyperBee {
     return ite.next()
   }
 
-  createRangeIterator (opts = {}, active = null) {
+  createRangeIterator (opts = {}, snapshot = null) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
 
     if (extension) {
@@ -378,7 +354,7 @@ class HyperBee {
       opts = encRange(this.keyEncoding, {
         ...opts,
         sub: this._sub,
-        active,
+        snapshot,
         onseq (seq) {
           if (!version) version = seq + 1
           if (next) next--
@@ -393,7 +369,7 @@ class HyperBee {
         }
       })
     } else {
-      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
+      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, snapshot })
     }
 
     const ite = new RangeIterator(new Batch(this, null, false, opts), opts)
@@ -401,21 +377,21 @@ class HyperBee {
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts, new ActiveRequests(this._feed)))
+    return iteratorToStream(this.createRangeIterator(opts, this._feed.snapshot()))
   }
 
   createHistoryStream (opts) {
-    const active = new ActiveRequests(this._feed)
-    opts = { active, ...opts }
-    return iteratorToStream(new HistoryIterator(new Batch(this, null, false, opts), opts), active)
+    const snapshot = this._feed.snapshot()
+    opts = { snapshot, ...opts }
+    return iteratorToStream(new HistoryIterator(new Batch(this, null, false, opts), opts), snapshot)
   }
 
   createDiffStream (right, opts) {
-    const active = new ActiveRequests(this._feed)
+    const snapshot = this._feed.snapshot()
     if (typeof right === 'number') right = this.checkout(right)
-    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
-    else opts = { ...opts, active }
-    return iteratorToStream(new DiffIterator(new Batch(this, null, false, opts), new Batch(right, null, false, opts), opts), active)
+    if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, snapshot })
+    else opts = { ...opts, snapshot }
+    return iteratorToStream(new DiffIterator(new Batch(this, null, false, opts), new Batch(right, null, false, opts), opts), snapshot)
   }
 
   get (key, opts) {
@@ -438,7 +414,7 @@ class HyperBee {
   }
 
   checkout (version) {
-    return new HyperBee(this._feed, {
+    return new HyperBee(this._feed.snapshot(), {
       _ready: this.ready(),
       _sub: false,
       sep: this.sep,
@@ -856,11 +832,15 @@ async function rebalance (stack) {
   return root
 }
 
-function iteratorToStream (ite, active) {
+function iteratorToStream (ite, snapshot) {
   let done
+  let closing
+
   const rs = new Readable({
     predestroy () {
-      if (active) active.cancel()
+      if (!snapshot) return
+      closing = snapshot.close()
+      closing.catch(noop)
     },
     open (cb) {
       done = cb
@@ -869,6 +849,11 @@ function iteratorToStream (ite, active) {
     read (cb) {
       done = cb
       ite.next().then(push, fin)
+    },
+    destroy (cb) {
+      done = cb
+      if (!closing) return fin(null)
+      closing.then(fin, fin)
     }
   })
 

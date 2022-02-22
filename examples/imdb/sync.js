@@ -1,7 +1,8 @@
-const Hyperb = require('../../')
-const hypercore = require('hypercore')
+const Hyperbee = require('../../')
+const Hypercore = require('hypercore')
 
-const db = new Hyperb(hypercore('./db', { sparse: true }))
+const core = new Hypercore('./db')
+const db = new Hyperbee(core)
 
 require('@hyperswarm/replicator')(db.feed, {
   announce: true,

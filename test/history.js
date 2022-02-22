@@ -162,7 +162,8 @@ tape('negative indexes is implicit + version', async function (t) {
   ])
 })
 
-tape('live history can be destroyed', async function (t) {
+// TODO: Re-enable once request cancellation on snapshot.close is implemented
+tape.skip('live history can be destroyed', async function (t) {
   const db = await createRange(1)
 
   let done
@@ -177,6 +178,8 @@ tape('live history can be destroyed', async function (t) {
   stream.on('close', function () {
     done()
   })
+
+  await new Promise(resolve => setTimeout(resolve, 1000))
 
   return end
 })

@@ -1,3 +1,6 @@
+const ram = require('random-access-memory')
+const Hypercore = require('hypercore')
+
 const Hyperbee = require('../../')
 
 module.exports = {
@@ -67,7 +70,6 @@ async function toString (tree) {
 }
 
 function create (opts) {
-  opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
-  const feed = require('hypercore')(require('random-access-memory'))
-  return new Hyperbee(feed, opts)
+  const feed = new Hypercore(ram)
+  return new Hyperbee(feed, { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts })
 }

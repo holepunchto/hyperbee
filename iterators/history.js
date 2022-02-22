@@ -1,6 +1,6 @@
 module.exports = class HistoryIterator {
-  constructor (db, opts = {}) {
-    this.db = db
+  constructor (batch, opts = {}) {
+    this.batch = batch
     this.options = opts
     this.live = !!opts.live
     this.gte = 0
@@ -12,13 +12,13 @@ module.exports = class HistoryIterator {
     }
   }
 
-  async open () {
-    await this.db.getRoot(false) // does the update dance
-    this.gte = gte(this.options, this.db.version)
-    this.lt = this.live ? Infinity : lt(this.options, this.db.version)
+  async _open () {
+    await this.batch.getRoot(false) // does the update dance
+    this.gte = gte(this.options, this.batch.version)
+    this.lt = this.live ? Infinity : lt(this.options, this.batch.version)
   }
 
-  async next () {
+  async _next () {
     if (this.limit === 0) return null
     if (this.limit > 0) this.limit--
 
@@ -26,10 +26,32 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.lt <= 1) return null
-      return final(await this.db.getBlock(--this.lt, this.options))
+      return final(await this.batch.getBlock(--this.lt, this.options))
     }
 
-    return final(await this.db.getBlock(this.gte++, this.options))
+    return final(await this.batch.getBlock(this.gte++, this.options))
+  }
+
+  open () {
+    const opening = this._open()
+    opening.catch(this.close.bind(this))
+    return opening
+  }
+
+  async next () {
+    try {
+      const next = await this._next()
+      if (next) return next
+      await this.close()
+      return null
+    } catch (err) {
+      await this.close()
+      throw err
+    }
+  }
+
+  close () {
+    return this.batch.close()
   }
 }
 

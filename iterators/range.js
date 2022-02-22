@@ -1,6 +1,6 @@
 module.exports = class RangeIterator {
-  constructor (db, opts = {}) {
-    this.db = db
+  constructor (batch, opts = {}) {
+    this.batch = batch
     this.stack = []
     this.opened = false
 
@@ -39,7 +39,12 @@ module.exports = class RangeIterator {
   }
 
   async open () {
-    await this._open()
+    try {
+      await this._open()
+    } catch (err) {
+      await this.close()
+      throw err
+    }
     this.opened = true
   }
 
@@ -50,7 +55,7 @@ module.exports = class RangeIterator {
         const offset = this._checkpoint[j + 1]
         const i = this._checkpoint[j + 2]
         this.stack.push({
-          node: (await this.db.getBlock(seq)).getTreeNode(offset),
+          node: (await this.batch.getBlock(seq)).getTreeNode(offset),
           i
         })
       }
@@ -59,7 +64,7 @@ module.exports = class RangeIterator {
 
     this._nexting = true
 
-    let node = await this.db.getRoot(false)
+    let node = await this.batch.getRoot(false)
     if (!node) {
       this._nexting = false
       return
@@ -110,7 +115,7 @@ module.exports = class RangeIterator {
     }
   }
 
-  async next () {
+  async _next () {
     // TODO: this nexting flag is only needed if someone asks for a snapshot during
     // a lookup (ie the extension, pretty important...).
     // A better solution would be to refactor this so top.i is incremented eagerly
@@ -141,7 +146,7 @@ module.exports = class RangeIterator {
       }
 
       const key = top.node.keys[n]
-      const block = await this.db.getBlock(key.seq)
+      const block = await this.batch.getBlock(key.seq)
       if (end) {
         const c = Buffer.compare(block.key, end)
         if (c === 0 ? !incl : (this._reverse ? c < 0 : c > 0)) {
@@ -156,5 +161,21 @@ module.exports = class RangeIterator {
 
     this._nexting = false
     return null
+  }
+
+  async next () {
+    try {
+      const next = await this._next()
+      if (next) return next
+      await this.close()
+      return null
+    } catch (err) {
+      await this.close()
+      throw err
+    }
+  }
+
+  close () {
+    return this.batch.close()
   }
 }

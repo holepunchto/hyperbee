@@ -825,14 +825,13 @@ async function rebalance (stack) {
   return root
 }
 
-function iteratorToStream (ite, snapshot) {
+function iteratorToStream (ite) {
   let done
   let closing
 
   const rs = new Readable({
     predestroy () {
-      if (!snapshot) return
-      closing = snapshot.close()
+      closing = ite.close()
       closing.catch(noop)
     },
     open (cb) {
@@ -845,7 +844,7 @@ function iteratorToStream (ite, snapshot) {
     },
     destroy (cb) {
       done = cb
-      if (!closing) return fin(null)
+      if (!closing) closing = ite.close()
       closing.then(fin, fin)
     }
   })

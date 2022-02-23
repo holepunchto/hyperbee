@@ -472,7 +472,7 @@ class Batch {
         }))
       }
     }
-    if (this.tree._checkout === 0 && (opts && opts.update) !== false) await this.tree.update()
+    if (this.tree._checkout === 0 && (opts && opts.update) !== false) await this.feed.update()
     if (this.version < 2) return null
     return (await this.getBlock(this.version - 1, opts)).getTreeNode(0)
   }

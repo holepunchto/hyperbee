@@ -15,7 +15,6 @@ tape('out of bounds iterator', async function (t) {
   await b.put('c', null)
 
   await b.flush()
-  console.log(1)
 
   const s = db.createReadStream({ gt: Buffer.from('c') })
   let count = 0

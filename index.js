@@ -366,7 +366,7 @@ class HyperBee {
   }
 
   async get (key, opts) {
-    const b = new Batch(this, this._feed.snapshot(), null, true, opts)
+    const b = new Batch(this, this._feed.snapshot({ updateOnce: true }), null, true, opts)
     const block = await b.get(key)
     await b.close()
     return block
@@ -459,7 +459,7 @@ class Batch {
   }
 
   get version () {
-    return this.feed.length
+    return this.tree.version + this.length
   }
 
   async getRoot (ensureHeader, opts) {
@@ -472,10 +472,9 @@ class Batch {
         }))
       }
     }
-    // TODO: Return to this
     if (this.tree._checkout === 0 && (opts && opts.update) !== false) await this.tree.update()
-    if (this.feed.length < 2) return null
-    return (await this.getBlock(this.feed.length - 1, opts)).getTreeNode(0)
+    if (this.version < 2) return null
+    return (await this.getBlock(this.version - 1, opts)).getTreeNode(0)
   }
 
   async getKey (seq) {

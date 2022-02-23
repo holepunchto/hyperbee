@@ -12,13 +12,13 @@ module.exports = class HistoryIterator {
     }
   }
 
-  async _open () {
+  async open () {
     await this.batch.getRoot(false) // does the update dance
     this.gte = gte(this.options, this.batch.version)
     this.lt = this.live ? Infinity : lt(this.options, this.batch.version)
   }
 
-  async _next () {
+  async next () {
     if (this.limit === 0) return null
     if (this.limit > 0) this.limit--
 
@@ -30,24 +30,6 @@ module.exports = class HistoryIterator {
     }
 
     return final(await this.batch.getBlock(this.gte++, this.options))
-  }
-
-  open () {
-    const opening = this._open()
-    opening.catch(this.close.bind(this))
-    return opening
-  }
-
-  async next () {
-    try {
-      const next = await this._next()
-      if (next) return next
-      await this.close()
-      return null
-    } catch (err) {
-      await this.close()
-      throw err
-    }
   }
 
   close () {

@@ -39,12 +39,7 @@ module.exports = class RangeIterator {
   }
 
   async open () {
-    try {
-      await this._open()
-    } catch (err) {
-      await this.close()
-      throw err
-    }
+    await this._open()
     this.opened = true
   }
 
@@ -115,7 +110,7 @@ module.exports = class RangeIterator {
     }
   }
 
-  async _next () {
+  async next () {
     // TODO: this nexting flag is only needed if someone asks for a snapshot during
     // a lookup (ie the extension, pretty important...).
     // A better solution would be to refactor this so top.i is incremented eagerly
@@ -161,18 +156,6 @@ module.exports = class RangeIterator {
 
     this._nexting = false
     return null
-  }
-
-  async next () {
-    try {
-      const next = await this._next()
-      if (next) return next
-      await this.close()
-      return null
-    } catch (err) {
-      await this.close()
-      throw err
-    }
   }
 
   close () {

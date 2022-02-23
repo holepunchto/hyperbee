@@ -113,7 +113,7 @@ class TreeIterator {
     return null
   }
 
-  async _next () {
+  async next () {
     if (!this.stack.length) return null
 
     const top = this.stack[this.stack.length - 1]
@@ -137,18 +137,6 @@ class TreeIterator {
     return null
   }
 
-  async next () {
-    try {
-      const next = await this._next()
-      if (next) return next
-      await this.close()
-      return null
-    } catch (err) {
-      await this.close()
-      throw err
-    }
-  }
-
   close () {
     return this.batch.close()
   }
@@ -161,12 +149,12 @@ module.exports = class DiffIterator {
     this.limit = typeof opts.limit === 'number' ? opts.limit : -1
   }
 
-  open () {
-    return Promise.all([this.left.open(), this.right.open()])
+  async open () {
+    await Promise.all([this.left.open(), this.right.open()])
   }
 
-  close () {
-    return Promise.all([this.left.close(), this.right.close()])
+  async close () {
+    await Promise.all([this.left.close(), this.right.close()])
   }
 
   async next () {

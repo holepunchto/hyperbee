@@ -1,7 +1,7 @@
 const { create, collect } = require('./helpers')
 const tape = require('tape')
 
-tape.only('basic batch', async function (t) {
+tape('basic batch', async function (t) {
   const db = create()
 
   const b = db.batch()

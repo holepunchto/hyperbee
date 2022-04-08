@@ -495,6 +495,7 @@ class Batch {
     this.locked = null
     this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
+    this.appending = null
   }
 
   ready () {
@@ -706,8 +707,8 @@ class Batch {
     this._unlock()
   }
 
-  flush () {
-    if (!this.length) return Promise.resolve()
+  toBlocks () {
+    if (this.appending) return this.appending
 
     const batch = new Array(this.length)
 
@@ -736,6 +737,14 @@ class Batch {
         index: deflate(pendingIndex)
       })
     }
+
+    this.appending = batch
+    return batch
+  }
+
+  flush () {
+    if (!this.length) return Promise.resolve()
+    const batch = this.toBlocks()
 
     this.root = null
     this.blocks.clear()

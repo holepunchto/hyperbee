@@ -400,7 +400,8 @@ tape('cannot append to read-only db', async t => {
 })
 
 tape('feed is unwrapped in getter', async t => {
-  const feed = require('hypercore')(require('random-access-memory'))
+  const Hypercore = require('hypercore')
+  const feed = new Hypercore(require('random-access-memory'))
   const db = new Hyperbee(feed)
   await db.ready()
   t.same(feed, db.feed)

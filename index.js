@@ -355,7 +355,8 @@ class HyperBee {
   }
 
   createHistoryStream (opts) {
-    return iteratorToStream(new HistoryIterator(new Batch(this, this._feed.snapshot(), null, false, opts), opts))
+    const session = (opts && opts.live) ? this._feed.session() : this._feed.snapshot()
+    return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
   }
 
   createDiffStream (right, opts) {

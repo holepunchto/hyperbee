@@ -599,7 +599,7 @@ class Batch {
     const seq = this.tree._feed.length + this.length
     const target = new Key(seq, key)
 
-    let onlyIfChanged = !!(opts || this.options).onlyIfChanged
+    const onlyIfChanged = !!(opts || this.options).onlyIfChanged
 
     while (node.children.length) {
       stack.push(node)
@@ -620,7 +620,6 @@ class Batch {
             const block = await this.getBlock(node.keys[mid].seq)
             const same = (Buffer.compare(block.value, value) === 0)
             if (same) try { return block.final() } finally { this._unlockMaybe() }
-            else onlyIfChanged = false // so we don't duplicate work below
           }
 
           node.setKey(mid, target)

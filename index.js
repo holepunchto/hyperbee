@@ -617,8 +617,7 @@ class Batch {
           if (!this.overwrite) return this._unlockMaybe()
 
           if (onlyIfChanged) {
-            const seq = await this.getSeq(key)
-            const block = await this.getBlock(seq)
+            const block = await this.getBlock(node.keys[mid].seq)
             const same = (Buffer.compare(block.value, value) === 0)
             if (same) try { return block.final() } finally { this._unlockMaybe() }
             else onlyIfChanged = false // so we don't duplicate work below

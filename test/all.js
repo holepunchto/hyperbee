@@ -407,3 +407,44 @@ tape('feed is unwrapped in getter', async t => {
   t.same(feed, db.feed)
   t.end()
 })
+
+tape('put returns key & value', async t => {
+  const tests = [
+    {
+      opts: {},
+      key: Buffer.from('key'),
+      value: Buffer.from('value'),
+      t: (result, key, value) => {
+        t.equals(Buffer.compare(result.key, key), 0)
+        t.equals(Buffer.compare(result.value, value), 0)
+      }
+    },
+    {
+      opts: { keyEncoding: 'utf8', valueEncoding: 'utf8' },
+      key: 'key',
+      value: 'value',
+      t: (result, key, value) => {
+        t.equals(result.key, key)
+        t.equals(result.value, value)
+      }
+    },
+    {
+      opts: { keyEncoding: 'utf8', valueEncoding: 'json' },
+      key: 'key',
+      value: { value: 'value' },
+      t: (result, key, value) => {
+        t.equals(result.key, key)
+        t.deepEquals(result.value, value)
+      }
+    }
+  ]
+  const Hypercore = require('hypercore')
+  for (const test of tests) {
+    const feed = new Hypercore(require('random-access-memory'))
+    const db = new Hyperbee(feed, test.opts)
+    await db.ready()
+    const result = await db.put(test.key, test.value)
+    test.t(result, test.key, test.value)
+  }
+  t.end()
+})

@@ -527,19 +527,7 @@ class Batch {
     return b
   }
 
-  _onwait (key) {
-    this.options.onwait = null
-    this.tree.extension.get(this.rootSeq, key)
-  }
-
-  async peek (range) {
-    const ite = new RangeIterator(this, range)
-    await ite.open()
-    return ite.next()
-  }
-
-  async get (key) {
-    if (this.keyEncoding) key = enc(this.keyEncoding, key)
+  async getSeq (key) {
     if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 
     let node = await this.getRoot(false)
@@ -555,9 +543,7 @@ class Batch {
 
         c = Buffer.compare(key, await node.getKey(mid))
 
-        if (c === 0) {
-          return (await this.getBlock(node.keys[mid].seq)).final()
-        }
+        if (c === 0) return node.keys[mid].seq
 
         if (c < 0) e = mid
         else s = mid + 1
@@ -570,20 +556,37 @@ class Batch {
     }
   }
 
-  async put (key, value) {
-    const release = this.batchLock ? await this.batchLock() : null
+  _onwait (key) {
+    this.options.onwait = null
+    this.tree.extension.get(this.rootSeq, key)
+  }
 
+  async peek (range) {
+    const ite = new RangeIterator(this, range)
+    await ite.open()
+    return ite.next()
+  }
+
+  async get (key) {
+    if (this.keyEncoding) key = enc(this.keyEncoding, key)
+    const seq = await this.getSeq(key)
+    if (seq === null) return null
+    return (await this.getBlock(seq)).final()
+  }
+
+  async put (key, value, opts) {
+    const release = this.batchLock ? await this.batchLock() : null
     if (!this.locked) await this.lock()
-    if (!release) return this._put(key, value)
+    if (!release) return this._put(key, value, opts)
 
     try {
-      return await this._put(key, value)
+      return await this._put(key, value, opts)
     } finally {
       release()
     }
   }
 
-  async _put (key, value) {
+  async _put (key, value, opts) {
     key = enc(this.keyEncoding, key)
     value = enc(this.valueEncoding, value)
 
@@ -595,6 +598,8 @@ class Batch {
 
     const seq = this.tree._feed.length + this.length
     const target = new Key(seq, key)
+
+    let onlyIfChanged = !!(opts || this.options).onlyIfChanged
 
     while (node.children.length) {
       stack.push(node)
@@ -610,6 +615,15 @@ class Batch {
 
         if (c === 0) {
           if (!this.overwrite) return this._unlockMaybe()
+
+          if (onlyIfChanged) {
+            const seq = await this.getSeq(key)
+            const block = await this.getBlock(seq)
+            const same = (Buffer.compare(block.value, value) === 0)
+            if (same) try { return block.final() } finally { this._unlockMaybe() }
+            else onlyIfChanged = false // so we don't duplicate work below
+          }
+
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
         }
@@ -620,6 +634,15 @@ class Batch {
 
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
+    }
+
+    if (onlyIfChanged) {
+      const seq = await this.getSeq(key)
+      if (seq) {
+        const block = await this.getBlock(seq)
+        const same = (Buffer.compare(block.value, value) === 0)
+        if (same) try { return block.final() } finally { this._unlockMaybe() }
+      }
     }
 
     let needsSplit = !(await node.insertKey(target, null, this.overwrite))

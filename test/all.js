@@ -407,3 +407,51 @@ tape('feed is unwrapped in getter', async t => {
   t.same(feed, db.feed)
   t.end()
 })
+
+tape('put onlyIfChanged inserts only if existing value !== value', async t => {
+  const Hypercore = require('hypercore')
+  const feed = new Hypercore(require('random-access-memory'))
+  const db = new Hyperbee(feed)
+  await db.ready()
+  const key = Buffer.from('key')
+  const value = Buffer.from('value')
+  await db.put(key, value)
+  const fst = await db.get(key)
+  const fstlen = db._feed.length
+  await db.put(key, value, { onlyIfChanged: true })
+  const snd = await db.get(key)
+  const sndlen = db._feed.length
+  await db.put(key, Buffer.from('va1ue'), { onlyIfChanged: true })
+  const thd = await db.get(key)
+  const thdlen = db._feed.length
+  t.equals(fst.seq, snd.seq)
+  t.equals(fstlen, sndlen)
+  t.equals(snd.seq, thd.seq - 1)
+  t.equals(sndlen, thdlen - 1)
+  t.end()
+})
+
+tape('batch put onlyIfChanged inserts only if existing value !== value', async t => {
+  const Hypercore = require('hypercore')
+  const feed = new Hypercore(require('random-access-memory'))
+  const db = new Hyperbee(feed)
+  await db.ready()
+  const key = Buffer.from('key')
+  const value = Buffer.from('value')
+  const batch = db.batch()
+  await batch.put(key, value)
+  const fst = await batch.get(key)
+  const fstlen = batch.blocks.size
+  await batch.put(key, value, { onlyIfChanged: true })
+  const snd = await batch.get(key)
+  const sndlen = batch.blocks.size
+  await batch.put(key, Buffer.from('va1ue'), { onlyIfChanged: true })
+  const thd = await batch.get(key)
+  const thdlen = batch.blocks.size
+  await batch.flush()
+  t.equals(fst.seq, snd.seq)
+  t.equals(fstlen, sndlen)
+  t.equals(snd.seq, thd.seq - 1)
+  t.equals(sndlen, thdlen - 1)
+  t.end()
+})

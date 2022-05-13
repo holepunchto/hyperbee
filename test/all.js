@@ -409,21 +409,18 @@ tape('feed is unwrapped in getter', async t => {
 })
 
 tape('put onlyIfChanged inserts only if existing value !== value', async t => {
-  const Hypercore = require('hypercore')
-  const feed = new Hypercore(require('random-access-memory'))
-  const db = new Hyperbee(feed)
-  await db.ready()
+  const db = create()
   const key = Buffer.from('key')
   const value = Buffer.from('value')
   await db.put(key, value)
   const fst = await db.get(key)
-  const fstlen = db._feed.length
+  const fstlen = db.feed.length
   await db.put(key, value, { onlyIfChanged: true })
   const snd = await db.get(key)
-  const sndlen = db._feed.length
+  const sndlen = db.feed.length
   await db.put(key, Buffer.from('va1ue'), { onlyIfChanged: true })
   const thd = await db.get(key)
-  const thdlen = db._feed.length
+  const thdlen = db.feed.length
   t.equals(fst.seq, snd.seq)
   t.equals(fstlen, sndlen)
   t.equals(snd.seq, thd.seq - 1)
@@ -432,10 +429,7 @@ tape('put onlyIfChanged inserts only if existing value !== value', async t => {
 })
 
 tape('batch put onlyIfChanged inserts only if existing value !== value', async t => {
-  const Hypercore = require('hypercore')
-  const feed = new Hypercore(require('random-access-memory'))
-  const db = new Hyperbee(feed)
-  await db.ready()
+  const db = create()
   const key = Buffer.from('key')
   const value = Buffer.from('value')
   const batch = db.batch()

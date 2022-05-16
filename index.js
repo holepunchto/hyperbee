@@ -600,7 +600,6 @@ class Batch {
     const target = new Key(seq, key)
 
     const onlyIfChanged = !!(opts || this.options).onlyIfChanged
-
     while (node.children.length) {
       stack.push(node)
       node.changed = true // changed, but compressible
@@ -617,10 +616,11 @@ class Batch {
           if (!this.overwrite) return this._unlockMaybe()
 
           if (onlyIfChanged) {
-            console.log('IN THE LOOP')
+            const _opts = (opts || this.options)
+            if (_opts?.probes?.loop) _opts.probes.loop({ key, node })
             const block = await this.getBlock(node.keys[mid].seq)
             const same = (Buffer.compare(block.value, value) === 0)
-            if (same) try { return block.final() } finally { this._unlockMaybe() }
+            if (same) return this._unlockMaybe()
           }
 
           node.setKey(mid, target)
@@ -635,8 +635,10 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
+
     if (onlyIfChanged) {
-      console.log('NOT IN THE LOOP')
+      const _opts = (opts || this.options)
+      if (_opts?.probes?.postloop) _opts.probes.postloop({ key, node })
       const seq = await this.getSeq(key)
       if (seq) {
         const block = await this.getBlock(seq)
@@ -719,6 +721,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
   }
+
 
   destroy () {
     this.root = null

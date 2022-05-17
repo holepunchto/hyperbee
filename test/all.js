@@ -409,42 +409,27 @@ tape('feed is unwrapped in getter', async t => {
 })
 
 tape('put returns key & value', async t => {
-  const tests = [
-    {
-      opts: {},
-      key: Buffer.from('key'),
-      value: Buffer.from('value'),
-      t: (result, key, value) => {
-        t.equals(Buffer.compare(result.key, key), 0)
-        t.equals(Buffer.compare(result.value, value), 0)
-      }
-    },
-    {
-      opts: { keyEncoding: 'utf8', valueEncoding: 'utf8' },
-      key: 'key',
-      value: 'value',
-      t: (result, key, value) => {
-        t.equals(result.key, key)
-        t.equals(result.value, value)
-      }
-    },
-    {
-      opts: { keyEncoding: 'utf8', valueEncoding: 'json' },
-      key: 'key',
-      value: { value: 'value' },
-      t: (result, key, value) => {
-        t.equals(result.key, key)
-        t.deepEquals(result.value, value)
-      }
-    }
-  ]
-  const Hypercore = require('hypercore')
-  for (const test of tests) {
-    const feed = new Hypercore(require('random-access-memory'))
-    const db = new Hyperbee(feed, test.opts)
-    await db.ready()
-    const result = await db.put(test.key, test.value)
-    test.t(result, test.key, test.value)
-  }
+  
+  const db0 = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+  const k0 = 'key'
+  const v0 = { value: 'value' }
+  const res0 = await db0.put(k0, v0)
+  t.equals(res0.key, k0)
+  t.deepEquals(res0.value, v0)
+
+  const db1 = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+  const k1 = 'key'
+  const v1 = 'value'
+  const res1 = await db1.put(k1, v1)
+  t.equals(res1.key, k1)
+  t.equals(res1.value, v1)
+
+  const db2 = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+  const k2 = Buffer.from('key')
+  const v2 = Buffer.from('value')
+  const res2 = await db2.put(k2, v2)
+  t.equals(Buffer.compare(res2.key, k2), 0)
+  t.equals(Buffer.compare(res2.value, v2), 0)
+
   t.end()
 })

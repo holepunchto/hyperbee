@@ -583,7 +583,7 @@ class Batch {
     const raw = compare === _compare
 
     const current = await this.get(key, { raw })
-    if (!current || !compare.bind(this)(test, current.value, { key, value })) return null
+    if (!current || !compare.bind(this)(test, current.value)) return null
     await this.put(key, value)
     return (raw) ? current.final() : current
 

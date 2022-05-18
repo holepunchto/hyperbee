@@ -412,7 +412,7 @@ class HyperBee {
 
   createDiffStream (right, opts) {
     const active = new ActiveRequests(this._feed)
-    if (typeof right === 'number') right = this.checkout(right)
+    if (typeof right === 'number') right = this.checkout(Math.max(1, right))
     if (this.keyEncoding) opts = encRange(this.keyEncoding, { ...opts, sub: this._sub, active })
     else opts = { ...opts, active }
     return iteratorToStream(new DiffIterator(new Batch(this, null, false, opts), new Batch(right, null, false, opts), opts), active)

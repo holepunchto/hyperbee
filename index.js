@@ -581,14 +581,16 @@ class Batch {
   async cas (key, value, test, { compare } = {}) {
     compare = compare ?? _compare
     const raw = compare === _compare
-    test = (raw) ? enc(this.valueEncoding, test) : test
 
     const current = await this.get(key, { raw })
-    if (!current || !compare(test, current.value, { key, value })) return null
+    if (!current || !compare.bind(this)(test, current.value, { key, value })) return null
     await this.put(key, value)
     return (raw) ? current.final() : current
 
-    function _compare (t, c) { return Buffer.compare(t, c) === 0 }
+    function _compare (t, c) {
+      t = enc(this.valueEncoding, t)
+      return Buffer.compare(t, c) === 0
+    }
   }
 
   async put (key, value) {

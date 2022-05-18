@@ -76,7 +76,7 @@ class TreeIterator {
 
   async open () {
     const node = await this.batch.getRoot(false)
-    if (!node.keys.length) return
+    if (!node || !node.keys.length) return
     const tree = new SubTree(node, null)
     if (this.seeking && !(await this._seek(tree))) return
     this.stack.push(tree)

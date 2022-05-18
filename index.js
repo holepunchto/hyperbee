@@ -437,6 +437,11 @@ class HyperBee {
     return b.del(key)
   }
 
+  cas (key, value, test, { compare, ...opts } = {}) {
+    const b = new Batch(this, null, true, opts)
+    return b.cas(key, value, test, { compare })
+  }
+
   checkout (version) {
     return new HyperBee(this._feed, {
       _ready: this.ready(),
@@ -538,9 +543,11 @@ class Batch {
     return ite.next()
   }
 
-  async get (key) {
+  async get (key, { raw } = {}) {
     if (this.keyEncoding) key = enc(this.keyEncoding, key)
     if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
+
+    raw = raw ?? this.options?.raw
 
     let node = await this.getRoot(false)
     if (!node) return null
@@ -556,7 +563,8 @@ class Batch {
         c = Buffer.compare(key, await node.getKey(mid))
 
         if (c === 0) {
-          return (await this.getBlock(node.keys[mid].seq)).final()
+          const block = await this.getBlock(node.keys[mid].seq)
+          return (raw) ? block : block.final()
         }
 
         if (c < 0) e = mid
@@ -568,6 +576,19 @@ class Batch {
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
     }
+  }
+
+  async cas (key, value, test, { compare } = {}) {
+    compare = compare ?? _compare
+    const raw = compare === _compare
+    test = (raw) ? enc(this.valueEncoding, test) : test
+
+    const current = await this.get(key, { raw })
+    if (!current || !compare(test, current.value, { key, value })) return null
+    await this.put(key, value)
+    return (raw) ? current.final() : current
+
+    function _compare (t, c) { return Buffer.compare(t, c) === 0 }
   }
 
   async put (key, value) {

@@ -95,7 +95,7 @@ class TreeNode {
     this.changed = false
   }
 
-  async insertKey (key, child = null, overwrite = true) {
+  async insertKey (key, child = null, overwrite = true, cas = null, node = null) {
     let s = 0
     let e = this.keys.length
     let c
@@ -106,6 +106,7 @@ class TreeNode {
 
       if (c === 0) {
         if (!overwrite) return true
+        if (cas && !(await cas((await this.getKeyNode(mid)).final(), node))) return true
         this.changed = true
         this.keys[mid] = key
         return true
@@ -173,6 +174,10 @@ class TreeNode {
       median,
       right
     }
+  }
+
+  getKeyNode (index) {
+    return this.block.tree.getBlock(this.keys[index].seq)
   }
 
   async getChildNode (index) {
@@ -425,7 +430,7 @@ class HyperBee {
 
   put (key, value, opts) {
     const b = new Batch(this, null, true, opts)
-    return b.put(key, value)
+    return b.put(key, value, opts)
   }
 
   batch (opts) {
@@ -570,20 +575,27 @@ class Batch {
     }
   }
 
-  async put (key, value) {
+  async put (key, value, opts) {
     const release = this.batchLock ? await this.batchLock() : null
+    const cas = (opts && opts.cas) || null
 
     if (!this.locked) await this.lock()
-    if (!release) return this._put(key, value)
+    if (!release) return this._put(key, value, cas)
 
     try {
-      return await this._put(key, value)
+      return await this._put(key, value, cas)
     } finally {
       release()
     }
   }
 
-  async _put (key, value) {
+  async _put (key, value, cas) {
+    const newNode = {
+      seq: 0,
+      key,
+      value
+    }
+
     key = enc(this.keyEncoding, key)
     value = enc(this.valueEncoding, value)
 
@@ -593,7 +605,7 @@ class Batch {
     let node = root = await this.getRoot(true)
     if (!node) node = root = TreeNode.create(null)
 
-    const seq = this.tree._feed.length + this.length
+    const seq = newNode.seq = this.tree._feed.length + this.length
     const target = new Key(seq, key)
 
     while (node.children.length) {
@@ -610,6 +622,8 @@ class Batch {
 
         if (c === 0) {
           if (!this.overwrite) return this._unlockMaybe()
+          if (cas && !(await cas((await node.getKeyNode(mid)).final(), newNode))) return this._unlockMaybe()
+
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
         }
@@ -622,7 +636,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(target, null, this.overwrite))
+    let needsSplit = !(await node.insertKey(target, null, this.overwrite, cas, newNode))
     if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
@@ -630,7 +644,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, false))
+        needsSplit = !(await parent.insertKey(median, right, false, null, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)

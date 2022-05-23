@@ -89,3 +89,38 @@ test('diff on multi-level sub db with parent checkout', async function (t) {
 
   t.end()
 })
+
+test('diff regression', async function (t) {
+  const db = await create()
+
+  await db.put('1')
+  await db.put('2')
+  await db.put('3')
+  await db.put('4')
+  await db.put('5')
+  await db.put('6')
+  await db.put('7')
+  await db.put('8')
+  await db.put('9')
+
+  const v1 = db.version
+
+  await db.del('1')
+  await db.del('2')
+  await db.del('3')
+  await db.del('4')
+  await db.del('5')
+
+  const entries = await collect(db.createDiffStream(v1))
+
+  t.same(entries.length, 5)
+  t.same(entries, [
+    { left: null, right: { seq: 1, key: '1', value: null } },
+    { left: null, right: { seq: 2, key: '2', value: null } },
+    { left: null, right: { seq: 3, key: '3', value: null } },
+    { left: null, right: { seq: 4, key: '4', value: null } },
+    { left: null, right: { seq: 5, key: '5', value: null } }
+  ])
+
+  t.end()
+})

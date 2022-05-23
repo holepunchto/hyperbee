@@ -439,7 +439,7 @@ class HyperBee {
 
   del (key, opts) {
     const b = new Batch(this, null, true, opts)
-    return b.del(key)
+    return b.del(key, opts)
   }
 
   checkout (version) {
@@ -661,20 +661,27 @@ class Batch {
     return this._append(root, seq, key, value)
   }
 
-  async del (key) {
+  async del (key, opts) {
     const release = this.batchLock ? await this.batchLock() : null
+    const cas = (opts && opts.cas) || null
 
     if (!this.locked) await this.lock()
-    if (!release) return this._del(key)
+    if (!release) return this._del(key, cas)
 
     try {
-      return await this._del(key)
+      return await this._del(key, cas)
     } finally {
       release()
     }
   }
 
-  async _del (key) {
+  async _del (key, cas) {
+    const delNode = {
+      seq: 0,
+      key,
+      value: null
+    }
+
     key = enc(this.keyEncoding, key)
 
     const stack = []
@@ -682,7 +689,7 @@ class Batch {
     let node = await this.getRoot(true)
     if (!node) return this._unlockMaybe()
 
-    const seq = this.tree._feed.length + this.length
+    const seq = delNode.seq = this.tree._feed.length + this.length
 
     while (true) {
       stack.push(node)
@@ -696,6 +703,7 @@ class Batch {
         c = Buffer.compare(key, await node.getKey(mid))
 
         if (c === 0) {
+          if (cas && !(await cas((await node.getKeyNode(mid)).final(), delNode))) return this._unlockMaybe()
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)
           // we mark these as changed late, so we don't rewrite them if it is a 404
@@ -816,11 +824,11 @@ async function setKeyToNearestLeaf (node, index, stack) {
   let [left, right] = await Promise.all([node.getChildNode(index), node.getChildNode(index + 1)])
   const [ls, rs] = await Promise.all([leafSize(left, false), leafSize(right, true)])
 
-  if (ls < rs) {
+  if (ls < rs) { // if fewer leaves on the left
     stack.push(right)
     while (right.children.length) stack.push(right = right.children[0].value)
     node.keys[index] = right.keys.shift()
-  } else {
+  } else { // if fewer leaves on the right
     stack.push(left)
     while (left.children.length) stack.push(left = left.children[left.children.length - 1].value)
     node.keys[index] = left.keys.pop()

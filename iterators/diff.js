@@ -177,14 +177,12 @@ module.exports = class DiffIterator {
       const c = await l.compare(r)
 
       if (l.isKey && !r.isKey) {
-        if (c > 0) b.skip()
-        else await b.next()
+        await b.next()
         continue
       }
 
       if (!l.isKey && r.isKey) {
-        if (c < 0) a.skip()
-        else await a.next()
+        await a.next()
         continue
       }
 

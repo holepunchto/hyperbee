@@ -339,7 +339,12 @@ class HyperBee {
     if (this._checkout === 0 && (opts && opts.update) !== false) await this.update()
     const len = this._checkout || this._feed.length
     if (len < 2) return null
-    return (await batch.getBlock(len - 1, opts)).getTreeNode(0)
+
+    const block = await batch.getBlock(len - 1, opts)
+    try {
+      return block?.getTreeNode(0)
+    } catch (error) {
+    }
   }
 
   async getKey (seq) {
@@ -353,6 +358,8 @@ class HyperBee {
     try {
       const entry = await request
       return new BlockEntry(seq, batch, entry)
+    } catch (error) {
+      if (active) active.remove(request)
     } finally {
       if (active) active.remove(request)
     }

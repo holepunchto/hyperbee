@@ -407,3 +407,15 @@ tape('feed is unwrapped in getter', async t => {
   t.same(feed, db.feed)
   t.end()
 })
+
+tape('getOperation', async t => {
+  const db = create()
+  await db.ready()
+
+  await db.put('hello', 'world')
+  await db.del('hello')
+
+  t.is(await db.getOperation(0), null)
+  t.same(await db.getOperation(1), { type: 'put', seq: 1, key: 'hello', value: 'world' })
+  t.same(await db.getOperation(), { type: 'del', seq: 2, key: 'hello', value: null })
+})

@@ -244,6 +244,13 @@ class BlockEntry {
     }
   }
 
+  operation () {
+    return {
+      type: this.isDeletion() ? 'del' : 'put',
+      ...this.final()
+    }
+  }
+
   getTreeNode (offset) {
     if (this.index === null) {
       this.index = inflate(this.indexBuffer)
@@ -346,7 +353,7 @@ class HyperBee {
     return (await this.getBlock(seq)).key
   }
 
-  async getBlock (seq, opts, batch = this) {
+  async getBlock (seq, opts = {}, batch = this) {
     const active = opts.active
     const request = this._feed.get(seq, { ...opts, valueEncoding: Node })
     if (active) active.add(request)
@@ -356,6 +363,14 @@ class HyperBee {
     } finally {
       if (active) active.remove(request)
     }
+  }
+
+  async getOperation (seq) {
+    if (seq === 0) return null
+    if (!seq) seq = this._feed.length - 1
+
+    const block = await this.getBlock(seq)
+    return block.operation()
   }
 
   async peek (opts) {

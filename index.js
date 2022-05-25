@@ -543,11 +543,9 @@ class Batch {
     return ite.next()
   }
 
-  async get (key, { raw } = {}) {
+  async get (key) {
     if (this.keyEncoding) key = enc(this.keyEncoding, key)
     if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
-
-    raw = raw ?? this.options?.raw
 
     let node = await this.getRoot(false)
     if (!node) return null
@@ -562,10 +560,7 @@ class Batch {
 
         c = Buffer.compare(key, await node.getKey(mid))
 
-        if (c === 0) {
-          const block = await this.getBlock(node.keys[mid].seq)
-          return (raw) ? block : block.final()
-        }
+        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final()
 
         if (c < 0) e = mid
         else s = mid + 1

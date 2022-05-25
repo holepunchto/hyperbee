@@ -76,7 +76,7 @@ Options include:
 ```
 
 ##### Compare And Swap (cas)
-You have the option to pass a `cas` function as an option to `put` that controls whether the `put` succeeds. Given `bee.put(key, value, { cas })`, `cas` is passed the current block (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ block. Then `put` succeeds iff `cas` returns `true` and fails otherwise.
+You have the option to pass a `cas` function as an option to `put` that controls whether the `put` succeeds. Given `bee.put(key, value, { cas })`, `cas` is passed the current block (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ block. Then `put` succeeds only if `cas` returns `true` and fails otherwise.
 
 ```js
 const cas = (prev, next) => prev.value !== next.value
@@ -107,7 +107,7 @@ Options include:
 ```
 
 ##### Compare And Swap (cas)
-You can pass a `cas` function as an option to `del` that controls whether the `del` succeeds. Given `bee.del(key, { cas })`, `cas` is passed the current block (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ block, in this case the tombstone value `{ seq, key, value: null }`. Then `del` succeeds iff `cas` returns `true` and fails otherwise.
+You can pass a `cas` function as an option to `del` that controls whether the `del` succeeds. Given `bee.del(key, { cas })`, `cas` is passed the current block (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ block, in this case the tombstone value `{ seq, key, value: null }`. Then `del` succeeds succeeds only if `cas` returns `true` and fails otherwise.
 
 ```js
 const cas = (prev) => prev.value === 'value*'

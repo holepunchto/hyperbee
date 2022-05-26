@@ -95,7 +95,7 @@ class TreeNode {
     this.changed = false
   }
 
-  async insertKey (key, child = null, overwrite = true, cas = null, node = null) {
+  async insertKey (key, child = null, overwrite = true, cas, node) {
     let s = 0
     let e = this.keys.length
     let c
@@ -642,7 +642,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, false, null, null))
+        needsSplit = !(await parent.insertKey(median, right, false))
         node = parent
       } else {
         root = TreeNode.create(node.block)

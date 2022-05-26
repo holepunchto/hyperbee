@@ -76,7 +76,7 @@ Options include:
 ```
 
 ##### Compare And Swap (cas)
-You have the option to pass a `cas` function as an option to `put` that controls whether the `put` succeeds. Given `bee.put(key, value, { cas })`, `cas` is passed the current node (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ block. Then `put` succeeds only if `cas` returns `true` and fails otherwise.
+You have the option to pass a `cas` function as an option to `put` that controls whether the `put` succeeds. Given `bee.put(key, value, { cas })`, `cas` is passed the current node (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ node. Then `put` succeeds only if `cas` returns `true` and fails otherwise.
 
 ```js
 const cas = (prev, next) => prev.value !== next.value

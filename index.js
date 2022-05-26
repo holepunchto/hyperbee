@@ -642,7 +642,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, false))
+        needsSplit = !(await parent.insertKey(median, right, false, null, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)

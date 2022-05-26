@@ -95,7 +95,7 @@ class TreeNode {
     this.changed = false
   }
 
-  async insertKey (key, child = null, overwrite = true, cas = null, node = null) {
+  async insertKey (key, child, overwrite, cas, node) {
     let s = 0
     let e = this.keys.length
     let c

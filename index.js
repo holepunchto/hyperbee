@@ -480,6 +480,11 @@ class HyperBee {
       extension: this.extension !== null ? this.extension : false
     })
   }
+
+  async getHeader (opts) {
+    const blk = await this._feed.get(0, opts)
+    return blk && Header.decode(blk)
+  }
 }
 
 class Batch {

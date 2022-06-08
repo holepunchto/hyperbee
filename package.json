@@ -1,6 +1,6 @@
 {
   "name": "hyperbee",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "description": "An append-only Btree running on a Hypercore.",
   "main": "index.js",
   "dependencies": {

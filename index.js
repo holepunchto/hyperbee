@@ -477,7 +477,8 @@ class HyperBee {
       checkout: this._checkout,
       valueEncoding,
       keyEncoding,
-      extension: this.extension !== null ? this.extension : false
+      extension: this.extension !== null ? this.extension : false,
+      metadata: this.metadata
     })
   }
 

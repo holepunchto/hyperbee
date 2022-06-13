@@ -446,3 +446,64 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     t.notEquals(snd, null)
   }
 })
+
+tape('flushing an empty batch after a "failed" cas op releases lock (allows progress)', async function (t) {
+  const key = 'key'
+  const value = 'value'
+
+  {
+    const cas = (lst, nxt) => lst.value !== nxt.value
+    const db = create()
+    await db.put(key, value)
+    let b = db.batch()
+    await b.put(key, value, { cas })
+    t.is(b.length, 0, 'batch is empty')
+    await b.flush()
+    b = db.batch()
+    await b.put(key, value, { cas })
+    t.ok(true, 'made progress')
+    b.destroy()
+  }
+
+  {
+    const cas = (lst, nxt) => lst.value !== nxt.value
+    const db = create()
+    await db.put(key, value)
+    let b = db.batch()
+    await b.put(key, value, { cas })
+    t.is(b.length, 0, 'batch is empty')
+    await b.flush()
+    b = db.batch()
+    await b.del(key, value, { cas })
+    t.ok(true, 'made progress')
+    b.destroy()
+  }
+
+  {
+    const cas = (lst) => lst.value !== value
+    const db = create()
+    await db.put(key, value)
+    let b = db.batch()
+    await b.del(key, { cas })
+    t.is(b.length, 0, 'batch is empty')
+    await b.flush()
+    b = db.batch()
+    await b.del(key)
+    t.ok(true, 'made progress')
+    b.destroy()
+  }
+
+  {
+    const cas = (lst) => lst.value !== value
+    const db = create()
+    await db.put(key, value)
+    let b = db.batch()
+    await b.del(key, { cas })
+    t.is(b.length, 0, 'batch is empty')
+    await b.flush()
+    b = db.batch()
+    await b.put(key, value)
+    t.ok(true, 'made progress')
+    b.destroy()
+  }
+})

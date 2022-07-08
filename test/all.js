@@ -1,4 +1,5 @@
 const tape = require('tape')
+const b4a = require('b4a')
 const { create, collect } = require('./helpers')
 
 const Hyperbee = require('..')
@@ -14,7 +15,7 @@ tape('out of bounds iterator', async function (t) {
 
   await b.flush()
 
-  const s = db.createReadStream({ gt: Buffer.from('c') })
+  const s = db.createReadStream({ gt: b4a.from('c') })
   let count = 0
 
   s.on('data', function (data) {
@@ -289,7 +290,7 @@ tape('sub respects keyEncoding', async t => {
   const helloSub = db.sub('hello', {
     keyEncoding: {
       encode (key) {
-        return Buffer.from(key.key)
+        return b4a.from(key.key)
       },
       decode (buf) {
         return { key: buf.toString() }
@@ -314,7 +315,7 @@ tape('sub with a key that starts with 0xff', async t => {
 
   const db = create({ sep: '!', keyEncoding: 'binary' })
   const helloSub = db.sub('hello')
-  const key = Buffer.from([0xff, 0x01, 0x02])
+  const key = b4a.from([0xff, 0x01, 0x02])
 
   await helloSub.put(key, 'val')
 

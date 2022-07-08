@@ -1,4 +1,5 @@
 const tape = require('tape')
+const b4a = require('b4a')
 const { create } = require('./helpers')
 
 tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
@@ -69,24 +70,24 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
 
   {
     const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
-    const cas = (lst, nxt) => Buffer.compare(lst.value, nxt.value) !== 0
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    await db.put(k0, Buffer.from(value), { cas })
+    await db.put(k0, b4a.from(value), { cas })
     const snd = await db.get(k0)
     t.deepEquals(fst, snd)
   }
 
   {
     const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
-    const cas = (lst, nxt) => Buffer.compare(lst.value, nxt.value) !== 0
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    await db.put(k0, Buffer.from(value + '^'), { cas })
+    await db.put(k0, b4a.from(value + '^'), { cas })
     const snd = await db.get(k0)
     t.notDeepEquals(fst, snd)
   }
@@ -167,12 +168,12 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
   {
     const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
-    const cas = (lst, nxt) => Buffer.compare(lst.value, nxt.value) !== 0
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    await db.put(k0, Buffer.from(value), { cas })
+    await db.put(k0, b4a.from(value), { cas })
     const snd = await db.get(k0)
     t.deepEquals(fst, snd)
   }
@@ -180,12 +181,12 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
   {
     const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
-    const cas = (lst, nxt) => Buffer.compare(lst.value, nxt.value) !== 0
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    await db.put(k0, Buffer.from(value + '^'), { cas })
+    await db.put(k0, b4a.from(value + '^'), { cas })
     const snd = await db.get(k0)
     t.notDeepEquals(fst, snd)
   }
@@ -289,11 +290,11 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
 
   {
     const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    const cas = (lst, nxt) => Buffer.compare(lst.value, v0) === 0
+    const cas = (lst, nxt) => b4a.compare(lst.value, v0) === 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
     t.notDeepEquals(fst, snd)
@@ -302,11 +303,11 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
 
   {
     const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    const cas = (lst, nxt) => Buffer.compare(lst.value, v0) !== 0
+    const cas = (lst, nxt) => b4a.compare(lst.value, v0) !== 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
     t.deepEquals(fst, snd)
@@ -421,11 +422,11 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
   {
     const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    const cas = (lst, nxt) => Buffer.compare(lst.value, v0) === 0
+    const cas = (lst, nxt) => b4a.compare(lst.value, v0) === 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
     t.notDeepEquals(fst, snd)
@@ -435,11 +436,11 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
   {
     const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
-    const k0 = Buffer.from(key)
-    const v0 = Buffer.from(value)
+    const k0 = b4a.from(key)
+    const v0 = b4a.from(value)
     await db.put(k0, v0)
     const fst = await db.get(k0)
-    const cas = (lst, nxt) => Buffer.compare(lst.value, v0) !== 0
+    const cas = (lst, nxt) => b4a.compare(lst.value, v0) !== 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
     t.deepEquals(fst, snd)

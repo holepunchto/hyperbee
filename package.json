@@ -4,6 +4,7 @@
   "description": "An append-only Btree running on a Hypercore.",
   "main": "index.js",
   "dependencies": {
+    "b4a": "^1.5.3",
     "codecs": "^2.1.0",
     "hypercore-promisifier": "^1.0.1",
     "mutexify": "^1.3.1",

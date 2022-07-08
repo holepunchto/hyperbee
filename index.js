@@ -2,6 +2,7 @@ const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const { toPromises, unwrap } = require('hypercore-promisifier')
+const b4a = require('b4a')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -13,8 +14,8 @@ const T = 5
 const MIN_KEYS = T - 1
 const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
-const SEP = Buffer.alloc(1)
-const EMPTY = Buffer.alloc(0)
+const SEP = b4a.alloc(1)
+const EMPTY = b4a.alloc(0)
 
 class Key {
   constructor (seq, value) {
@@ -102,7 +103,7 @@ class TreeNode {
 
     while (s < e) {
       const mid = (s + e) >> 1
-      c = Buffer.compare(key.value, await this.getKey(mid))
+      c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
         if (!overwrite) return true
@@ -461,9 +462,9 @@ class HyperBee {
 
   sub (prefix, opts = {}) {
     let sep = opts.sep || this.sep
-    if (!Buffer.isBuffer(sep)) sep = Buffer.from(sep)
+    if (!b4a.isBuffer(sep)) sep = b4a.from(sep)
 
-    prefix = Buffer.concat([this.prefix || EMPTY, Buffer.from(prefix), sep])
+    prefix = b4a.concat([this.prefix || EMPTY, b4a.from(prefix), sep])
 
     const valueEncoding = codecs(opts.valueEncoding || this.valueEncoding)
     const keyEncoding = codecs(opts.keyEncoding || this._unprefixedKeyEncoding)
@@ -564,7 +565,7 @@ class Batch {
       while (s < e) {
         const mid = (s + e) >> 1
 
-        c = Buffer.compare(key, await node.getKey(mid))
+        c = b4a.compare(key, await node.getKey(mid))
 
         if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final()
 
@@ -622,7 +623,7 @@ class Batch {
 
       while (s < e) {
         const mid = (s + e) >> 1
-        c = Buffer.compare(target.value, await node.getKey(mid))
+        c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
           if (!this.overwrite) return this._unlockMaybe()
@@ -701,7 +702,7 @@ class Batch {
 
       while (s < e) {
         const mid = (s + e) >> 1
-        c = Buffer.compare(key, await node.getKey(mid))
+        c = b4a.compare(key, await node.getKey(mid))
 
         if (c === 0) {
           if (cas && !(await cas((await node.getKeyNode(mid)).final(), delNode))) return this._unlockMaybe()
@@ -934,14 +935,14 @@ function bump (key) {
 function enc (e, v) {
   if (v === undefined || v === null) return null
   if (e !== null) return e.encode(v)
-  if (typeof v === 'string') return Buffer.from(v)
+  if (typeof v === 'string') return b4a.from(v)
   return v
 }
 
 function prefixEncoding (prefix, keyEncoding) {
   return {
     encode (key) {
-      return Buffer.concat([prefix, Buffer.isBuffer(key) ? key : enc(keyEncoding, key)])
+      return b4a.concat([prefix, b4a.isBuffer(key) ? key : enc(keyEncoding, key)])
     },
     decode (key) {
       const sliced = key.slice(prefix.length, key.length)

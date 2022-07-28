@@ -408,6 +408,15 @@ tape('feed is unwrapped in getter', async t => {
   t.end()
 })
 
+tape('get header out', async t => {
+  const db = create()
+  await db.ready()
+  await db.put('hi', 'ho')
+  const h = await db.getHeader()
+  t.same(h.protocol, 'hyperbee')
+  t.end()
+})
+
 tape('getOperation', async t => {
   const db = create()
   await db.ready()

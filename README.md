@@ -96,7 +96,7 @@ Get a key, value. If the key does not exist, `null` is returned.
 
 #### `await db.del(key, [options])`
 
-Delete a key
+Delete a key. *Note that this operation does not render the data irretrievable but only indicates to peers that it should be considered deleted.*
 
 Options include:
 

@@ -1,3 +1,5 @@
+const b4a = require('b4a')
+
 class SubTree {
   constructor (node, parent) {
     this.node = node
@@ -202,5 +204,5 @@ module.exports = class DiffIterator {
 function cmp (a, b) {
   if (!a) return b ? 1 : 0
   if (!b) return a ? -1 : 0
-  return Buffer.compare(a, b)
+  return b4a.compare(a, b)
 }

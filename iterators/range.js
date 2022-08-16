@@ -1,3 +1,5 @@
+const b4a = require('b4a')
+
 module.exports = class RangeIterator {
   constructor (db, opts = {}) {
     this.db = db
@@ -83,7 +85,7 @@ module.exports = class RangeIterator {
 
       while (s < e) {
         const mid = (s + e) >> 1
-        c = Buffer.compare(start, await node.getKey(mid))
+        c = b4a.compare(start, await node.getKey(mid))
 
         if (c === 0) {
           if (incl) entry.i = mid * 2 + 1
@@ -143,7 +145,7 @@ module.exports = class RangeIterator {
       const key = top.node.keys[n]
       const block = await this.db.getBlock(key.seq)
       if (end) {
-        const c = Buffer.compare(block.key, end)
+        const c = b4a.compare(block.key, end)
         if (c === 0 ? !incl : (this._reverse ? c < 0 : c > 0)) {
           this._limit = 0
           break

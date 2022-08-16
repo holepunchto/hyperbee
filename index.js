@@ -269,7 +269,7 @@ class BatchEntry extends BlockEntry {
   }
 }
 
-class HyperBee {
+class Hyperbee {
   constructor (feed, opts = {}) {
     this.feed = feed
 
@@ -418,7 +418,7 @@ class HyperBee {
   }
 
   checkout (version) {
-    return new HyperBee(this.feed.snapshot(), {
+    return new Hyperbee(this.feed.snapshot(), {
       _ready: this.ready(),
       _sub: false,
       sep: this.sep,
@@ -443,7 +443,7 @@ class HyperBee {
     const valueEncoding = codecs(opts.valueEncoding || this.valueEncoding)
     const keyEncoding = codecs(opts.keyEncoding || this._unprefixedKeyEncoding)
 
-    return new HyperBee(this.feed, {
+    return new Hyperbee(this.feed, {
       _ready: this.ready(),
       _sub: true,
       prefix,
@@ -954,4 +954,4 @@ function prefixEncoding (prefix, keyEncoding) {
 
 function noop () {}
 
-module.exports = HyperBee
+module.exports = Hyperbee

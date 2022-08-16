@@ -1,8 +1,8 @@
 const b4a = require('b4a')
 
 module.exports = class RangeIterator {
-  constructor (db, opts = {}) {
-    this.db = db
+  constructor (batch, opts = {}) {
+    this.batch = batch
     this.stack = []
     this.opened = false
 
@@ -17,7 +17,7 @@ module.exports = class RangeIterator {
     this._nexting = false
   }
 
-  snapshot (version = this.db.version) {
+  snapshot (version = this.batch.version) {
     const checkpoint = []
     for (const s of this.stack) {
       let { node, i } = s
@@ -52,7 +52,7 @@ module.exports = class RangeIterator {
         const offset = this._checkpoint[j + 1]
         const i = this._checkpoint[j + 2]
         this.stack.push({
-          node: (await this.db.getBlock(seq)).getTreeNode(offset),
+          node: (await this.batch.getBlock(seq)).getTreeNode(offset),
           i
         })
       }
@@ -61,7 +61,7 @@ module.exports = class RangeIterator {
 
     this._nexting = true
 
-    let node = await this.db.getRoot(false)
+    let node = await this.batch.getRoot(false)
     if (!node) {
       this._nexting = false
       return
@@ -143,7 +143,7 @@ module.exports = class RangeIterator {
       }
 
       const key = top.node.keys[n]
-      const block = await this.db.getBlock(key.seq)
+      const block = await this.batch.getBlock(key.seq)
       if (end) {
         const c = b4a.compare(block.key, end)
         if (c === 0 ? !incl : (this._reverse ? c < 0 : c > 0)) {
@@ -158,5 +158,9 @@ module.exports = class RangeIterator {
 
     this._nexting = false
     return null
+  }
+
+  close () {
+    return this.batch.feed.close()
   }
 }

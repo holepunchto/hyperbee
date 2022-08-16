@@ -66,8 +66,8 @@ class SubTree {
 }
 
 class TreeIterator {
-  constructor (db, opts) {
-    this.db = db
+  constructor (batch, opts) {
+    this.batch = batch
     this.stack = []
     this.lt = opts.lt || opts.lte || null
     this.lte = !!opts.lte
@@ -77,7 +77,7 @@ class TreeIterator {
   }
 
   async open () {
-    const node = await this.db.getRoot(false)
+    const node = await this.batch.getRoot(false)
     if (!node || !node.keys.length) return
     const tree = new SubTree(node, null)
     if (this.seeking && !(await this._seek(tree))) return
@@ -127,7 +127,7 @@ class TreeIterator {
 
     if (isKey) {
       this.seeking = false
-      return this.db.getBlock(seq)
+      return this.batch.getBlock(seq)
     }
 
     const child = await top.node.getChildNode(n)
@@ -137,6 +137,10 @@ class TreeIterator {
     this.stack.push(tree)
 
     return null
+  }
+
+  close () {
+    return this.batch.feed.close()
   }
 }
 
@@ -198,6 +202,10 @@ module.exports = class DiffIterator {
       else if (c < 0) await b.next()
       else await a.next()
     }
+  }
+
+  async close () {
+    await Promise.all([this.left.close(), this.right.close()])
   }
 }
 

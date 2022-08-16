@@ -157,7 +157,7 @@ test('negative indexes is implicit + version', async function (t) {
   ])
 })
 
-test.skip('live history can be destroyed', async function (t) {
+test('live history can be destroyed', async function (t) {
   const db = await createRange(1)
 
   let done

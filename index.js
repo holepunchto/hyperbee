@@ -767,7 +767,11 @@ class Batch {
   }
 
   flush () {
-    if (!this.length) return Promise.resolve(this.destroy())
+    if (!this.length) {
+      this.destroy()
+      return Promise.resolve()
+    }
+
     const batch = this.toBlocks()
 
     this.root = null

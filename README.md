@@ -1,6 +1,6 @@
 # Hyperbee 🐝
 
-An append-only Btree running on a Hypercore.
+An append-only B-tree running on a Hypercore.
 Allows sorted iteration and more.
 
 ```

@@ -1,7 +1,7 @@
 {
   "name": "hyperbee",
   "version": "2.0.0",
-  "description": "An append-only Btree running on a Hypercore.",
+  "description": "An append-only B-tree running on a Hypercore.",
   "main": "index.js",
   "dependencies": {
     "b4a": "^1.6.0",
@@ -24,12 +24,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mafintosh/hyperbee.git"
+    "url": "https://github.com/hypercore-protocol/hyperbee.git"
   },
   "author": "Mathias Buus (@mafintosh)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mafintosh/hyperbee/issues"
+    "url": "https://github.com/hypercore-protocol/hyperbee/issues"
   },
-  "homepage": "https://github.com/mafintosh/hyperbee"
+  "homepage": "https://github.com/hypercore-protocol/hyperbee"
 }

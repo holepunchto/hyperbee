@@ -1,9 +1,9 @@
-const Hyperb = require('../../')
-const hypercore = require('hypercore')
+const Hyperbee = require('../../')
+const Hypercore = require('hypercore')
 const split2 = require('split2')
 const fs = require('fs')
 
-const db = new Hyperb(hypercore('./db'))
+const db = new Hyperbee(new Hypercore('./db'))
 
 main()
 

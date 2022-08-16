@@ -1,16 +1,15 @@
-const Hyperb = require('../../')
-const hypercore = require('hypercore')
+const Hyperbee = require('../../')
+const Hypercore = require('hypercore')
+const Hyperswarm = require('hyperswarm')
 
-const db = new Hyperb(hypercore('./db', { sparse: true }))
+const db = new Hyperbee(new Hypercore('./db'))
+const swarm = new Hyperswarm()
 
-require('@hyperswarm/replicator')(db.feed, {
-  announce: true,
-  lookup: true,
-  live: true
-})
+swarm.on('connection', c => db.feed.replicate(c))
 
-db.feed.ready(function () {
+db.feed.ready().then(function () {
   console.log('Feed key: ' + db.feed.key.toString('hex'))
+  swarm.join(db.feed.discoveryKey)
 })
 
 module.exports = db

@@ -95,7 +95,7 @@ class TreeNode {
     this.changed = false
   }
 
-  async insertKey (key, child, overwrite, cas, node) {
+  async insertKey (key, child, cas, node) {
     let s = 0
     let e = this.keys.length
     let c
@@ -105,7 +105,6 @@ class TreeNode {
       c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
-        if (!overwrite) return true
         if (cas && !(await cas((await this.getKeyNode(mid)).final(), node))) return true
         this.changed = true
         this.keys[mid] = key
@@ -480,7 +479,6 @@ class Batch {
     this.root = null
     this.length = 0
     this.options = options
-    this.overwrite = options.overwrite !== false
     this.locked = null
     this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
@@ -618,7 +616,6 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          if (!this.overwrite) return this._unlockMaybe()
           if (cas && !(await cas((await node.getKeyNode(mid)).final(), newNode))) return this._unlockMaybe()
 
           node.setKey(mid, target)
@@ -633,7 +630,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(target, null, this.overwrite, cas, newNode))
+    let needsSplit = !(await node.insertKey(target, null, cas, newNode))
     if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
@@ -641,7 +638,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, false, null, null))
+        needsSplit = !(await parent.insertKey(median, right, null, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)

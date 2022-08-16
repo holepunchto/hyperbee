@@ -729,7 +729,7 @@ class Batch {
     const batch = new Array(this.length)
 
     for (let i = 0; i < this.length; i++) {
-      const seq = this.tree.feed.length + i
+      const seq = this.feed.length + i
       const { pendingIndex, key, value } = this.blocks.get(seq)
 
       if (i < this.length - 1) {
@@ -806,7 +806,7 @@ class Batch {
 
   async _appendBatch (raw) {
     try {
-      await this.tree.feed.append(raw)
+      await this.feed.append(raw)
     } finally {
       this._unlock()
     }

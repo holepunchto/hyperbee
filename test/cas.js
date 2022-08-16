@@ -1,8 +1,8 @@
-const tape = require('tape')
+const test = require('brittle')
 const b4a = require('b4a')
 const { create } = require('./helpers')
 
-tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
+test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 
@@ -13,7 +13,7 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(key)
     await db.put(key, value + '^', { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 
   {
@@ -23,7 +23,7 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(key)
     await db.put(key, value, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -33,7 +33,7 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(key)
     await db.put(key, value + '^', { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 
   {
@@ -43,7 +43,7 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(key)
     await db.put(key, value, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -54,7 +54,7 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(key)
     await db.put(key, { value: value + '^' }, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 
   {
@@ -65,7 +65,7 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(key)
     await db.put(key, { value }, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -77,7 +77,7 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(k0)
     await db.put(k0, b4a.from(value), { cas })
     const snd = await db.get(k0)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -89,11 +89,11 @@ tape('bee.put({ cas }) succeds if cas(last, next) returns truthy', async t => {
     const fst = await db.get(k0)
     await db.put(k0, b4a.from(value + '^'), { cas })
     const snd = await db.get(k0)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 })
 
-tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async t => {
+test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 
@@ -105,7 +105,7 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(key)
     await db.put(key, value + '^', { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 
   {
@@ -116,7 +116,7 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(key)
     await db.put(key, value, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -127,7 +127,7 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(key)
     await db.put(key, value + '^', { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 
   {
@@ -138,7 +138,7 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(key)
     await db.put(key, value, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -150,7 +150,7 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(key)
     await db.put(key, { value: value + '^' }, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 
   {
@@ -162,7 +162,7 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(key)
     await db.put(key, { value }, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -175,7 +175,7 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(k0)
     await db.put(k0, b4a.from(value), { cas })
     const snd = await db.get(k0)
-    t.deepEquals(fst, snd)
+    t.alike(fst, snd)
   }
 
   {
@@ -188,11 +188,11 @@ tape('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     const fst = await db.get(k0)
     await db.put(k0, b4a.from(value + '^'), { cas })
     const snd = await db.get(k0)
-    t.notDeepEquals(fst, snd)
+    t.unlike(fst, snd)
   }
 })
 
-tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
+test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 
@@ -203,8 +203,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => lst.value === value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -214,8 +214,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => lst.value !== value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -225,8 +225,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => lst.value === value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -236,8 +236,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => lst.value !== value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -248,8 +248,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => JSON.stringify(lst.value) === JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -260,8 +260,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => JSON.stringify(lst.value) !== JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -272,8 +272,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => JSON.stringify(lst.value) === JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -284,8 +284,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst) => JSON.stringify(lst.value) !== JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -297,8 +297,8 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst, nxt) => b4a.compare(lst.value, v0) === 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -310,12 +310,12 @@ tape('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
     const cas = (lst, nxt) => b4a.compare(lst.value, v0) !== 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 })
 
-tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => {
+test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 
@@ -327,8 +327,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => lst.value === value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -339,8 +339,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => lst.value !== value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -351,8 +351,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => lst.value === value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -363,8 +363,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => lst.value !== value
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -376,8 +376,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => JSON.stringify(lst.value) === JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -389,8 +389,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => JSON.stringify(lst.value) !== JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -402,8 +402,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => JSON.stringify(lst.value) === JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -415,8 +415,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst) => JSON.stringify(lst.value) !== JSON.stringify(v)
     await db.del(key, { cas })
     const snd = await db.get(key)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 
   {
@@ -429,8 +429,8 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst, nxt) => b4a.compare(lst.value, v0) === 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
-    t.notDeepEquals(fst, snd)
-    t.equals(snd, null)
+    t.unlike(fst, snd)
+    t.is(snd, null)
   }
 
   {
@@ -443,12 +443,12 @@ tape('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async t => 
     const cas = (lst, nxt) => b4a.compare(lst.value, v0) !== 0
     await db.del(key, { cas })
     const snd = await db.get(k0)
-    t.deepEquals(fst, snd)
-    t.notEquals(snd, null)
+    t.alike(fst, snd)
+    t.not(snd, null)
   }
 })
 
-tape('flushing an empty batch after a "failed" cas op releases lock (allows progress)', async function (t) {
+test('flushing an empty batch after a "failed" cas op releases lock (allows progress)', async function (t) {
   const key = 'key'
   const value = 'value'
 

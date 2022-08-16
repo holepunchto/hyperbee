@@ -1,7 +1,7 @@
 const { create, collect } = require('./helpers')
-const tape = require('tape')
+const test = require('brittle')
 
-tape('basic batch', async function (t) {
+test('basic batch', async function (t) {
   const db = create()
 
   const b = db.batch()
@@ -11,15 +11,13 @@ tape('basic batch', async function (t) {
 
   const all = await collect(db.createReadStream())
 
-  t.same(all, [
+  t.alike(all, [
     { seq: 1, key: 'a', value: '1' },
     { seq: 2, key: 'b', value: '2' }
   ])
-
-  t.end()
 })
 
-tape('batch overwriting itself', async function (t) {
+test('batch overwriting itself', async function (t) {
   const db = create()
 
   const b = db.batch()
@@ -29,14 +27,12 @@ tape('batch overwriting itself', async function (t) {
 
   const all = await collect(db.createReadStream())
 
-  t.same(all, [
+  t.alike(all, [
     { seq: 2, key: 'a', value: '2' }
   ])
-
-  t.end()
 })
 
-tape('parallel batches', async function (t) {
+test('parallel batches', async function (t) {
   const db = create()
 
   const a = batch([
@@ -58,13 +54,11 @@ tape('parallel batches', async function (t) {
 
   const all = await collect(db.createReadStream())
 
-  t.same(all, [
+  t.alike(all, [
     { seq: 3, key: 'a', value: '3' },
     { seq: 6, key: 'b', value: '6' },
     { seq: 5, key: 'c', value: '5' }
   ])
-
-  t.end()
 
   async function batch (list) {
     const b = db.batch()
@@ -78,7 +72,7 @@ tape('parallel batches', async function (t) {
   }
 })
 
-tape('batches can survive parallel ops', async function (t) {
+test('batches can survive parallel ops', async function (t) {
   const db = create()
 
   const a = db.batch()
@@ -98,6 +92,5 @@ tape('batches can survive parallel ops', async function (t) {
   await a.flush()
 
   const all = await collect(db.createReadStream())
-  t.same(all, expected)
-  t.end()
+  t.alike(all, expected)
 })

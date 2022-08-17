@@ -397,7 +397,7 @@ test('get header out', async function (t) {
   t.is(h.protocol, 'hyperbee')
 })
 
-tape('getOperation', async t => {
+test('getOperation', async t => {
   const db = create()
   await db.ready()
 
@@ -405,6 +405,6 @@ tape('getOperation', async t => {
   await db.del('hello')
 
   t.is(await db.getOperation(0), null)
-  t.same(await db.getOperation(1), { type: 'put', seq: 1, key: 'hello', value: 'world' })
-  t.same(await db.getOperation(), { type: 'del', seq: 2, key: 'hello', value: null })
+  t.alike(await db.getOperation(1), { type: 'put', seq: 1, key: 'hello', value: 'world' })
+  t.alike(await db.getOperation(db.feed.length - 1), { type: 'del', seq: 2, key: 'hello', value: null })
 })

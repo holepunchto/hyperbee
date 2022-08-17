@@ -4,11 +4,10 @@
   "description": "example data",
   "main": "import.js",
   "dependencies": {
-    "@hyperswarm/replicator": "^1.7.2",
-    "hypercore": "^9.5.0",
-    "split2": "^3.1.1"
+    "hypercore": "^10.0.0",
+    "hyperswarm": "^4.2.0",
+    "split2": "^4.1.0"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

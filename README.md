@@ -1,6 +1,6 @@
 # Hyperbee 🐝
 
-An append-only Btree running on a Hypercore.
+An append-only B-tree running on a Hypercore.
 Allows sorted iteration and more.
 
 ```
@@ -61,36 +61,98 @@ Options include:
 
 Note that currently read/diff streams sort based on the *encoded* value of the keys.
 
-#### `await db.put(key, [value])`
+#### `await db.put(key, [value], [options])`
 
 Insert a new key. Value can be optional. If you are inserting a series of data atomically,
 or you just have a batch of inserts/deletions available using a batch can be much faster
 than simply using a series of puts/dels on the db.
+
+Options include:
+
+```js
+{
+  cas (prev, next) { return true }
+}
+```
+
+##### Compare And Swap (cas)
+You have the option to pass a `cas` function as an option to `put` that controls whether the `put` succeeds. Given `bee.put(key, value, { cas })`, `cas` is passed the current node (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ node. Then `put` succeeds only if `cas` returns `true` and fails otherwise.
+
+```js
+const cas = (prev, next) => prev.value !== next.value
+const db = new Hyperbee(feed, { valueEncoding: 'utf8', valueEncoding: 'utf8' })
+await db.put('key', 'value')
+console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
+await db.put('key', 'value', { cas })
+console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
+await db.put('key', 'value*', { cas })
+console.log(await db.get('key')) // { seq: 2, key: 'key', value: 'value*' }
+```
 
 #### `{ seq, key, value } = await db.get(key)`
 
 Get a key, value. If the key does not exist, `null` is returned.
 `seq` is the hypercore version at which this key was inserted.
 
-#### `await db.del(key)`
+#### `await db.del(key, [options])`
 
 Delete a key
+
+Options include:
+
+```js
+{
+  cas (prev, next) { return true }
+}
+```
+
+##### Compare And Swap (cas)
+You can pass a `cas` function as an option to `del` that controls whether the `del` succeeds. Given `bee.del(key, { cas })`, `cas` is passed the current node (i.e. `{ seq, key, value }`) in `bee` at `key`, and `del` succeeds only if `cas` returns `true` and fails otherwise.
+
+```js
+const cas = (prev) => prev.value === 'value*'
+const db = new Hyperbee(feed, { valueEncoding: 'utf8', valueEncoding: 'utf8' })
+await db.put('key', 'value')
+console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
+await db.del('key', { cas })
+console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
+await db.put('key', 'value*', { cas })
+console.log(await db.get('key')) // { seq: 2, key: 'key', value: 'value*' }
+await db.del('key', { cas })
+console.log(await db.get('key')) // null
+```
 
 #### `batch = db.batch()`
 
 Make a new batch.
 
-#### `await batch.put(key, [value])`
+#### `await batch.put(key, [value], [options])`
 
 Insert a key into a batch.
+
+Options include:
+
+```js
+{
+  cas (prev, next) { return true } // see await db.put(key, value, { cas })
+}
+```
 
 #### `{ seq, key, value } = await batch.get(key)`
 
 Get a key, value out of a batch.
 
-#### `await batch.del(key)`
+#### `await batch.del(key, [options])`
 
 Delete a key into the batch.
+
+Options include:
+
+```js
+{
+  cas (prev, next) { return true } // see await db.del(key, { cas })
+}
+```
 
 #### `await batch.flush()`
 

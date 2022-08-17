@@ -1,6 +1,6 @@
 module.exports = class HistoryIterator {
-  constructor (db, opts = {}) {
-    this.db = db
+  constructor (batch, opts = {}) {
+    this.batch = batch
     this.options = opts
     this.live = !!opts.live
     this.gte = 0
@@ -13,9 +13,9 @@ module.exports = class HistoryIterator {
   }
 
   async open () {
-    await this.db.getRoot(false) // does the update dance
-    this.gte = gte(this.options, this.db.version)
-    this.lt = this.live ? Infinity : lt(this.options, this.db.version)
+    await this.batch.getRoot(false) // does the update dance
+    this.gte = gte(this.options, this.batch.version)
+    this.lt = this.live ? Infinity : lt(this.options, this.batch.version)
   }
 
   async next () {
@@ -26,10 +26,14 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.lt <= 1) return null
-      return (await this.db.getBlock(--this.lt, this.options)).operation()
+      return (await this.batch.getBlock(--this.lt, this.options)).operation()
     }
 
-    return (await this.db.getBlock(this.gte++, this.options)).operation()
+    return (await this.batch.getBlock(this.gte++, this.options)).operation()
+  }
+
+  close () {
+    return this.batch.feed.close()
   }
 }
 

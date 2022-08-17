@@ -1,9 +1,10 @@
-const tape = require('tape')
+const test = require('brittle')
+const b4a = require('b4a')
 const { create, collect } = require('./helpers')
 
 const Hyperbee = require('..')
 
-tape('out of bounds iterator', async function (t) {
+test('out of bounds iterator', async function (t) {
   const db = create()
 
   const b = db.batch()
@@ -14,7 +15,7 @@ tape('out of bounds iterator', async function (t) {
 
   await b.flush()
 
-  const s = db.createReadStream({ gt: Buffer.from('c') })
+  const s = db.createReadStream({ gt: b4a.from('c') })
   let count = 0
 
   s.on('data', function (data) {
@@ -23,13 +24,13 @@ tape('out of bounds iterator', async function (t) {
 
   return new Promise(resolve => {
     s.on('end', function () {
-      t.same(count, 0, 'no out of bounds reads')
+      t.is(count, 0, 'no out of bounds reads')
       resolve()
     })
   })
 })
 
-tape('createHistoryStream reverse', async function (t) {
+test('createHistoryStream reverse', async function (t) {
   const db = create()
 
   const b = db.batch()
@@ -45,18 +46,18 @@ tape('createHistoryStream reverse', async function (t) {
   let res = ''
   s.on('data', function (data) {
     const { key } = data
-    res += key.toString()
+    res += key
   })
 
   return new Promise(resolve => {
     s.on('end', function () {
-      t.same(res, 'cba', 'reversed correctly')
+      t.is(res, 'cba', 'reversed correctly')
       resolve()
     })
   })
 })
 
-tape('out of bounds iterator, string encoding', async function (t) {
+test('out of bounds iterator, string encoding', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 
   const b = db.batch()
@@ -76,13 +77,13 @@ tape('out of bounds iterator, string encoding', async function (t) {
 
   return new Promise(resolve => {
     s.on('end', function () {
-      t.same(count, 0, 'no out of bounds reads')
+      t.is(count, 0, 'no out of bounds reads')
       resolve()
     })
   })
 })
 
-tape('out of bounds iterator, larger db', async function (t) {
+test('out of bounds iterator, larger db', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 
   for (let i = 0; i < 8; i++) {
@@ -98,13 +99,13 @@ tape('out of bounds iterator, larger db', async function (t) {
 
   return new Promise(resolve => {
     s.on('end', function () {
-      t.same(count, 0, 'no out of bounds reads')
+      t.is(count, 0, 'no out of bounds reads')
       resolve()
     })
   })
 })
 
-tape('test all short iterators', async function (t) {
+test('test all short iterators', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 
   const MAX = 25
@@ -131,7 +132,7 @@ tape('test all short iterators', async function (t) {
           }
           const entries = await collect(db.createReadStream(opts))
           if (!validate(size, reference, opts, entries)) {
-            return t.end()
+            return
           }
         }
       }
@@ -139,7 +140,6 @@ tape('test all short iterators', async function (t) {
   }
 
   t.pass('all iterations passed')
-  t.end()
 
   function validate (size, reference, opts, entries) {
     const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
@@ -161,7 +161,7 @@ tape('test all short iterators', async function (t) {
   }
 })
 
-tape('test all short iterators, sub database', async function (t) {
+test('test all short iterators, sub database', async function (t) {
   const parent = create({ keyEncoding: 'utf8' })
   const db = parent.sub('sub1')
 
@@ -190,7 +190,7 @@ tape('test all short iterators, sub database', async function (t) {
           }
           const entries = await collect(db.createReadStream(opts))
           if (!validate(size, reference, opts, entries)) {
-            return t.end()
+            return
           }
         }
       }
@@ -198,7 +198,6 @@ tape('test all short iterators, sub database', async function (t) {
   }
 
   t.pass('all iterations passed')
-  t.end()
 
   function validate (size, reference, opts, entries) {
     const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
@@ -220,17 +219,16 @@ tape('test all short iterators, sub database', async function (t) {
   }
 })
 
-tape('simple sub put/get', async t => {
+test('simple sub put/get', async function (t) {
   const db = create()
   const sub = db.sub('hello')
   await sub.put('world', 'hello world')
   const node = await sub.get('world')
-  t.same(node && node.key, 'world')
-  t.same(node && node.value, 'hello world')
-  t.end()
+  t.is(node && node.key, 'world')
+  t.is(node && node.value, 'hello world')
 })
 
-tape('multiple levels of sub', async t => {
+test('multiple levels of sub', async function (t) {
   const db = create({ sep: '!' })
   const sub = db.sub('hello').sub('world')
   await sub.put('a', 'b')
@@ -239,28 +237,26 @@ tape('multiple levels of sub', async t => {
 
   {
     const node = await sub.get('a')
-    t.same(node && node.key, 'a')
-    t.same(node && node.value, 'b')
+    t.is(node && node.key, 'a')
+    t.is(node && node.value, 'b')
   }
 
   {
     const node = await db.get(encoded)
-    t.same(node && node.key, encoded.toString('utf-8'))
-    t.same(node && node.value, 'b')
+    t.is(node && node.key, b4a.toString(encoded, 'utf-8'))
+    t.is(node && node.value, 'b')
   }
 
   {
     const key = 'hello' + db.sep + 'world' + db.sep + 'a'
-    t.same(key, encoded.toString('utf-8'))
+    t.is(key, b4a.toString(encoded, 'utf-8'))
     const node = await db.get(key)
-    t.same(node && node.key, key)
-    t.same(node && node.value, 'b')
+    t.is(node && node.key, key)
+    t.is(node && node.value, 'b')
   }
-
-  t.end()
 })
 
-tape('multiple levels of sub, entries outside sub', async t => {
+test('multiple levels of sub, entries outside sub', async function (t) {
   const db = create({ sep: '!' })
   const helloSub = db.sub('hello')
   const worldSub = helloSub.sub('world')
@@ -274,25 +270,23 @@ tape('multiple levels of sub, entries outside sub', async t => {
       t.fail('iterated unexpected value')
       break
     }
-    t.same(key, next[0])
-    t.same(value, next[1])
+    t.is(key, next[0])
+    t.is(value, next[1])
   }
-  t.same(expected.length, 0)
-
-  t.end()
+  t.is(expected.length, 0)
 })
 
-tape('sub respects keyEncoding', async t => {
+test('sub respects keyEncoding', async function (t) {
   t.plan(2)
 
   const db = create({ sep: '!' })
   const helloSub = db.sub('hello', {
     keyEncoding: {
       encode (key) {
-        return Buffer.from(key.key)
+        return b4a.from(key.key)
       },
       decode (buf) {
-        return { key: buf.toString() }
+        return { key: b4a.toString(buf) }
       }
     }
   })
@@ -300,35 +294,33 @@ tape('sub respects keyEncoding', async t => {
   await helloSub.put({ key: 'hello' }, 'val')
 
   for await (const data of helloSub.createReadStream()) {
-    t.same(data.key, { key: 'hello' })
+    t.alike(data.key, { key: 'hello' })
   }
 
   const node = await helloSub.get({ key: 'hello' })
 
   t.ok(node)
-  t.end()
 })
 
-tape('sub with a key that starts with 0xff', async t => {
+test('sub with a key that starts with 0xff', async function (t) {
   t.plan(2)
 
   const db = create({ sep: '!', keyEncoding: 'binary' })
   const helloSub = db.sub('hello')
-  const key = Buffer.from([0xff, 0x01, 0x02])
+  const key = b4a.from([0xff, 0x01, 0x02])
 
   await helloSub.put(key, 'val')
 
   for await (const data of helloSub.createReadStream()) {
-    t.same(data.key, key)
+    t.alike(data.key, key)
   }
 
   const node = await helloSub.get(key)
 
   t.ok(node)
-  t.end()
 })
 
-tape('read stream on sub checkout returns only sub keys', async t => {
+test('read stream on sub checkout returns only sub keys', async function (t) {
   t.plan(3)
 
   const db = create({ sep: '!', keyEncoding: 'utf-8' })
@@ -347,14 +339,12 @@ tape('read stream on sub checkout returns only sub keys', async t => {
     keys.push(key)
   }
 
-  t.same(keys.length, 2)
-  t.same(keys[0], 'sa')
-  t.same(keys[1], 'sb')
-
-  t.end()
+  t.is(keys.length, 2)
+  t.is(keys[0], 'sa')
+  t.is(keys[1], 'sb')
 })
 
-tape('read stream on double sub checkout', async t => {
+test('read stream on double sub checkout', async function (t) {
   t.plan(3)
 
   const db = create({ sep: '!', keyEncoding: 'utf-8' })
@@ -373,39 +363,38 @@ tape('read stream on double sub checkout', async t => {
     keys.push(key)
   }
 
-  t.same(keys.length, 2)
-  t.same(keys[0], 'sa')
-  t.same(keys[1], 'sb')
-
-  t.end()
+  t.is(keys.length, 2)
+  t.is(keys[0], 'sa')
+  t.is(keys[1], 'sb')
 })
 
-tape('setting read-only flag to false disables header write', async t => {
+test('setting read-only flag to false disables header write', async function (t) {
   const db = create({ readonly: true })
   await db.ready()
-  t.same(db.feed.length, 0)
-  t.true(db.readonly)
-  t.end()
+  t.is(db.feed.length, 0)
+  t.ok(db.readonly)
 })
 
-tape('cannot append to read-only db', async t => {
+test('cannot append to read-only db', async function (t) {
   const db = create({ readonly: true })
   await db.ready()
-  try {
-    await db.append('hello', 'world')
-  } catch (err) {
-    t.true(err)
-  }
-  t.end()
+  await t.exception(() => db.put('hello', 'world'))
 })
 
-tape('feed is unwrapped in getter', async t => {
+test('feed is unwrapped in getter', async function (t) {
   const Hypercore = require('hypercore')
   const feed = new Hypercore(require('random-access-memory'))
   const db = new Hyperbee(feed)
   await db.ready()
-  t.same(feed, db.feed)
-  t.end()
+  t.ok(feed === db.feed)
+})
+
+test('get header out', async function (t) {
+  const db = create()
+  await db.ready()
+  await db.put('hi', 'ho')
+  const h = await db.getHeader()
+  t.is(h.protocol, 'hyperbee')
 })
 
 tape('getOperation', async t => {

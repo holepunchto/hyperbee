@@ -397,7 +397,7 @@ test('get header out', async function (t) {
   t.is(h.protocol, 'hyperbee')
 })
 
-test('getOperation', async t => {
+test('getOperation', async function (t) {
   const db = create()
   await db.ready()
 

@@ -345,7 +345,6 @@ class Hyperbee {
 
   async getOperation (seq) {
     if (seq === 0) return null
-    if (!seq) seq = this._feed.length - 1
 
     const block = await this.getBlock(seq)
     return block.operation()

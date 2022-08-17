@@ -277,9 +277,7 @@ Similar to [createHistoryStream](#stream--dbcreatehistorystreamoptions) but retu
 
 If the sequence is `0` it will return null, as the first entry is a header and not a part of the tree operations.
 
-If no sequence is given, it will return the last operation.
-
 ```js
-await db.getOperation()
+await db.getOperation(db.feed.length - 1)
 // { seq: 1, key: 'a', value: 'hello', type: 'put' }
 ```

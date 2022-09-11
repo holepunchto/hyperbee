@@ -396,6 +396,7 @@ class Hyperbee {
   }
 
   async get (key, opts) {
+    await this.feed.ready()
     const snap = this.feed.snapshot()
     const b = new Batch(this, snap, null, true, opts)
     const block = await b.get(key)

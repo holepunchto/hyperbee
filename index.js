@@ -304,38 +304,6 @@ class Hyperbee {
     return this.feed.update({ ifAvailable: true, hash: false }).then(() => true, () => false)
   }
 
-  async getRoot (ensureHeader, opts, batch = this) {
-    await this.ready()
-    if (ensureHeader) {
-      if (this.feed.length === 0 && this.feed.writable && !this.readonly) {
-        await this.feed.append(Header.encode({
-          protocol: 'hyperbee',
-          metadata: this.metadata
-        }))
-      }
-    }
-    if (this._checkout === 0 && (opts && opts.update) !== false) await this.update()
-    const len = this._checkout || this.feed.length
-    if (len < 2) return null
-    return (await batch.getBlock(len - 1, opts)).getTreeNode(0)
-  }
-
-  async getKey (seq) {
-    return (await this.getBlock(seq)).key
-  }
-
-  async getBlock (seq, opts, batch = this) {
-    const active = opts.active
-    const request = this.feed.get(seq, { ...opts, valueEncoding: Node })
-    if (active) active.add(request)
-    try {
-      const entry = await request
-      return new BlockEntry(seq, batch, entry)
-    } finally {
-      if (active) active.remove(request)
-    }
-  }
-
   async peek (opts) {
     // copied from the batch since we can then use the iterator warmup ext...
     // TODO: figure out how to not simply copy the code

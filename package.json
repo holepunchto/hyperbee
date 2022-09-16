@@ -3,6 +3,10 @@
   "version": "2.0.1",
   "description": "An append-only B-tree running on a Hypercore.",
   "main": "index.js",
+  "files": [
+    "index.js",
+    "lib/**.js"
+  ],
   "dependencies": {
     "b4a": "^1.6.0",
     "codecs": "^3.0.0",

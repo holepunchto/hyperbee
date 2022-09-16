@@ -486,7 +486,7 @@ class Batch {
     return (await this.getBlock(seq)).key
   }
 
-  async getBlock (seq, opts) {
+  async getBlock (seq, opts = this.options) {
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b

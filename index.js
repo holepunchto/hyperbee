@@ -508,6 +508,42 @@ class Batch {
     return ite.next()
   }
 
+  createRangeIterator (opts = {}) {
+    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.tree.extension
+
+    if (extension) {
+      const { onseq, onwait } = opts
+      let version = 0
+      let next = 0
+
+      opts = encRange(this.keyEncoding, {
+        ...opts,
+        sub: this.tree._sub,
+        onseq (seq) {
+          if (!version) version = seq + 1
+          if (next) next--
+          if (onseq) onseq(seq)
+        },
+        onwait (seq) {
+          if (!next) {
+            next = Extension.BATCH_SIZE
+            extension.iterator(ite.snapshot(version))
+          }
+          if (onwait) onwait(seq)
+        }
+      })
+    } else {
+      opts = encRange(this.keyEncoding, { ...opts, sub: this.tree._sub })
+    }
+
+    const ite = new RangeIterator(new Batch(this.tree, this.feed.snapshot(), null, false, opts), opts)
+    return ite
+  }
+
+  createReadStream (opts) {
+    return iteratorToStream(this.createRangeIterator(opts))
+  }
+
   async get (key) {
     if (this.keyEncoding) key = enc(this.keyEncoding, key)
     if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)

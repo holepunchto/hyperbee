@@ -26,8 +26,14 @@ test('basic batch read ops', async function (t) {
   await b.put('c', '3')
   await b.put('d', '4')
 
-  const all = await collect(b.createReadStream())
-  t.alike(all, [
+  const allDb = await collect(db.createReadStream())
+  t.alike(allDb, [
+    { seq: 1, key: 'a', value: '1' },
+    { seq: 2, key: 'b', value: '2' }
+  ])
+
+  const allBatch = await collect(b.createReadStream())
+  t.alike(allBatch, [
     { seq: 1, key: 'a', value: '1' },
     { seq: 2, key: 'b', value: '2' },
     { seq: 3, key: 'c', value: '3' },

@@ -309,7 +309,7 @@ class Hyperbee {
     // TODO: figure out how to not simply copy the code
 
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    const ite = b.createRangeIterator({ ...opts, limit: 1, allowClose: true })
+    const ite = b.createRangeIterator({ ...opts, limit: 1 })
     await ite.open()
     const block = await ite.next()
     await ite.close()
@@ -318,7 +318,7 @@ class Hyperbee {
 
   createReadStream (opts) {
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    return iteratorToStream(b.createRangeIterator({ ...opts, allowClose: true }))
+    return iteratorToStream(b.createRangeIterator(opts))
   }
 
   createHistoryStream (opts) {
@@ -509,13 +509,13 @@ class Batch {
     // const b = new Batch(this, this.feed, mutexify(), true, opts)
     // const b = new Batch(this.tree, this.feed.snapshot(), null, false, opts)
     // const b = this
-    if (opts.allowClose !== true) opts.allowClose = false
+    if (!opts.allowClose) opts.allowClose = false
     const ite = new RangeIterator(this, opts)
     return ite
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
+    return iteratorToStream(this.createRangeIterator({ ...opts, allowClose: false }))
   }
 
   async get (key) {

@@ -25,6 +25,7 @@ test.solo('basic batch read ops', async function (t) {
   const b = db.batch()
   await b.put('c', '3')
   await b.put('d', '4')
+
   const all = await collect(b.createReadStream())
   t.alike(all, [
     { seq: 1, key: 'a', value: '1' },
@@ -32,6 +33,7 @@ test.solo('basic batch read ops', async function (t) {
     { seq: 3, key: 'c', value: '3' },
     { seq: 4, key: 'd', value: '4' }
   ])
+
   await b.flush()
 })
 

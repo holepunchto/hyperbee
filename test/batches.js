@@ -17,7 +17,7 @@ test('basic batch', async function (t) {
   ])
 })
 
-test.solo('basic batch read ops', async function (t) {
+test('basic batch read ops', async function (t) {
   const db = create()
   await db.put('a', '1')
   await db.put('b', '2')

@@ -17,6 +17,30 @@ test('basic batch', async function (t) {
   ])
 })
 
+test.solo('basic batch read ops', async function (t) {
+  const db = create()
+  await db.put('a', '1')
+  await db.put('b', '2')
+
+  const b = db.batch()
+  await b.put('c', '3')
+  await b.put('d', '4')
+  const all = await collect(b.createReadStream())
+  t.alike(all, [
+    { seq: 1, key: 'a', value: '1' },
+    { seq: 2, key: 'b', value: '2' },
+    { seq: 3, key: 'c', value: '3' },
+    { seq: 4, key: 'd', value: '4' }
+  ])
+  await b.flush()
+
+  const all2 = await collect(db.createReadStream())
+  t.alike(all2, [
+    { seq: 1, key: 'a', value: '1' },
+    { seq: 2, key: 'b', value: '2' }
+  ])
+})
+
 test('batch overwriting itself', async function (t) {
   const db = create()
 

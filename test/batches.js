@@ -37,18 +37,22 @@ test('batch createReadStream', async function (t) {
   const b = db.batch()
   await b.put('b', '2')
 
-  const allDb = await collect(db.createReadStream())
-  t.alike(allDb, [
-    { seq: 1, key: 'a', value: '1' }
-  ])
-
   const allBatch = await collect(b.createReadStream())
   t.alike(allBatch, [
     { seq: 1, key: 'a', value: '1' },
     { seq: 2, key: 'b', value: '2' }
   ])
 
+  const allDb = await collect(db.createReadStream())
+  t.alike(allDb, [
+    { seq: 1, key: 'a', value: '1' }
+  ])
+
+  t.alike(await db.get('a'), { seq: 1, key: 'a', value: '1' })
+
   await b.flush()
+
+  t.alike(await db.get('a'), { seq: 1, key: 'a', value: '1' })
 })
 
 test('batch overwriting itself', async function (t) {

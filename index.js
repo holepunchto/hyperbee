@@ -536,6 +536,10 @@ class Batch {
       opts = encRange(this.keyEncoding, { ...opts, sub: this.tree._sub })
     }
 
+    // const b = new Batch(this, this.feed, mutexify(), true, opts)
+    // const b = new Batch(this.tree, this.feed.snapshot(), null, false, opts)
+    // const b = this
+    opts.autoclose = false
     const ite = new RangeIterator(this, opts)
     return ite
   }

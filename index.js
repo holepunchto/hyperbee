@@ -308,47 +308,17 @@ class Hyperbee {
     // copied from the batch since we can then use the iterator warmup ext...
     // TODO: figure out how to not simply copy the code
 
-    const ite = this.createRangeIterator({ ...opts, limit: 1 })
+    const b = new Batch(this, this.feed.snapshot(), null, false, opts)
+    const ite = b.createRangeIterator({ ...opts, limit: 1, allowClose: true })
     await ite.open()
     const block = await ite.next()
     await ite.close()
     return block
   }
 
-  createRangeIterator (opts = {}) {
-    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
-
-    if (extension) {
-      const { onseq, onwait } = opts
-      let version = 0
-      let next = 0
-
-      opts = encRange(this.keyEncoding, {
-        ...opts,
-        sub: this._sub,
-        onseq (seq) {
-          if (!version) version = seq + 1
-          if (next) next--
-          if (onseq) onseq(seq)
-        },
-        onwait (seq) {
-          if (!next) {
-            next = Extension.BATCH_SIZE
-            extension.iterator(ite.snapshot(version))
-          }
-          if (onwait) onwait(seq)
-        }
-      })
-    } else {
-      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub })
-    }
-
-    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), opts)
-    return ite
-  }
-
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
+    const b = new Batch(this, this.feed.snapshot(), null, false, opts)
+    return iteratorToStream(b.createRangeIterator({ ...opts, allowClose: true }))
   }
 
   createHistoryStream (opts) {
@@ -539,7 +509,7 @@ class Batch {
     // const b = new Batch(this, this.feed, mutexify(), true, opts)
     // const b = new Batch(this.tree, this.feed.snapshot(), null, false, opts)
     // const b = this
-    opts.autoclose = false
+    if (opts.allowClose !== true) opts.allowClose = false
     const ite = new RangeIterator(this, opts)
     return ite
   }

@@ -17,27 +17,35 @@ test('basic batch', async function (t) {
   ])
 })
 
-test('basic batch read ops', async function (t) {
+test('batch get', async function (t) {
   const db = create()
   await db.put('a', '1')
-  await db.put('b', '2')
 
   const b = db.batch()
-  await b.put('c', '3')
-  await b.put('d', '4')
+  await b.put('b', '2')
+
+  t.alike(await b.get('a'), { seq: 1, key: 'a', value: '1' })
+  t.alike(await b.get('b'), { seq: 2, key: 'b', value: '2' })
+
+  await b.flush()
+})
+
+test('batch createReadStream', async function (t) {
+  const db = create()
+  await db.put('a', '1')
+
+  const b = db.batch()
+  await b.put('b', '2')
 
   const allDb = await collect(db.createReadStream())
   t.alike(allDb, [
-    { seq: 1, key: 'a', value: '1' },
-    { seq: 2, key: 'b', value: '2' }
+    { seq: 1, key: 'a', value: '1' }
   ])
 
   const allBatch = await collect(b.createReadStream())
   t.alike(allBatch, [
     { seq: 1, key: 'a', value: '1' },
-    { seq: 2, key: 'b', value: '2' },
-    { seq: 3, key: 'c', value: '3' },
-    { seq: 4, key: 'd', value: '4' }
+    { seq: 2, key: 'b', value: '2' }
   ])
 
   await b.flush()

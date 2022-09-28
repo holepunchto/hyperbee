@@ -15,7 +15,7 @@ module.exports = class RangeIterator {
     this._version = 0
     this._checkpoint = (opts.checkpoint && opts.checkpoint.length) ? opts.checkpoint : null
     this._nexting = false
-    this._autoclose = opts.autoclose === undefined ? true : opts.autoclose
+    this._allowClose = opts.allowClose === undefined ? true : opts.allowClose
   }
 
   snapshot (version = this.batch.version) {
@@ -162,7 +162,7 @@ module.exports = class RangeIterator {
   }
 
   async close () {
-    if (!this._autoclose) return
+    if (!this._allowClose) return
     return this.batch.feed.close()
   }
 }

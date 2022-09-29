@@ -308,11 +308,10 @@ class Hyperbee {
     // copied from the batch since we can then use the iterator warmup ext...
     // TODO: figure out how to not simply copy the code
 
-    const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    const ite = b.createRangeIterator({ ...opts, limit: 1 })
-    await ite.open()
-    const block = await ite.next()
-    await ite.close()
+    const snap = this.feed.snapshot()
+    const b = new Batch(this, snap, null, false, opts)
+    const block = await b.peek(opts)
+    await snap.close()
     return block
   }
 

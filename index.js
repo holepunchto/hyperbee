@@ -318,7 +318,7 @@ class Hyperbee {
 
   createReadStream (opts) {
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    return iteratorToStream(b.createRangeIterator(opts))
+    return b.createReadStream({ ...opts, allowClose: true })
   }
 
   createHistoryStream (opts) {
@@ -515,7 +515,7 @@ class Batch {
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator({ ...opts, allowClose: false }))
+    return iteratorToStream(this.createRangeIterator({ allowClose: false, ...opts }))
   }
 
   async get (key) {

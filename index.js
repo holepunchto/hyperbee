@@ -473,7 +473,7 @@ class Batch {
   }
 
   async peek (range) {
-    const ite = this.createRangeIterator({ ...range, limit: 1, allowClose: false })
+    const ite = this.createRangeIterator({ allowClose: false, ...range, limit: 1 })
     await ite.open()
     return ite.next()
   }

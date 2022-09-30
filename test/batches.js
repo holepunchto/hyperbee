@@ -35,15 +35,18 @@ test('batch peek', async function (t) {
 
 test('batch get', async function (t) {
   const db = create()
-  await db.put('a', '1')
+  await db.put('5')
 
   const b = db.batch()
-  await b.put('b', '2')
+  t.alike(await b.get('5'), { seq: 1, key: '5', value: null })
 
-  t.alike(await b.get('a'), { seq: 1, key: 'a', value: '1' })
-  t.alike(await b.get('b'), { seq: 2, key: 'b', value: '2' })
+  t.alike(await b.get('6'), null)
+  await b.put('6')
+  t.alike(await b.get('6'), { seq: 2, key: '6', value: null })
 
+  t.alike(await db.get('6'), null)
   await b.flush()
+  t.alike(await db.get('6'), { seq: 2, key: '6', value: null })
 })
 
 test('batch createReadStream', async function (t) {

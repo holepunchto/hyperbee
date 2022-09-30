@@ -316,7 +316,7 @@ class Hyperbee {
 
   createReadStream (opts) {
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    return b._createReadStream(true, opts)
+    return b.createReadStream(opts)
   }
 
   createHistoryStream (opts) {
@@ -470,12 +470,12 @@ class Batch {
   }
 
   async peek (range) {
-    const ite = this.createRangeIterator(false, { ...range, limit: 1 })
+    const ite = this.createRangeIterator({ ...range, limit: 1 })
     await ite.open()
     return ite.next()
   }
 
-  createRangeIterator (allowClose = true, opts = {}) {
+  createRangeIterator (opts = {}) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.tree.extension
 
     if (extension) {
@@ -503,20 +503,12 @@ class Batch {
       opts = encRange(this.keyEncoding, { ...opts, sub: this.tree._sub })
     }
 
-    // const b = new Batch(this, this.feed, mutexify(), true, opts)
-    // const b = new Batch(this.tree, this.feed.snapshot(), null, false, opts)
-    // const b = this
-    if (!allowClose) opts.allowClose = allowClose
     const ite = new RangeIterator(this, opts)
     return ite
   }
 
   createReadStream (opts) {
-    return this._createReadStream(false, opts)
-  }
-
-  _createReadStream (allowClose, opts) {
-    return iteratorToStream(this.createRangeIterator(allowClose, opts))
+    return iteratorToStream(this.createRangeIterator(opts))
   }
 
   async get (key) {

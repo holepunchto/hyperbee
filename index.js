@@ -690,6 +690,10 @@ class Batch {
     }
   }
 
+  close () {
+    return this.feed.close()
+  }
+
   destroy () {
     this.root = null
     this.blocks.clear()

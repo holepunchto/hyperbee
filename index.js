@@ -475,7 +475,7 @@ class Batch {
     return ite.next()
   }
 
-  createRangeIterator (autoClose = true, opts = {}) {
+  createRangeIterator (allowClose = true, opts = {}) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.tree.extension
 
     if (extension) {
@@ -506,7 +506,7 @@ class Batch {
     // const b = new Batch(this, this.feed, mutexify(), true, opts)
     // const b = new Batch(this.tree, this.feed.snapshot(), null, false, opts)
     // const b = this
-    if (!autoClose) opts.autoClose = false
+    if (!allowClose) opts.allowClose = allowClose
     const ite = new RangeIterator(this, opts)
     return ite
   }
@@ -515,8 +515,8 @@ class Batch {
     return this._createReadStream(false, opts)
   }
 
-  _createReadStream (autoClose, opts) {
-    return iteratorToStream(this.createRangeIterator(autoClose, opts))
+  _createReadStream (allowClose, opts) {
+    return iteratorToStream(this.createRangeIterator(allowClose, opts))
   }
 
   async get (key) {

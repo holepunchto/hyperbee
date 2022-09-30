@@ -160,7 +160,7 @@ module.exports = class RangeIterator {
     return null
   }
 
-  async close () {
+  close () {
     return this.batch.close()
   }
 }

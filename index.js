@@ -308,16 +308,15 @@ class Hyperbee {
     // copied from the batch since we can then use the iterator warmup ext...
     // TODO: figure out how to not simply copy the code
 
-    const snap = this.feed.snapshot()
-    const b = new Batch(this, snap, null, false, opts)
+    const b = new Batch(this, this.feed.snapshot(), null, false, opts)
     const block = await b.peek(opts)
-    await snap.close()
+    await b.close()
     return block
   }
 
   createReadStream (opts) {
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    return b.createReadStream({ ...opts, allowClose: true })
+    return b._createReadStream(true, opts)
   }
 
   createHistoryStream (opts) {
@@ -333,10 +332,9 @@ class Hyperbee {
   }
 
   async get (key, opts) {
-    const snap = this.feed.snapshot()
-    const b = new Batch(this, snap, null, true, opts)
+    const b = new Batch(this, this.feed.snapshot(), null, true, opts)
     const block = await b.get(key)
-    await snap.close()
+    await b.close()
     return block
   }
 
@@ -472,12 +470,12 @@ class Batch {
   }
 
   async peek (range) {
-    const ite = this.createRangeIterator({ allowClose: false, ...range, limit: 1 })
+    const ite = this.createRangeIterator(false, { ...range, limit: 1 })
     await ite.open()
     return ite.next()
   }
 
-  createRangeIterator (opts = {}) {
+  createRangeIterator (autoClose = true, opts = {}) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.tree.extension
 
     if (extension) {
@@ -508,13 +506,17 @@ class Batch {
     // const b = new Batch(this, this.feed, mutexify(), true, opts)
     // const b = new Batch(this.tree, this.feed.snapshot(), null, false, opts)
     // const b = this
-    if (!opts.allowClose) opts.allowClose = false
+    if (!autoClose) opts.autoClose = false
     const ite = new RangeIterator(this, opts)
     return ite
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator({ allowClose: false, ...opts }))
+    return this._createReadStream(false, opts)
+  }
+
+  _createReadStream (autoClose, opts) {
+    return iteratorToStream(this.createRangeIterator(autoClose, opts))
   }
 
   async get (key) {

@@ -1,4 +1,4 @@
-const { create, createRange, collect } = require('./helpers')
+const { create, collect } = require('./helpers')
 const test = require('brittle')
 
 test('basic batch', async function (t) {
@@ -18,20 +18,19 @@ test('basic batch', async function (t) {
 })
 
 test('batch peek', async function (t) {
-  const db = await createRange(50)
-
-  const e = await db.get('14')
-  t.is(e.key, '14')
-
-  const r = await db.peek({ gte: '14' })
-  t.alike(r, e)
+  const db = create()
+  await db.put('5')
 
   const b = db.batch()
+  t.alike(await b.peek({ gte: '5' }), { seq: 1, key: '5', value: null })
 
-  t.alike(await b.peek({ gte: '14' }), e)
-  t.alike(await b.peek({ gte: '14' }), e)
+  t.alike(await b.peek({ gte: '6' }), null)
+  await b.put('6')
+  t.alike(await b.peek({ gte: '6' }), { seq: 2, key: '6', value: null })
 
+  t.alike(await db.peek({ gte: '6' }), null)
   await b.flush()
+  t.alike(await db.peek({ gte: '6' }), { seq: 2, key: '6', value: null })
 })
 
 test('batch get', async function (t) {

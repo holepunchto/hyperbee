@@ -28,8 +28,8 @@ test('batch peek', async function (t) {
 
   const b = db.batch()
 
-  await b.peek({ gte: '14' })
-  await b.peek({ gte: '14' })
+  t.alike(await b.peek({ gte: '14' }), e)
+  t.alike(await b.peek({ gte: '14' }), e)
 
   await b.flush()
 })
@@ -84,8 +84,6 @@ test('batch and db createReadStream', async function (t) {
   t.alike(await db.get('a'), { seq: 1, key: 'a', value: '1' })
 
   await b.flush()
-
-  t.alike(await db.get('a'), { seq: 1, key: 'a', value: '1' })
 })
 
 test('batch overwriting itself', async function (t) {

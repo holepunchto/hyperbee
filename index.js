@@ -685,7 +685,7 @@ class Batch {
   }
 
   async close () {
-    if (this.tree !== this.feed) await this.feed.close()
+    if (this.tree.feed !== this.feed) await this.feed.close()
   }
 
   destroy () {

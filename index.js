@@ -304,14 +304,9 @@ class Hyperbee {
     return this.feed.update({ ifAvailable: true, hash: false })
   }
 
-  async peek (opts) {
+  peek (opts) {
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-
-    try {
-      return await b.peek(opts)
-    } finally {
-      await b.close()
-    }
+    return b.peek(opts)
   }
 
   createReadStream (opts) {
@@ -331,14 +326,9 @@ class Hyperbee {
     return iteratorToStream(new DiffIterator(new Batch(this, snapshot, null, false, opts), new Batch(right, snapshot, null, false, opts), opts))
   }
 
-  async get (key, opts) {
+  get (key, opts) {
     const b = new Batch(this, this.feed.snapshot(), null, true, opts)
-
-    try {
-      return await b.get(key)
-    } finally {
-      await b.close()
-    }
+    return b.get(key)
   }
 
   put (key, value, opts) {
@@ -521,6 +511,14 @@ class Batch {
   }
 
   async get (key) {
+    try {
+      return await this._get(key)
+    } finally {
+      await this._closeSnapshot()
+    }
+  }
+
+  async _get (key) {
     if (this.keyEncoding) key = enc(this.keyEncoding, key)
     if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
 

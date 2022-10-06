@@ -305,13 +305,13 @@ class Hyperbee {
   }
 
   async peek (opts) {
-    // copied from the batch since we can then use the iterator warmup ext...
-    // TODO: figure out how to not simply copy the code
-
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    const block = await b.peek(opts)
-    await b.close()
-    return block
+
+    try {
+      return await b.peek(opts)
+    } finally {
+      await b.close()
+    }
   }
 
   createReadStream (opts) {
@@ -418,6 +418,7 @@ class Batch {
     this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
     this.appending = null
+    this.writable = this.feed === this.tree.feed
   }
 
   ready () {
@@ -460,7 +461,7 @@ class Batch {
     this.onseq(seq)
     const entry = await this.feed.get(seq, { ...opts, valueEncoding: Node })
     b = new BlockEntry(seq, this, entry)
-    if (this.blocks) this.blocks.set(seq, b)
+    if (this.blocks && this.blocks.size < 64) this.blocks.set(seq, b)
     return b
   }
 
@@ -476,7 +477,7 @@ class Batch {
   }
 
   createRangeIterator (opts = {}) {
-    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.tree.extension
+    const extension = (this.writable || (opts.extension === false && opts.limit !== 0)) ? null : this.tree.extension
 
     if (extension) {
       const { onseq, onwait } = opts
@@ -685,14 +686,19 @@ class Batch {
   }
 
   async close () {
-    if (this.tree.feed !== this.feed) await this.feed.close()
-  }
+    if (!this.writable) {
+      await this.feed.close()
+      return
+    }
 
-  destroy () {
     this.root = null
     this.blocks.clear()
     this.length = 0
     this._unlock()
+  }
+
+  destroy () { // compat, remove later
+    this.close().catch(noop)
   }
 
   toBlocks () {

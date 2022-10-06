@@ -454,6 +454,7 @@ class Batch {
 
     this.onseq(seq)
     const entry = await this.feed.get(seq, { ...opts, valueEncoding: Node })
+    if (entry === null) throw new Error('Block not available locally')
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
     return b

@@ -305,13 +305,44 @@ class Hyperbee {
   }
 
   peek (opts) {
-    const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    return b.peek(opts)
+    return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
   }
 
   createReadStream (opts) {
+    return iteratorToStream(this.createRangeIterator(opts))
+  }
+
+  createRangeIterator (opts = {}) {
+    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
+
+    if (extension) {
+      const { onseq, onwait } = opts
+      let version = 0
+      let next = 0
+
+      opts = encRange(this.keyEncoding, {
+        ...opts,
+        sub: this._sub,
+        onseq (seq) {
+          if (!version) version = seq + 1
+          if (next) next--
+          if (onseq) onseq(seq)
+        },
+        onwait (seq) {
+          if (!next) {
+            next = Extension.BATCH_SIZE
+            extension.iterator(ite.snapshot(version))
+          }
+          if (onwait) onwait(seq)
+        }
+      })
+    } else {
+      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub })
+    }
+
     const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    return b.createReadStream(opts)
+    const ite = new RangeIterator(b, opts)
+    return ite
   }
 
   createHistoryStream (opts) {
@@ -451,7 +482,6 @@ class Batch {
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
-
     this.onseq(seq)
     const entry = await this.feed.get(seq, { ...opts, valueEncoding: Node })
     if (entry === null) throw new Error('Block not available locally')
@@ -465,47 +495,12 @@ class Batch {
     this.tree.extension.get(this.rootSeq, key)
   }
 
-  async peek (range) {
-    const ite = this.createRangeIterator({ ...range, limit: 1 })
-
-    try {
-      await ite.open()
-      return await ite.next()
-    } finally {
-      await ite.close()
-    }
+  peek (opts) {
+    return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
   }
 
   createRangeIterator (opts = {}) {
-    const extension = (this.isSnapshot === false || (opts.extension === false && opts.limit !== 0)) ? null : this.tree.extension
-
-    if (extension) {
-      const { onseq, onwait } = opts
-      let version = 0
-      let next = 0
-
-      opts = encRange(this.keyEncoding, {
-        ...opts,
-        sub: this.tree._sub,
-        onseq (seq) {
-          if (!version) version = seq + 1
-          if (next) next--
-          if (onseq) onseq(seq)
-        },
-        onwait (seq) {
-          if (!next) {
-            next = Extension.BATCH_SIZE
-            extension.iterator(ite.snapshot(version))
-          }
-          if (onwait) onwait(seq)
-        }
-      })
-    } else {
-      opts = encRange(this.keyEncoding, { ...opts, sub: this.tree._sub })
-    }
-
-    const ite = new RangeIterator(this, opts)
-    return ite
+    return new RangeIterator(this, encRange(this.keyEncoding, { ...opts, sub: this.tree._sub }))
   }
 
   createReadStream (opts) {
@@ -903,6 +898,15 @@ function iteratorToStream (ite) {
   function pushNT (val) {
     rs.push(val)
     done(null)
+  }
+}
+
+async function iteratorPeek (ite) {
+  try {
+    await ite.open()
+    return await ite.next()
+  } finally {
+    await ite.close()
   }
 }
 

@@ -73,6 +73,28 @@ test('batch createReadStream', async function (t) {
   await b.flush()
 })
 
+test('batch with multiple read streams', async function (t) {
+  const db = create()
+
+  const b = db.batch()
+
+  const expected = []
+  for (let i = 0; i < 50; i++) {
+    const key = 'i-' + i
+    const value = key
+    await b.put(key, value)
+    expected.push({ seq: i + 1, key, value })
+  }
+
+  expected.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+
+  await b.flush()
+
+  t.alike(await collect(b.createReadStream()), expected)
+  t.alike(await collect(b.createReadStream()), expected)
+  t.alike(await collect(b.createReadStream()), expected)
+})
+
 test('batch overwriting itself', async function (t) {
   const db = create()
 

@@ -301,7 +301,7 @@ class Hyperbee {
   }
 
   update () {
-    return this.feed.update({ ifAvailable: true, hash: false }).then(() => true, () => false)
+    return this.feed.update({ ifAvailable: true, hash: false })
   }
 
   async peek (opts) {
@@ -333,9 +333,12 @@ class Hyperbee {
 
   async get (key, opts) {
     const b = new Batch(this, this.feed.snapshot(), null, true, opts)
-    const block = await b.get(key)
-    await b.close()
-    return block
+
+    try {
+      return await b.get(key)
+    } finally {
+      await b.close()
+    }
   }
 
   put (key, value, opts) {
@@ -418,7 +421,7 @@ class Batch {
     this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
     this.appending = null
-    this.writable = this.feed === this.tree.feed
+    this.isSnapshot = this.feed === this.tree.feed
   }
 
   ready () {
@@ -472,12 +475,17 @@ class Batch {
 
   async peek (range) {
     const ite = this.createRangeIterator({ ...range, limit: 1 })
-    await ite.open()
-    return ite.next()
+
+    try {
+      await ite.open()
+      return await ite.next()
+    } finally {
+      await ite.close()
+    }
   }
 
   createRangeIterator (opts = {}) {
-    const extension = (this.writable || (opts.extension === false && opts.limit !== 0)) ? null : this.tree.extension
+    const extension = (this.isSnapshot || (opts.extension === false && opts.limit !== 0)) ? null : this.tree.extension
 
     if (extension) {
       const { onseq, onwait } = opts
@@ -685,8 +693,12 @@ class Batch {
     }
   }
 
+  async _closeSnapshot () {
+    if (!this.isSnapshot) await this.feed.close()
+  }
+
   async close () {
-    if (!this.writable) {
+    if (!this.isSnapshot) {
       await this.feed.close()
       return
     }
@@ -737,10 +749,7 @@ class Batch {
   }
 
   flush () {
-    if (!this.length) {
-      this.destroy()
-      return Promise.resolve()
-    }
+    if (!this.length) return this.close()
 
     const batch = this.toBlocks()
 

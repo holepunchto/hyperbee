@@ -161,6 +161,6 @@ module.exports = class RangeIterator {
   }
 
   close () {
-    return this.batch.close()
+    return this.batch._closeSnapshot()
   }
 }

@@ -33,7 +33,7 @@ module.exports = class HistoryIterator {
   }
 
   close () {
-    return this.batch.feed.close()
+    return this.batch._closeSnapshot()
   }
 }
 

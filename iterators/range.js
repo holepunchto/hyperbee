@@ -132,7 +132,7 @@ module.exports = class RangeIterator {
       if (!isKey) {
         if (!top.node.children.length) continue
         const node = await top.node.getChildNode(n)
-        top.node.children[n] = null // unlink it to save memory
+        top.node.children[n].value = null // unlink it to save memory
         this.stack.push({ i: this._reverse ? node.keys.length << 1 : 0, node })
         continue
       }
@@ -161,6 +161,6 @@ module.exports = class RangeIterator {
   }
 
   close () {
-    return this.batch.feed.close()
+    return this.batch._closeSnapshot()
   }
 }

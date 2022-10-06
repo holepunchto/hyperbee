@@ -308,10 +308,6 @@ class Hyperbee {
     return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
   }
 
-  createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
-  }
-
   createRangeIterator (opts = {}) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
 
@@ -340,9 +336,12 @@ class Hyperbee {
       opts = encRange(this.keyEncoding, { ...opts, sub: this._sub })
     }
 
-    const b = new Batch(this, this.feed.snapshot(), null, false, opts)
-    const ite = new RangeIterator(b, opts)
+    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), opts)
     return ite
+  }
+
+  createReadStream (opts) {
+    return iteratorToStream(this.createRangeIterator(opts))
   }
 
   createHistoryStream (opts) {

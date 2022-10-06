@@ -95,6 +95,16 @@ test('batch with multiple read streams', async function (t) {
   t.alike(await collect(b.createReadStream()), expected)
 })
 
+test('batch.get(k) after flush', async function (t) {
+  const db = create()
+
+  const b = db.batch()
+  await b.put('0', 'a')
+  await b.flush()
+
+  t.alike(await b.get('0'), { seq: 1, key: '0', value: 'a' })
+})
+
 test('batch overwriting itself', async function (t) {
   const db = create()
 

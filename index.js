@@ -411,7 +411,7 @@ class Batch {
     this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
     this.appending = null
-    this.isSnapshot = this.feed === this.tree.feed
+    this.isSnapshot = this.feed !== this.tree.feed
   }
 
   ready () {
@@ -451,10 +451,11 @@ class Batch {
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
+
     this.onseq(seq)
     const entry = await this.feed.get(seq, { ...opts, valueEncoding: Node })
     b = new BlockEntry(seq, this, entry)
-    if (this.blocks && this.blocks.size < 64) this.blocks.set(seq, b)
+    if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
     return b
   }
 
@@ -475,7 +476,7 @@ class Batch {
   }
 
   createRangeIterator (opts = {}) {
-    const extension = (this.isSnapshot || (opts.extension === false && opts.limit !== 0)) ? null : this.tree.extension
+    const extension = (this.isSnapshot === false || (opts.extension === false && opts.limit !== 0)) ? null : this.tree.extension
 
     if (extension) {
       const { onseq, onwait } = opts
@@ -692,11 +693,11 @@ class Batch {
   }
 
   async _closeSnapshot () {
-    if (!this.isSnapshot) await this.feed.close()
+    if (this.isSnapshot) await this.feed.close()
   }
 
   async close () {
-    if (!this.isSnapshot) {
+    if (this.isSnapshot) {
       await this.feed.close()
       return
     }

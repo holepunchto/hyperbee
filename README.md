@@ -80,7 +80,7 @@ You have the option to pass a `cas` function as an option to `put` that controls
 
 ```js
 const cas = (prev, next) => prev.value !== next.value
-const db = new Hyperbee(feed, { valueEncoding: 'utf8', valueEncoding: 'utf8' })
+const db = new Hyperbee(feed, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
 await db.put('key', 'value')
 console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
 await db.put('key', 'value', { cas })
@@ -111,12 +111,12 @@ You can pass a `cas` function as an option to `del` that controls whether the `d
 
 ```js
 const cas = (prev) => prev.value === 'value*'
-const db = new Hyperbee(feed, { valueEncoding: 'utf8', valueEncoding: 'utf8' })
+const db = new Hyperbee(feed, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
 await db.put('key', 'value')
 console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
 await db.del('key', { cas })
 console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
-await db.put('key', 'value*', { cas })
+await db.put('key', 'value*')
 console.log(await db.get('key')) // { seq: 2, key: 'key', value: 'value*' }
 await db.del('key', { cas })
 console.log(await db.get('key')) // null

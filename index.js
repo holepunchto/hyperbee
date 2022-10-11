@@ -429,8 +429,8 @@ class Batch {
   constructor (tree, feed, batchLock, cache, options = {}) {
     this.tree = tree
     this.feed = feed
-    this.keyEncoding = tree.keyEncoding
-    this.valueEncoding = tree.valueEncoding
+    this.keyEncoding = options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding
+    this.valueEncoding = options.valueEncoding ? codecs(options.valueEncoding) : tree.valueEncoding
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
     this.rootSeq = 0

@@ -219,6 +219,13 @@ test('test all short iterators, sub database', async function (t) {
   }
 })
 
+test('custom key encoding on get', async function (t) {
+  const db = create()
+  await db.put(b4a.from('hello'), 'world', { keyEncoding: 'binary' })
+  const node = await db.get(b4a.from('hello'), { keyEncoding: 'binary' })
+  t.alike(node.key, b4a.from('hello'))
+})
+
 test('simple sub put/get', async function (t) {
   const db = create()
   const sub = db.sub('hello')

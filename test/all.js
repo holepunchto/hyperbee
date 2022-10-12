@@ -219,6 +219,51 @@ test('test all short iterators, sub database', async function (t) {
   }
 })
 
+test('custom key/value encodings in get/put', async function (t) {
+  const db = create()
+  await db.put(b4a.from('hello'), b4a.from('world'), {
+    keyEncoding: 'binary',
+    valueEncoding: 'binary'
+  })
+  const node = await db.get(b4a.from('hello'), {
+    keyEncoding: 'binary',
+    valueEncoding: 'binary'
+  })
+  t.alike(node.key, b4a.from('hello'))
+  t.alike(node.value, b4a.from('world'))
+})
+
+test('custom key/value encodings in range iterator', async function (t) {
+  const db = create()
+  await db.put(b4a.from('hello1'), b4a.from('world1'), {
+    keyEncoding: 'binary',
+    valueEncoding: 'binary'
+  })
+  await db.put(b4a.from('hello2'), b4a.from('world2'), {
+    keyEncoding: 'binary',
+    valueEncoding: 'binary'
+  })
+
+  const s = db.createReadStream({
+    gt: b4a.from('hello1'),
+    keyEncoding: 'binary',
+    valueEncoding: 'binary'
+  })
+  let count = 0
+  let node = null
+
+  s.on('data', function (data) {
+    count++
+    node = data
+  })
+
+  await new Promise(resolve => s.on('end', resolve))
+
+  t.is(count, 1)
+  t.alike(node.key, b4a.from('hello2'))
+  t.alike(node.value, b4a.from('world2'))
+})
+
 test('simple sub put/get', async function (t) {
   const db = create()
   const sub = db.sub('hello')

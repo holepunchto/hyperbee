@@ -310,13 +310,14 @@ class Hyperbee {
 
   createRangeIterator (opts = {}) {
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
+    const keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
 
     if (extension) {
       const { onseq, onwait } = opts
       let version = 0
       let next = 0
 
-      opts = encRange(this.keyEncoding, {
+      opts = encRange(keyEncoding, {
         ...opts,
         sub: this._sub,
         onseq (seq) {
@@ -333,7 +334,7 @@ class Hyperbee {
         }
       })
     } else {
-      opts = encRange(this.keyEncoding, { ...opts, sub: this._sub })
+      opts = encRange(keyEncoding, { ...opts, sub: this._sub })
     }
 
     const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), opts)
@@ -499,7 +500,8 @@ class Batch {
   }
 
   createRangeIterator (opts = {}) {
-    return new RangeIterator(this, encRange(this.keyEncoding, { ...opts, sub: this.tree._sub }))
+    const keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
+    return new RangeIterator(this, encRange(keyEncoding, { ...opts, sub: this.tree._sub }))
   }
 
   createReadStream (opts) {

@@ -183,7 +183,7 @@ test('batches can survive parallel ops', async function (t) {
   t.alike(all, expected)
 })
 
-test.solo('batch puts support custom key/value encodings', async function (t) {
+test('batch puts support custom key/value encodings', async function (t) {
   const db = create()
 
   const b = db.batch()

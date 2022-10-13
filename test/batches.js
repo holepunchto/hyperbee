@@ -191,6 +191,12 @@ test('batch puts support custom key/value encodings', async function (t) {
     keyEncoding: 'json',
     valueEncoding: 'json'
   })
+  const node = await b.get({ a: 1 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+  t.alike(node.key, { a: 1 })
+  t.alike(node.value, { b: 2 })
   await b.flush()
 
   const all = await collect(db.createReadStream({

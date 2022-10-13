@@ -240,11 +240,13 @@ class BlockEntry {
     return !this.index.hasKey(this.seq)
   }
 
-  final () {
+  final (opts) {
+    const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.tree.keyEncoding
+    const valueEncoding = opts && opts.valueEncoding ? codecs(opts.valueEncoding) : this.tree.valueEncoding
     return {
       seq: this.seq,
-      key: this.tree.keyEncoding ? this.tree.keyEncoding.decode(this.key) : this.key,
-      value: this.value && (this.tree.valueEncoding ? this.tree.valueEncoding.decode(this.value) : this.value)
+      key: keyEncoding ? keyEncoding.decode(this.key) : this.key,
+      value: this.value && (valueEncoding ? valueEncoding.decode(this.value) : this.value)
     }
   }
 
@@ -508,17 +510,21 @@ class Batch {
     return iteratorToStream(this.createRangeIterator(opts))
   }
 
-  async get (key) {
+  async get (key, opts) {
     try {
-      return await this._get(key)
+      return await this._get(key, opts)
     } finally {
       await this._closeSnapshot()
     }
   }
 
-  async _get (key) {
-    if (this.keyEncoding) key = enc(this.keyEncoding, key)
-    if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
+  async _get (key, opts) {
+    const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
+
+    if (keyEncoding) key = enc(keyEncoding, key)
+    if (this.tree.extension !== null && this.options.extension !== false) {
+      this.options.onwait = this._onwait.bind(this, key)
+    }
 
     let node = await this.getRoot(false)
     if (!node) return null
@@ -533,7 +539,7 @@ class Batch {
 
         c = b4a.compare(key, await node.getKey(mid))
 
-        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final()
+        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final(opts)
 
         if (c < 0) e = mid
         else s = mid + 1
@@ -594,7 +600,7 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(), newNode))) return this._unlockMaybe()
+          if (cas && !(await cas((await node.getKeyNode(mid)).final(opts), newNode))) return this._unlockMaybe()
 
           node.setKey(mid, target)
           return this._append(root, seq, key, value)

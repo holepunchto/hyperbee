@@ -182,3 +182,23 @@ test('batches can survive parallel ops', async function (t) {
   const all = await collect(db.createReadStream())
   t.alike(all, expected)
 })
+
+test.solo('batch puts support custom key/value encodings', async function (t) {
+  const db = create()
+
+  const b = db.batch()
+  await b.put({ a: 1 }, { b: 2 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+  await b.flush()
+
+  const all = await collect(db.createReadStream({
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  }))
+
+  t.alike(all, [
+    { seq: 1, key: { a: 1 }, value: { b: 2 } }
+  ])
+})

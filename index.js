@@ -548,27 +548,29 @@ class Batch {
 
   async put (key, value, opts) {
     const release = this.batchLock ? await this.batchLock() : null
-    const cas = (opts && opts.cas) || null
 
     if (!this.locked) await this.lock()
-    if (!release) return this._put(key, value, cas)
+    if (!release) return this._put(key, value, opts)
 
     try {
-      return await this._put(key, value, cas)
+      return await this._put(key, value, opts)
     } finally {
       release()
     }
   }
 
-  async _put (key, value, cas) {
+  async _put (key, value, opts) {
+    const cas = (opts && opts.cas) || null
+    const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
+    const valueEncoding = opts && opts.valueEncoding ? codecs(opts.valueEncoding) : this.valueEncoding
+
     const newNode = {
       seq: 0,
       key,
       value
     }
-
-    key = enc(this.keyEncoding, key)
-    value = enc(this.valueEncoding, value)
+    key = enc(keyEncoding, key)
+    value = enc(valueEncoding, value)
 
     const stack = []
 

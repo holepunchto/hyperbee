@@ -248,6 +248,13 @@ class BlockEntry {
     }
   }
 
+  operation () {
+    return {
+      type: this.isDeletion() ? 'del' : 'put',
+      ...this.final()
+    }
+  }
+
   getTreeNode (offset) {
     if (this.index === null) {
       this.index = inflate(this.indexBuffer)
@@ -306,6 +313,14 @@ class Hyperbee {
 
   peek (opts) {
     return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
+  }
+
+  async getOperation (seq, opts) {
+    if (seq === 0) return null
+
+    const b = new Batch(this, this.feed.snapshot(), null, false, opts)
+    const block = await b.getBlock(seq)
+    return block.operation()
   }
 
   createRangeIterator (opts = {}) {

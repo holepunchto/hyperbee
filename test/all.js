@@ -441,3 +441,15 @@ test('get header out', async function (t) {
   const h = await db.getHeader()
   t.is(h.protocol, 'hyperbee')
 })
+
+test('getOperation', async function (t) {
+  const db = create()
+  await db.ready()
+
+  await db.put('hello', 'world')
+  await db.del('hello')
+
+  t.is(await db.getOperation(0), null)
+  t.alike(await db.getOperation(1), { type: 'put', seq: 1, key: 'hello', value: 'world' })
+  t.alike(await db.getOperation(db.feed.length - 1), { type: 'del', seq: 2, key: 'hello', value: null })
+})

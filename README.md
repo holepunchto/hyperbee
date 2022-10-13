@@ -270,3 +270,14 @@ Current version.
 #### `await db.ready()`
 
 Makes sure internal state is loaded. Call this once before checking the version if you haven't called any of the other APIs.
+
+#### `await db.getOperation(seq)`
+
+Similar to [createHistoryStream](#stream--dbcreatehistorystreamoptions) but returns a single operation at a given sequence.
+
+If the sequence is `0` it will return null, as the first entry is a header and not a part of the tree operations.
+
+```js
+await db.getOperation(db.feed.length - 1)
+// { seq: 1, key: 'a', value: 'hello', type: 'put' }
+```

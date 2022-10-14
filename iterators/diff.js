@@ -74,6 +74,7 @@ class TreeIterator {
     this.gt = opts.gt || opts.gte || null
     this.gte = !!opts.gte
     this.seeking = !!this.gt
+    this.encoding = opts.encoding || batch.encoding
   }
 
   async open () {
@@ -107,10 +108,10 @@ class TreeIterator {
   async nextKey () {
     let n = null
     while (this.stack.length && n === null) n = await this.next()
-    if (!this.lt) return n.final()
+    if (!this.lt) return n.final(this.encoding)
 
     const c = cmp(n.key, this.lt)
-    if (this.lte ? c <= 0 : c < 0) return n.final()
+    if (this.lte ? c <= 0 : c < 0) return n.final(this.encoding)
     this.stack = []
     return null
   }

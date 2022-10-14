@@ -6,6 +6,7 @@ module.exports = class RangeIterator {
     this.stack = []
     this.opened = false
 
+    this._encoding = opts.encoding || batch.encoding
     this._limit = typeof opts.limit === 'number' ? opts.limit : -1
     this._gIncl = !opts.gt
     this._gKey = opts.gt || opts.gte || null
@@ -153,7 +154,7 @@ module.exports = class RangeIterator {
       }
       if (this._limit > 0) this._limit--
       this._nexting = false
-      return block.final()
+      return block.final(this._encoding)
     }
 
     this._nexting = false

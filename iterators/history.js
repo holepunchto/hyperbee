@@ -7,6 +7,7 @@ module.exports = class HistoryIterator {
     this.lt = 0
     this.reverse = !!opts.reverse
     this.limit = typeof opts.limit === 'number' ? opts.limit : -1
+    this.encoding = opts.encoding || batch.encoding
     if (this.live && this.reverse) {
       throw new Error('Cannot have both live and reverse enabled')
     }
@@ -26,10 +27,10 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.lt <= 1) return null
-      return final(await this.batch.getBlock(--this.lt, this.options))
+      return final(await this.batch.getBlock(--this.lt, this.options), this.encoding)
     }
 
-    return final(await this.batch.getBlock(this.gte++, this.options))
+    return final(await this.batch.getBlock(this.gte++, this.options), this.encoding)
   }
 
   close () {
@@ -37,9 +38,9 @@ module.exports = class HistoryIterator {
   }
 }
 
-function final (node) {
+function final (node, encoding) {
   const type = node.isDeletion() ? 'del' : 'put'
-  return { type, ...node.final() }
+  return { type, ...node.final(encoding) }
 }
 
 function gte (opts, version) {

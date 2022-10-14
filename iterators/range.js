@@ -1,12 +1,12 @@
 const b4a = require('b4a')
 
 module.exports = class RangeIterator {
-  constructor (batch, opts = {}) {
+  constructor (batch, encoding, opts = {}) {
     this.batch = batch
     this.stack = []
     this.opened = false
+    this.encoding = encoding || batch.encoding
 
-    this._encoding = opts.encoding || batch.encoding
     this._limit = typeof opts.limit === 'number' ? opts.limit : -1
     this._gIncl = !opts.gt
     this._gKey = opts.gt || opts.gte || null
@@ -154,7 +154,7 @@ module.exports = class RangeIterator {
       }
       if (this._limit > 0) this._limit--
       this._nexting = false
-      return block.final(this._encoding)
+      return block.final(this.encoding)
     }
 
     this._nexting = false

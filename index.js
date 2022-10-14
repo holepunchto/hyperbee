@@ -243,8 +243,8 @@ class BlockEntry {
   final (encoding) {
     return {
       seq: this.seq,
-      key: encoding && encoding.key ? encoding.key.decode(this.key) : this.key,
-      value: this.value && (encoding && encoding.value ? encoding.value.decode(this.value) : this.value)
+      key: encoding.key ? encoding.key.decode(this.key) : this.key,
+      value: this.value && (encoding.value ? encoding.value.decode(this.value) : this.value)
     }
   }
 
@@ -337,7 +337,7 @@ class Hyperbee {
       opts = encRange(keyEncoding, { ...opts, sub: this._sub })
     }
 
-    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), opts)
+    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), null, opts)
     return ite
   }
 
@@ -510,7 +510,7 @@ class Batch {
 
   createRangeIterator (opts = {}) {
     const encoding = this._getEncoding(opts)
-    return new RangeIterator(this, encRange(encoding.key, { ...opts, sub: this.tree._sub, encoding }))
+    return new RangeIterator(this, encoding, encRange(encoding.key, { ...opts, sub: this.tree._sub }))
   }
 
   createReadStream (opts) {

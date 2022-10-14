@@ -498,9 +498,10 @@ class Batch {
   }
 
   _getEncoding (opts) {
+    if (!opts) return this.encoding
     return {
-      key: opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.encoding.key,
-      value: opts && opts.valueEncoding ? codecs(opts.valueEncoding) : this.encoding.value
+      key: opts.keyEncoding ? codecs(opts.keyEncoding) : this.encoding.key,
+      value: opts.valueEncoding ? codecs(opts.valueEncoding) : this.encoding.value
     }
   }
 

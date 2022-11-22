@@ -95,7 +95,7 @@ class TreeNode {
     this.changed = false
   }
 
-  async insertKey (key, child, cas, node, encoding) {
+  async insertKey (key, child, node, encoding, cas) {
     let s = 0
     let e = this.keys.length
     let c
@@ -568,16 +568,16 @@ class Batch {
     const encoding = this._getEncoding(opts)
 
     if (!this.locked) await this.lock()
-    if (!release) return this._put(key, value, cas, encoding)
+    if (!release) return this._put(key, value, encoding, cas)
 
     try {
-      return await this._put(key, value, cas, encoding)
+      return await this._put(key, value, encoding, cas)
     } finally {
       release()
     }
   }
 
-  async _put (key, value, cas, encoding) {
+  async _put (key, value, encoding, cas) {
     const newNode = {
       seq: 0,
       key,
@@ -622,7 +622,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(target, null, cas, newNode, encoding))
+    let needsSplit = !(await node.insertKey(target, null, newNode, encoding, cas))
     if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
@@ -630,7 +630,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, null, null, encoding))
+        needsSplit = !(await parent.insertKey(median, right, null, encoding, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)
@@ -650,16 +650,16 @@ class Batch {
     const encoding = this._getEncoding(opts)
 
     if (!this.locked) await this.lock()
-    if (!release) return this._del(key, cas, encoding)
+    if (!release) return this._del(key, encoding, cas)
 
     try {
-      return await this._del(key, cas, encoding)
+      return await this._del(key, encoding, cas)
     } finally {
       release()
     }
   }
 
-  async _del (key, cas, encoding) {
+  async _del (key, encoding, cas) {
     const delNode = {
       seq: 0,
       key,

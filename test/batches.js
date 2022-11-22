@@ -182,3 +182,69 @@ test('batches can survive parallel ops', async function (t) {
   const all = await collect(db.createReadStream())
   t.alike(all, expected)
 })
+
+test('batch puts support custom key/value encodings', async function (t) {
+  const db = create()
+
+  const b = db.batch()
+  await b.put({ a: 1 }, { b: 2 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+  const node = await b.get({ a: 1 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+  t.alike(node.key, { a: 1 })
+  t.alike(node.value, { b: 2 })
+  await b.flush()
+
+  const all = await collect(db.createReadStream({
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  }))
+
+  t.alike(all, [
+    { seq: 1, key: { a: 1 }, value: { b: 2 } }
+  ])
+})
+
+test('batch del supports custom key encodings', async function (t) {
+  const db = create()
+
+  const b = db.batch()
+  await b.put({ a: 1 }, { b: 2 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+  await b.del({ a: 1 }, {
+    keyEncoding: 'json'
+  })
+  t.absent(await b.get({ a: 1 }, {
+    keyEncoding: 'json'
+  }))
+})
+
+test('batch createRangeIterator supports custom key/value encodings', async function (t) {
+  const db = create()
+
+  const b = db.batch()
+  await b.put({ a: 1 }, { b: 2 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+  await b.put({ a: 3 }, { b: 4 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+
+  const all = await collect(b.createReadStream({
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  }))
+
+  t.alike(all, [
+    { seq: 1, key: { a: 1 }, value: { b: 2 } },
+    { seq: 2, key: { a: 3 }, value: { b: 4 } }
+  ])
+})

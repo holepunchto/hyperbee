@@ -95,7 +95,7 @@ class TreeNode {
     this.changed = false
   }
 
-  async insertKey (key, child, cas, node) {
+  async insertKey (key, child, node, encoding, cas) {
     let s = 0
     let e = this.keys.length
     let c
@@ -105,7 +105,7 @@ class TreeNode {
       c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
-        if (cas && !(await cas((await this.getKeyNode(mid)).final(), node))) return true
+        if (cas && !(await cas((await this.getKeyNode(mid)).final(encoding), node))) return true
         this.changed = true
         this.keys[mid] = key
         return true
@@ -240,11 +240,11 @@ class BlockEntry {
     return !this.index.hasKey(this.seq)
   }
 
-  final () {
+  final (encoding) {
     return {
       seq: this.seq,
-      key: this.tree.keyEncoding ? this.tree.keyEncoding.decode(this.key) : this.key,
-      value: this.value && (this.tree.valueEncoding ? this.tree.valueEncoding.decode(this.value) : this.value)
+      key: encoding.key ? encoding.key.decode(this.key) : this.key,
+      value: this.value && (encoding.value ? encoding.value.decode(this.value) : this.value)
     }
   }
 
@@ -337,7 +337,7 @@ class Hyperbee {
       opts = encRange(keyEncoding, { ...opts, sub: this._sub })
     }
 
-    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), opts)
+    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), null, opts)
     return ite
   }
 
@@ -430,8 +430,6 @@ class Batch {
   constructor (tree, feed, batchLock, cache, options = {}) {
     this.tree = tree
     this.feed = feed
-    this.keyEncoding = options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding
-    this.valueEncoding = options.valueEncoding ? codecs(options.valueEncoding) : tree.valueEncoding
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
     this.rootSeq = 0
@@ -443,6 +441,10 @@ class Batch {
     this.onseq = this.options.onseq || noop
     this.appending = null
     this.isSnapshot = this.feed !== this.tree.feed
+    this.encoding = {
+      key: options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding,
+      value: options.valueEncoding ? codecs(options.valueEncoding) : tree.valueEncoding
+    }
   }
 
   ready () {
@@ -495,30 +497,43 @@ class Batch {
     this.tree.extension.get(this.rootSeq, key)
   }
 
+  _getEncoding (opts) {
+    if (!opts) return this.encoding
+    return {
+      key: opts.keyEncoding ? codecs(opts.keyEncoding) : this.encoding.key,
+      value: opts.valueEncoding ? codecs(opts.valueEncoding) : this.encoding.value
+    }
+  }
+
   peek (opts) {
     return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
   }
 
   createRangeIterator (opts = {}) {
-    const keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
-    return new RangeIterator(this, encRange(keyEncoding, { ...opts, sub: this.tree._sub }))
+    const encoding = this._getEncoding(opts)
+    return new RangeIterator(this, encoding, encRange(encoding.key, { ...opts, sub: this.tree._sub }))
   }
 
   createReadStream (opts) {
     return iteratorToStream(this.createRangeIterator(opts))
   }
 
-  async get (key) {
+  async get (key, opts) {
+    const encoding = this._getEncoding(opts)
+
     try {
-      return await this._get(key)
+      return await this._get(key, encoding)
     } finally {
       await this._closeSnapshot()
     }
   }
 
-  async _get (key) {
-    if (this.keyEncoding) key = enc(this.keyEncoding, key)
-    if (this.tree.extension !== null && this.options.extension !== false) this.options.onwait = this._onwait.bind(this, key)
+  async _get (key, encoding) {
+    key = enc(encoding.key, key)
+
+    if (this.tree.extension !== null && this.options.extension !== false) {
+      this.options.onwait = this._onwait.bind(this, key)
+    }
 
     let node = await this.getRoot(false)
     if (!node) return null
@@ -533,7 +548,7 @@ class Batch {
 
         c = b4a.compare(key, await node.getKey(mid))
 
-        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final()
+        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final(encoding)
 
         if (c < 0) e = mid
         else s = mid + 1
@@ -548,27 +563,28 @@ class Batch {
 
   async put (key, value, opts) {
     const release = this.batchLock ? await this.batchLock() : null
+
     const cas = (opts && opts.cas) || null
+    const encoding = this._getEncoding(opts)
 
     if (!this.locked) await this.lock()
-    if (!release) return this._put(key, value, cas)
+    if (!release) return this._put(key, value, encoding, cas)
 
     try {
-      return await this._put(key, value, cas)
+      return await this._put(key, value, encoding, cas)
     } finally {
       release()
     }
   }
 
-  async _put (key, value, cas) {
+  async _put (key, value, encoding, cas) {
     const newNode = {
       seq: 0,
       key,
       value
     }
-
-    key = enc(this.keyEncoding, key)
-    value = enc(this.valueEncoding, value)
+    key = enc(encoding.key, key)
+    value = enc(encoding.value, value)
 
     const stack = []
 
@@ -592,7 +608,7 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(), newNode))) return this._unlockMaybe()
+          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), newNode))) return this._unlockMaybe()
 
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
@@ -606,7 +622,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(target, null, cas, newNode))
+    let needsSplit = !(await node.insertKey(target, null, newNode, encoding, cas))
     if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
@@ -614,7 +630,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, null, null))
+        needsSplit = !(await parent.insertKey(median, right, null, encoding, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)
@@ -631,25 +647,26 @@ class Batch {
   async del (key, opts) {
     const release = this.batchLock ? await this.batchLock() : null
     const cas = (opts && opts.cas) || null
+    const encoding = this._getEncoding(opts)
 
     if (!this.locked) await this.lock()
-    if (!release) return this._del(key, cas)
+    if (!release) return this._del(key, encoding, cas)
 
     try {
-      return await this._del(key, cas)
+      return await this._del(key, encoding, cas)
     } finally {
       release()
     }
   }
 
-  async _del (key, cas) {
+  async _del (key, encoding, cas) {
     const delNode = {
       seq: 0,
       key,
       value: null
     }
 
-    key = enc(this.keyEncoding, key)
+    key = enc(encoding.key, key)
 
     const stack = []
 
@@ -670,7 +687,7 @@ class Batch {
         c = b4a.compare(key, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(), delNode))) return this._unlockMaybe()
+          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), delNode))) return this._unlockMaybe()
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)
           // we mark these as changed late, so we don't rewrite them if it is a 404

@@ -441,6 +441,7 @@ class Batch {
     this.onseq = this.options.onseq || noop
     this.appending = null
     this.isSnapshot = this.feed !== this.tree.feed
+    this.shouldUpdate = this.options.update !== false
     this.encoding = {
       key: options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding,
       value: options.valueEncoding ? codecs(options.valueEncoding) : tree.valueEncoding
@@ -471,7 +472,7 @@ class Batch {
         }))
       }
     }
-    if (this.tree._checkout === 0 && (opts && opts.update) !== false) await this.feed.update()
+    if (this.tree._checkout === 0 && this.shouldUpdate) await this.feed.update()
     if (this.version < 2) return null
     return (await this.getBlock(this.version - 1, opts)).getTreeNode(0)
   }

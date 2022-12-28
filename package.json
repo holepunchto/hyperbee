@@ -29,12 +29,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hypercore-protocol/hyperbee.git"
+    "url": "https://github.com/holepunchto/hyperbee.git"
   },
   "author": "Mathias Buus (@mafintosh)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/hypercore-protocol/hyperbee/issues"
+    "url": "https://github.com/holepunchto/hyperbee/issues"
   },
-  "homepage": "https://github.com/hypercore-protocol/hyperbee"
+  "homepage": "https://github.com/holepunchto/hyperbee"
 }

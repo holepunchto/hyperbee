@@ -50,7 +50,7 @@ feed is downloaded to satisfy your queries.
 
 #### `const db = new Hyperbee(feed, [options])`
 
-Make a new Hyperbee instance. `feed` should be a [Hypercore](https://github.com/hypercore-protocol/hypercore).
+Make a new Hyperbee instance. `feed` should be a [Hypercore](https://github.com/holepunchto/hypercore).
 
 Options include:
 

@@ -1,5 +1,7 @@
 # Hyperbee 🐝
 
+[See API docs at docs.holepunch.to](https://docs.holepunch.to/building-blocks/hyperbee)
+
 An append-only B-tree running on a Hypercore.
 Allows sorted iteration and more.
 

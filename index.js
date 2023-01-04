@@ -428,7 +428,6 @@ class Hyperbee {
 
   static async isHyperbee (core) {
     await core.ready()
-    await core.update()
 
     if (core.length === 0) return false
 

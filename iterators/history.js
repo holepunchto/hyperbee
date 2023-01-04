@@ -27,10 +27,10 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.lt <= 1) return null
-      return final(await this.batch.getBlock(--this.lt, this.options), this.encoding)
+      return final(await this.batch.getBlock(--this.lt), this.encoding)
     }
 
-    return final(await this.batch.getBlock(this.gte++, this.options), this.encoding)
+    return final(await this.batch.getBlock(this.gte++), this.encoding)
   }
 
   close () {

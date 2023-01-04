@@ -426,12 +426,12 @@ class Hyperbee {
     return this.feed.close()
   }
 
-  static async isHyperbee (core) {
+  static async isHyperbee (core, opts) {
     await core.ready()
 
     if (core.length === 0) return false
 
-    const blk0 = await core.get(0)
+    const blk0 = await core.get(0, opts)
     try {
       return Header.decode(blk0).protocol === 'hyperbee'
     } catch (err) { // undecodable

@@ -7,7 +7,8 @@ module.exports = {
   createRange,
   insertRange,
   rangeify,
-  collect
+  collect,
+  createCore
 }
 
 function collect (stream) {
@@ -71,4 +72,8 @@ function create (opts) {
   opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
   const feed = new Hypercore(require('random-access-memory'))
   return new Hyperbee(feed, opts)
+}
+
+function createCore () {
+  return new Hypercore(require('random-access-memory'))
 }

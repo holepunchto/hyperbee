@@ -1,6 +1,6 @@
 const test = require('brittle')
 const b4a = require('b4a')
-const { create, collect } = require('./helpers')
+const { create, collect, createCore } = require('./helpers')
 
 const Hyperbee = require('..')
 
@@ -440,4 +440,27 @@ test('get header out', async function (t) {
   await db.put('hi', 'ho')
   const h = await db.getHeader()
   t.is(h.protocol, 'hyperbee')
+})
+
+test('isHyperbee is false for empty hypercore', async function (t) {
+  const feed = createCore()
+  t.absent(await Hyperbee.isHyperbee(feed))
+})
+
+test('isHyperbee is false for non-empty hypercore', async function (t) {
+  const feed = createCore()
+  await feed.append('something')
+  t.absent(await Hyperbee.isHyperbee(feed))
+})
+
+test('isHyperbee is false for hypercore with 1st entry hyperbee', async function (t) {
+  const feed = createCore()
+  await feed.append('hyperbee')
+  t.absent(await Hyperbee.isHyperbee(feed))
+})
+
+test('isHyperbee is true for feed of actual hyperbee', async function (t) {
+  const db = create()
+  await db.put('hi', 'ho') // Adds the header on the first put
+  t.ok(await Hyperbee.isHyperbee(db.feed))
 })

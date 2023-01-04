@@ -461,8 +461,7 @@ class Batch {
     return Math.max(1, this.tree._checkout ? this.tree._checkout : this.feed.length + this.length)
   }
 
-  async getRoot (ensureHeader, opts) {
-    opts = { ...opts, ...this.options }
+  async getRoot (ensureHeader) {
     await this.ready()
     if (ensureHeader) {
       if (this.feed.length === 0 && this.feed.writable && !this.tree.readonly) {
@@ -474,19 +473,19 @@ class Batch {
     }
     if (this.tree._checkout === 0 && this.shouldUpdate) await this.feed.update()
     if (this.version < 2) return null
-    return (await this.getBlock(this.version - 1, opts)).getTreeNode(0)
+    return (await this.getBlock(this.version - 1)).getTreeNode(0)
   }
 
   async getKey (seq) {
     return (await this.getBlock(seq)).key
   }
 
-  async getBlock (seq, opts = this.options) {
+  async getBlock (seq) {
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
-    const entry = await this.feed.get(seq, { ...opts, valueEncoding: Node })
+    const entry = await this.feed.get(seq, { ...this.options, valueEncoding: Node })
     if (entry === null) throw new Error('Block not available locally')
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)

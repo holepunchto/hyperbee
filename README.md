@@ -272,3 +272,9 @@ Current version.
 #### `await db.ready()`
 
 Makes sure internal state is loaded. Call this once before checking the version if you haven't called any of the other APIs.
+
+#### `await Hyperbee.isHyperbee(core, opts?)`
+
+Returns true if the core contains a hyperbee, false otherwise.
+
+Queries the core, so ensure it is available and has updated length before calling this.

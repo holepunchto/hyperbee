@@ -2,6 +2,7 @@ const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
+const safetyCatch = require('safety-catch')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -423,6 +424,21 @@ class Hyperbee {
 
   close () {
     return this.feed.close()
+  }
+
+  static async isHyperbee (core) {
+    await core.ready()
+    await core.update()
+
+    if (core.length === 0) return false
+
+    const blk0 = await core.get(0)
+    try {
+      return Header.decode(blk0).protocol === 'hyperbee'
+    } catch (err) { // undecodable
+      safetyCatch(err)
+      return false
+    }
   }
 }
 

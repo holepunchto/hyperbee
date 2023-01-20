@@ -115,3 +115,25 @@ test('diff regression', async function (t) {
     { left: null, right: { seq: 5, key: '5', value: null } }
   ])
 })
+
+test('diff key encoding option', async function (t) {
+  const db = await create({
+    keyEncoding: null
+  })
+  const v1 = db.version
+
+  await db.put('a', 'b')
+  await db.put({ a: 1 }, { b: 2 }, {
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+
+  const diffStream = db.createDiffStream(v1, {
+    gte: { a: 1 },
+    keyEncoding: 'json',
+    valueEncoding: 'json'
+  })
+
+  const entries = await collect(diffStream)
+  t.is(entries.length, 1)
+})

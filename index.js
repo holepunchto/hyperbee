@@ -271,6 +271,7 @@ class BatchEntry extends BlockEntry {
 
 class Hyperbee {
   constructor (feed, opts = {}) {
+    // this.feed is now deprecated, and will be this.core going forward
     this.feed = feed
     this.core = feed
 
@@ -430,6 +431,7 @@ class Hyperbee {
 class Batch {
   constructor (tree, feed, batchLock, cache, options = {}) {
     this.tree = tree
+    // this.feed is now deprecated, and will be this.core going forward
     this.feed = feed
     this.core = feed
     this.blocks = cache ? new Map() : null

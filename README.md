@@ -13,7 +13,7 @@ npm install hyperbee
 
 ``` js
 const Hyperbee = require('hyperbee')
-const db = new Hyperbee(feed, {
+const db = new Hyperbee(core, {
   keyEncoding: 'utf-8', // can be set to undefined (binary), utf-8, ascii or and abstract-encoding
   valueEncoding: 'binary' // same options as above
 })
@@ -48,7 +48,7 @@ feed is downloaded to satisfy your queries.
 
 ## API
 
-#### `const db = new Hyperbee(feed, [options])`
+#### `const db = new Hyperbee(core, [options])`
 
 Make a new Hyperbee instance. `feed` should be a [Hypercore](https://github.com/holepunchto/hypercore).
 
@@ -82,7 +82,7 @@ You have the option to pass a `cas` function as an option to `put` that controls
 
 ```js
 const cas = (prev, next) => prev.value !== next.value
-const db = new Hyperbee(feed, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
+const db = new Hyperbee(core, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
 await db.put('key', 'value')
 console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
 await db.put('key', 'value', { cas })
@@ -113,7 +113,7 @@ You can pass a `cas` function as an option to `del` that controls whether the `d
 
 ```js
 const cas = (prev) => prev.value === 'value*'
-const db = new Hyperbee(feed, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
+const db = new Hyperbee(core, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
 await db.put('key', 'value')
 console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
 await db.del('key', { cas })

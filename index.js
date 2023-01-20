@@ -272,6 +272,7 @@ class BatchEntry extends BlockEntry {
 class Hyperbee {
   constructor (feed, opts = {}) {
     this.feed = feed
+    this.core = feed
 
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
@@ -430,6 +431,7 @@ class Batch {
   constructor (tree, feed, batchLock, cache, options = {}) {
     this.tree = tree
     this.feed = feed
+    this.core = feed
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
     this.rootSeq = 0

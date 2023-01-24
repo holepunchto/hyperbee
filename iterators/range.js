@@ -16,6 +16,7 @@ module.exports = class RangeIterator {
     this._version = 0
     this._checkpoint = (opts.checkpoint && opts.checkpoint.length) ? opts.checkpoint : null
     this._nexting = false
+    this._filter = opts.filter || null
   }
 
   snapshot (version = this.batch.version) {
@@ -37,7 +38,8 @@ module.exports = class RangeIterator {
       limit: this._limit,
       reverse: this._reverse,
       ended: this.opened && !checkpoint.length,
-      checkpoint: this.opened ? checkpoint : []
+      checkpoint: this.opened ? checkpoint : [],
+      filter: this._filter
     }
   }
 
@@ -154,7 +156,9 @@ module.exports = class RangeIterator {
       }
       if (this._limit > 0) this._limit--
       this._nexting = false
-      return block.final(this.encoding)
+      const entry = block.final(this.encoding)
+      if (this._filter && !this._filter(entry.key)) continue
+      return entry
     }
 
     this._nexting = false

@@ -413,6 +413,34 @@ test('read stream on double sub checkout', async function (t) {
   t.is(keys[1], 'sb')
 })
 
+test('read stream with filter', async function (t) {
+  const db = create()
+
+  await db.put('a', '1')
+  await db.put('b', '2')
+  await db.put('c', '3')
+  await db.put('d', '4')
+  await db.put('e', '5')
+
+  const all = await collect(db.createReadStream({ filter: key => true }))
+  t.alike(all, [
+    { seq: 1, key: 'a', value: '1' },
+    { seq: 2, key: 'b', value: '2' },
+    { seq: 3, key: 'c', value: '3' },
+    { seq: 4, key: 'd', value: '4' },
+    { seq: 5, key: 'e', value: '5' }
+  ])
+
+  const empty = await collect(db.createReadStream({ filter: key => false }))
+  t.alike(empty, [])
+
+  const filtered = await collect(db.createReadStream({ filter: key => key === 'b' || key === 'd' }))
+  t.alike(filtered, [
+    { seq: 2, key: 'b', value: '2' },
+    { seq: 4, key: 'd', value: '4' }
+  ])
+})
+
 test('setting read-only flag to false disables header write', async function (t) {
   const db = create({ readonly: true })
   await db.ready()

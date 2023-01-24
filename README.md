@@ -179,7 +179,8 @@ Options include:
   lt: 'only return keys < than this',
   lte: 'only return keys <= than this',
   reverse: false // set to true to get them in reverse order,
-  limit: -1 // set to the max number of entries you want
+  limit: -1, // set to the max number of entries you want
+  filter: (key) => true
 }
 ```
 

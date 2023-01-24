@@ -275,6 +275,10 @@ Makes sure internal state is loaded. Call this once before checking the version 
 
 #### `await Hyperbee.isHyperbee(core, opts?)`
 
-Returns true if the core contains a hyperbee, false otherwise.
+Returns true if the core contains a hyperbee, false if it does not, or null if it is not yet known.
 
-Queries the core, so ensure it is available and has updated length before calling this.
+Null is only returned when the first block could not be obtained AND an option to make it return early was set,
+such as `wait: false` or `timeout: someTimeout` (see the documentation for `hypercore.get`).
+
+The default behaviour is to wait until the first block is available (returning either true or false).
+

@@ -277,4 +277,9 @@ Makes sure internal state is loaded. Call this once before checking the version 
 
 Returns true if the core contains a hyperbee, false otherwise.
 
-Queries the core, so ensure it is available and has updated length before calling this.
+Throws if the first block could not be loaded.
+This can only happen when the likes of `wait: false` or `timeout: someTimeout` are set
+(see the documentation for `hypercore.get`).
+The default behaviour is to wait until the first block is available
+(thereafter returning either true or false).
+

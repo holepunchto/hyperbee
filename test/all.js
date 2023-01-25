@@ -442,21 +442,21 @@ test('get header out', async function (t) {
   t.is(h.protocol, 'hyperbee')
 })
 
-test('isHyperbee is false for empty hypercore', async function (t) {
+test('isHyperbee throws for empty hypercore and wait false', async function (t) {
   const feed = createCore()
-  t.absent(await Hyperbee.isHyperbee(feed))
+  await t.exception(Hyperbee.isHyperbee(feed, { wait: false }), 'Block 0 not available locally')
 })
 
 test('isHyperbee is false for non-empty hypercore', async function (t) {
   const feed = createCore()
   await feed.append('something')
-  t.absent(await Hyperbee.isHyperbee(feed))
+  t.is(await Hyperbee.isHyperbee(feed), false)
 })
 
 test('isHyperbee is false for hypercore with 1st entry hyperbee', async function (t) {
   const feed = createCore()
   await feed.append('hyperbee')
-  t.absent(await Hyperbee.isHyperbee(feed))
+  t.is(await Hyperbee.isHyperbee(feed), false)
 })
 
 test('isHyperbee is true for feed of actual hyperbee', async function (t) {

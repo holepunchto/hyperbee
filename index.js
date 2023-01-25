@@ -949,12 +949,7 @@ function iteratorToStream (ite, opts) {
 function filterEntries (filter) {
   return new Transform({
     transform (data, cb) {
-      if (data && !filter(data.key)) {
-        cb()
-        return
-      }
-
-      this.push(data)
+      if (filter(data.key)) this.push(data)
       cb()
     }
   })

@@ -435,7 +435,7 @@ class Hyperbee {
     await core.ready()
 
     const blk0 = await core.get(0, opts)
-    if (blk0 === null) throw new Error('Block0 not available locally')
+    if (blk0 === null) throw new Error('Block 0 not available locally')
 
     try {
       return Header.decode(blk0).protocol === 'hyperbee'

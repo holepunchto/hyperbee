@@ -156,9 +156,7 @@ module.exports = class RangeIterator {
       }
       if (this._limit > 0) this._limit--
       this._nexting = false
-      const entry = block.final(this.encoding)
-      if (this._filter && !this._filter(entry.key)) continue
-      return entry
+      return block.final(this.encoding)
     }
 
     this._nexting = false

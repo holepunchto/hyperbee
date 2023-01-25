@@ -1,5 +1,5 @@
 const codecs = require('codecs')
-const { Readable } = require('streamx')
+const { Readable, Transform } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
@@ -345,7 +345,7 @@ class Hyperbee {
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
+    return iteratorToStream(this.createRangeIterator(opts), opts)
   }
 
   createHistoryStream (opts) {
@@ -537,7 +537,7 @@ class Batch {
   }
 
   createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
+    return iteratorToStream(this.createRangeIterator(opts), opts)
   }
 
   async get (key, opts) {
@@ -901,7 +901,7 @@ async function rebalance (stack) {
   return root
 }
 
-function iteratorToStream (ite) {
+function iteratorToStream (ite, opts) {
   let done
   let closing
 
@@ -925,6 +925,11 @@ function iteratorToStream (ite) {
     }
   })
 
+  if (opts && opts.filter) {
+    const filter = filterEntries(opts.filter)
+    return rs.pipe(filter)
+  }
+
   return rs
 
   function fin (err) {
@@ -939,6 +944,20 @@ function iteratorToStream (ite) {
     rs.push(val)
     done(null)
   }
+}
+
+function filterEntries (filter) {
+  return new Transform({
+    transform (data, cb) {
+      if (data && !filter(data.key)) {
+        cb()
+        return
+      }
+
+      this.push(data)
+      cb()
+    }
+  })
 }
 
 async function iteratorPeek (ite) {

@@ -355,12 +355,17 @@ class Hyperbee {
 
   createDiffStream (right, opts) {
     if (typeof right === 'number') right = this.checkout(Math.max(1, right))
-    const snapshot = right.version > this.version ? right.feed.snapshot() : this.feed.snapshot()
+    // Ensure the bee at the time of creating the diff stream is used
+    // rather than the bee at the time of beginning to consume the diff stream
+    // TODO: same for right if passed a bee instead of version nr?
+    const left = this.snapshot()
+
+    const snapshot = right.version > this.version ? right.feed.snapshot() : left.feed.snapshot()
 
     const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
     if (keyEncoding) opts = encRange(keyEncoding, { ...opts, sub: this._sub })
 
-    return iteratorToStream(new DiffIterator(new Batch(this, snapshot, null, false, opts), new Batch(right, snapshot, null, false, opts), opts))
+    return iteratorToStream(new DiffIterator(new Batch(left, snapshot, null, false, opts), new Batch(right, snapshot, null, false, opts), opts))
   }
 
   get (key, opts) {

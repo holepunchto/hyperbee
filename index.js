@@ -340,7 +340,7 @@ class Hyperbee {
       opts = encRange(keyEncoding, { ...opts, sub: this._sub })
     }
 
-    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), null, opts)
+    const ite = new RangeIterator(new Batch(this.snapshot(), this.feed.snapshot(), null, false, opts), null, opts)
     return ite
   }
 
@@ -350,14 +350,16 @@ class Hyperbee {
 
   createHistoryStream (opts) {
     const session = (opts && opts.live) ? this.feed.session() : this.feed.snapshot()
-    return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
+    return iteratorToStream(new HistoryIterator(new Batch(this.snapshot(), session, null, false, opts), opts))
   }
 
   createDiffStream (right, opts) {
     if (typeof right === 'number') right = this.checkout(Math.max(1, right))
+
     // Ensure the bee at the time of creating the diff stream is used
     // rather than the bee at the time of beginning to consume the diff stream
-    // TODO: same for right if passed a bee instead of version nr?
+    // TODO: clean fix with upstream change in hypercore, so the db.feed snapshots
+    // snap fully at creation time (currently not possible)
     const left = this.snapshot()
 
     const snapshot = right.version > this.version ? right.feed.snapshot() : left.feed.snapshot()

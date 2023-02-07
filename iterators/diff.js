@@ -107,11 +107,14 @@ class TreeIterator {
 
   async nextKey () {
     let n = null
-    while (this.stack.length && n === null) n = await this.next()
-    if (!this.lt) return n.final(this.encoding)
 
+    while (this.stack.length && n === null) n = await this.next()
+    if (!n) return null
+
+    if (!this.lt) return n.final(this.encoding)
     const c = cmp(n.key, this.lt)
     if (this.lte ? c <= 0 : c < 0) return n.final(this.encoding)
+
     this.stack = []
     return null
   }
@@ -134,7 +137,7 @@ class TreeIterator {
     const child = await top.node.getChildNode(n)
     top.node.children[n] = null // unlink to save memory
     const tree = new SubTree(child, top)
-    if (this.seeking && !(await this._seek(tree))) return
+    if (this.seeking && !(await this._seek(tree))) return null
     this.stack.push(tree)
 
     return null

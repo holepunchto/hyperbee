@@ -1,6 +1,5 @@
 const test = require('brittle')
 const { create, createFromStorage, createTmpDir } = require('./helpers')
-const RAM = require('random-access-memory')
 
 // db.watch(prefix, onchange)
 
@@ -27,23 +26,15 @@ test.skip('basic watch on prefix', async function (t) {
   const watcher = db.watch('/sub')
   t.teardown(() => watcher.destroy())
 
-  {
-    watcher.on('change', onchangefail)
+  watcher.on('change', onchangefail)
+  await db.put('/a', Buffer.from('hi'))
+  await sleep(1)
+  watcher.off('change', onchangefail)
 
-    await db.put('/a', Buffer.from('hi'))
-    await sleep(1)
-
-    watcher.off('change', onchangefail)
-  }
-
-  {
-    watcher.on('change', onchangepass)
-
-    await db.put('/sub/b', Buffer.from('hi'))
-    await sleep(1)
-
-    watcher.off('change', onchangepass)
-  }
+  watcher.on('change', onchangepass)
+  await db.put('/sub/b', Buffer.from('hi'))
+  await sleep(1)
+  watcher.off('change', onchangepass)
 
   function onchangefail () {
     t.fail('should not trigger changes')

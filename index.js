@@ -873,7 +873,7 @@ class Watcher extends EventEmitter {
     this.stream = snapshot.createDiffStream(this.latestDiff) // (v, range) + encode this.prefix?
 
     try {
-      for await (const data of this.stream) {
+      for await (const data of this.stream) { // eslint-disable-line
         this.emit('change', snapshot.version, this.latestDiff)
         break
       }

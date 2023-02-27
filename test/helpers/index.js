@@ -3,6 +3,7 @@ const Hypercore = require('hypercore')
 const RAM = require('random-access-memory')
 const path = require('path')
 const fs = require('fs')
+const fsp = require('fs/promises')
 const os = require('os')
 
 module.exports = {
@@ -91,6 +92,6 @@ function createCore () {
 function createTmpDir (t) {
   const tmpdir = path.join(os.tmpdir(), 'hyperbee-test-')
   const dir = fs.mkdtempSync(tmpdir)
-  t.teardown(() => fs.rmSync(dir, { recursive: true }))
+  t.teardown(() => fsp.rm(dir, { recursive: true }))
   return dir
 }

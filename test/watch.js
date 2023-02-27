@@ -26,6 +26,9 @@ test.skip('basic watch on prefix', async function (t) {
   const watcher = db.watch('/sub')
   t.teardown(() => watcher.destroy())
 
+  const onchangefail = () => t.fail('should not trigger changes')
+  const onchangepass = () => t.pass('change')
+
   watcher.on('change', onchangefail)
   await db.put('/a', Buffer.from('hi'))
   await sleep(1)
@@ -35,14 +38,6 @@ test.skip('basic watch on prefix', async function (t) {
   await db.put('/sub/b', Buffer.from('hi'))
   await sleep(1)
   watcher.off('change', onchangepass)
-
-  function onchangefail () {
-    t.fail('should not trigger changes')
-  }
-
-  function onchangepass () {
-    t.pass('change')
-  }
 })
 
 test('batch multiple changes', async function (t) {

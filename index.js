@@ -1,8 +1,11 @@
+const { EventEmitter } = require('events')
+
 const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
+const debounceify = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -380,6 +383,18 @@ class Hyperbee {
   del (key, opts) {
     const b = new Batch(this, this.feed, null, true, opts)
     return b.del(key, opts)
+  }
+
+  watch (prefix, onchange) {
+    if (typeof prefix === 'function') {
+      onchange = prefix
+      prefix = undefined
+    }
+
+    const watcher = new Watcher(this, prefix)
+    if (onchange) watcher.on('change', watcher)
+
+    return watcher
   }
 
   checkout (version, opts = {}) {
@@ -832,6 +847,49 @@ class Batch {
     } finally {
       this._unlock()
     }
+  }
+}
+
+class Watcher extends EventEmitter {
+  constructor (bee, prefix) {
+    super()
+
+    this.bee = bee
+    this.core = bee.core
+
+    this.destroyed = false
+
+    this.prefix = prefix
+    this.latestDiff = this.bee.version
+    this.stream = null
+
+    this.onappend = debounceify(() => this._run())
+    this.core.on('append', this.onappend)
+  }
+
+  async _run () {
+    // + try-catch
+    const snapshot = this.bee.snapshot()
+    this.stream = snapshot.createDiffStream(this.latestDiff) // (v, range) + encode this.prefix?
+
+    try {
+      for await (const data of this.stream) {
+        this.emit('change', snapshot.version, this.latestDiff)
+        break
+      }
+    } catch (err) {
+      if (this.destroyed && err.message === 'Stream was destroyed') return
+      throw err // + this.emit('error', err)?
+    }
+
+    this.latestDiff = snapshot.version
+  }
+
+  destroy () {
+    this.destroyed = true
+
+    this.core.off('append', this.onappend)
+    if (this.stream) this.stream.destroy()
   }
 }
 

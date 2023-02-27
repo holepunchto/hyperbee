@@ -1,14 +1,20 @@
 const Hyperbee = require('../../')
 const Hypercore = require('hypercore')
+const RAM = require('random-access-memory')
+const path = require('path')
+const fs = require('fs')
+const os = require('os')
 
 module.exports = {
   toString,
   create,
+  createFromStorage,
   createRange,
   insertRange,
   rangeify,
   collect,
-  createCore
+  createCore,
+  createTmpDir
 }
 
 function collect (stream) {
@@ -69,11 +75,22 @@ async function toString (tree) {
 }
 
 function create (opts) {
+  return createFromStorage(RAM, opts)
+}
+
+function createFromStorage (storage, opts) {
   opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
-  const feed = new Hypercore(require('random-access-memory'))
-  return new Hyperbee(feed, opts)
+  const core = new Hypercore(storage)
+  return new Hyperbee(core, opts)
 }
 
 function createCore () {
   return new Hypercore(require('random-access-memory'))
+}
+
+function createTmpDir (t) {
+  const tmpdir = path.join(os.tmpdir(), 'hyperbee-test-')
+  const dir = fs.mkdtempSync(tmpdir)
+  t.teardown(() => fs.rmSync(dir, { recursive: true }))
+  return dir
 }

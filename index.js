@@ -890,6 +890,8 @@ class Watcher extends EventEmitter {
   }
 
   async _onappend () {
+    this.running = true
+
     try {
       await this._run()
     } catch (err) {
@@ -901,8 +903,6 @@ class Watcher extends EventEmitter {
   }
 
   async _run () {
-    this.running = true
-
     // + I think it could repeat a last call even after bee is closed, should trigger it with a test first
     // if (this.destroyed) return
 

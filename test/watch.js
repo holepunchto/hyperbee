@@ -165,7 +165,7 @@ test('destroy should not trigger stream error', async function (t) {
   const db = create()
 
   await db.ready()
-  await db.put('/a')
+  await db.put('/a') // Ignore first append (header)
 
   const watcher = db.watch()
 

@@ -230,6 +230,27 @@ returned, only the diff.
 
 Currently accepts the same options as the read stream except for reverse.
 
+#### `watcher = db.watch([range], [onchange])`
+
+Listens to changes that are on the optional `range`.
+
+`range` options are the same as `createReadStream` except for reverse.
+
+`watcher.watch()`
+Starts watching for changes. By default it already does it. This is only useful after you `unwatch()`.
+
+`watcher.unwatch()`
+Stops watching for changes.
+
+`watcher.destroy()`
+Closes the watcher.
+
+`watcher.on('change', (leftVersion, rightVersion) => {})`
+Emitted after a feed change.
+
+`watcher.on('close', onclose)`
+Emitted after the watcher is closed.
+
 #### `dbCheckout = db.checkout(version)`
 
 Get a readonly db checkout of a previous version.

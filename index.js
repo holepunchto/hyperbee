@@ -393,6 +393,8 @@ class Hyperbee {
     const watcher = new Watcher(this, range)
     if (onchange) watcher.on('change', onchange)
 
+    watcher.watch()
+
     return watcher
   }
 
@@ -856,6 +858,8 @@ class Watcher extends EventEmitter {
     this.bee = bee
     this.core = bee.core
 
+    this.watching = false
+    this.running = false
     this.destroyed = false
 
     this.range = range
@@ -864,19 +868,27 @@ class Watcher extends EventEmitter {
 
     const onappend = this._onappend.bind(this)
     this.onappend = debounceify(onappend)
-    this.core.on('append', this.onappend)
+
+    // this.on('error', noop)
   }
 
   async _onappend () {
     try {
       await this._run()
     } catch (err) {
-      this.destroy()
       this.emit('error', err)
+      this.destroy()
+    } finally {
+      this.running = false
     }
   }
 
   async _run () {
+    this.running = true
+
+    // + I think it could repeat a last call even after bee is closed, should trigger it with a test first
+    // if (this.destroyed) return
+
     const snapshot = this.bee.snapshot()
     this.stream = snapshot.createDiffStream(this.latestDiff, this.range)
 
@@ -886,18 +898,39 @@ class Watcher extends EventEmitter {
         break
       }
     } catch (err) {
-      if (this.destroyed && err.message === 'Stream was destroyed') return
+      if (!this.watching && err.message === 'Stream was destroyed') return
       throw err
     }
 
     this.latestDiff = snapshot.version
   }
 
-  destroy () {
-    this.destroyed = true
+  watch () {
+    if (this.watching) return
+    this.watching = true
 
+    this.core.on('append', this.onappend)
+
+    return this
+  }
+
+  unwatch () {
+    if (!this.watching) return
+    this.watching = false
+ 
     this.core.off('append', this.onappend)
     if (this.stream) this.stream.destroy()
+
+    return this
+  }
+
+  destroy () {
+    if (this.destroyed) return
+    this.destroyed = true
+
+    this.unwatch()
+
+    this.emit('close')
   }
 }
 

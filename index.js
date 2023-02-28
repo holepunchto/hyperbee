@@ -385,14 +385,14 @@ class Hyperbee {
     return b.del(key, opts)
   }
 
-  watch (prefix, onchange) {
-    if (typeof prefix === 'function') {
-      onchange = prefix
-      prefix = undefined
+  watch (range, onchange) {
+    if (typeof range === 'function') {
+      onchange = range
+      range = undefined
     }
 
-    const watcher = new Watcher(this, prefix)
-    if (onchange) watcher.on('change', watcher)
+    const watcher = new Watcher(this, range)
+    if (onchange) watcher.on('change', onchange)
 
     return watcher
   }

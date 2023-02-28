@@ -291,6 +291,7 @@ class Hyperbee {
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
     this._ready = opts._ready || null
+    this._watchers = new Set()
 
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
@@ -392,8 +393,9 @@ class Hyperbee {
 
     const watcher = new Watcher(this, range)
 
-    this.feed.once('close', () => {
-      watcher.destroy()
+    this._watchers.add(watcher)
+    watcher.once('close', () => {
+      this._watchers.delete(watcher)
     })
 
     if (onchange) watcher.on('change', onchange)
@@ -446,7 +448,11 @@ class Hyperbee {
     return blk && Header.decode(blk)
   }
 
-  close () {
+  async close () {
+    for (const watcher of this._watchers) {
+      watcher.destroy()
+    }
+
     return this.feed.close()
   }
 

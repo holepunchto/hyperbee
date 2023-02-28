@@ -192,3 +192,30 @@ test('destroy should not trigger stream error', async function (t) {
 
   t.pass()
 })
+
+test('create lots of watcher', async function (t) {
+  t.plan(1)
+
+  const count = 1000
+  const db = create()
+  const watchers = []
+
+  for (let i = 0; i < count; i++) {
+    const watcher = db.watch()
+    t.teardown(() => watcher.destroy())
+
+    watchers.push(watcher)
+
+    watcher.on('change', function (leftVersion, rightVersion) {
+      if (!(leftVersion === 2 && rightVersion === 1)) {
+        t.fail('wrong versions')
+      }
+
+      if (i === count - 1) {
+        t.pass()
+      }
+    })
+  }
+
+  await db.put('/a')
+})

@@ -1,5 +1,4 @@
 const { EventEmitter } = require('events')
-
 const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')

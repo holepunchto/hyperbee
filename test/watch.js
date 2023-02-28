@@ -1,5 +1,5 @@
 const test = require('brittle')
-const { create, createFromStorage, createTmpDir } = require('./helpers')
+const { create, createRange, createFromStorage, createTmpDir } = require('./helpers')
 
 // db.watch(prefix, onchange)
 
@@ -18,24 +18,24 @@ test('basic watch', async function (t) {
   await db.put('/a', Buffer.from('hi'))
 })
 
-test.skip('basic watch on prefix', async function (t) {
+test('basic watch on range', async function (t) {
   t.plan(1)
 
-  const db = create()
+  const db = await createRange(50)
 
-  const watcher = db.watch('/sub')
+  const watcher = db.watch({ gte: '14' })
   t.teardown(() => watcher.destroy())
 
   const onchangefail = () => t.fail('should not trigger changes')
   const onchangepass = () => t.pass('change')
 
   watcher.on('change', onchangefail)
-  await db.put('/a', Buffer.from('hi'))
+  await db.put('13')
   await sleep(1)
   watcher.off('change', onchangefail)
 
   watcher.on('change', onchangepass)
-  await db.put('/sub/b', Buffer.from('hi'))
+  await db.put('14')
   await sleep(1)
   watcher.off('change', onchangepass)
 })

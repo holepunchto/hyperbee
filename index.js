@@ -851,7 +851,7 @@ class Batch {
 }
 
 class Watcher extends EventEmitter {
-  constructor (bee, prefix) {
+  constructor (bee, range) {
     super()
 
     this.bee = bee
@@ -859,7 +859,7 @@ class Watcher extends EventEmitter {
 
     this.destroyed = false
 
-    this.prefix = prefix
+    this.range = range
     this.latestDiff = this.bee.version
     this.stream = null
 
@@ -870,7 +870,7 @@ class Watcher extends EventEmitter {
   async _run () {
     // + try-catch
     const snapshot = this.bee.snapshot()
-    this.stream = snapshot.createDiffStream(this.latestDiff) // (v, range) + encode this.prefix?
+    this.stream = snapshot.createDiffStream(this.latestDiff, this.range)
 
     try {
       for await (const data of this.stream) { // eslint-disable-line

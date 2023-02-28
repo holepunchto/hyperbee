@@ -193,7 +193,7 @@ test('destroy should not trigger stream error', async function (t) {
   t.pass()
 })
 
-test('create lots of watcher', async function (t) {
+test('create lots of watchers', async function (t) {
   t.plan(1)
 
   const count = 1000
@@ -218,4 +218,32 @@ test('create lots of watcher', async function (t) {
   }
 
   await db.put('/a')
+})
+
+test('create and destroy lots of watchers', async function (t) {
+  t.plan(1)
+
+  const count = 1000
+  const db = create()
+  const watchers = []
+
+  for (let i = 0; i < count; i++) {
+    const watcher = db.watch()
+    let changed = false
+
+    watcher.on('change', function () {
+      changed = true
+    })
+
+    await db.put('/a')
+    await eventFlush()
+
+    if (!changed) {
+      t.fail('should have changed')
+    }
+
+    watcher.destroy()
+  }
+
+  t.pass()
 })

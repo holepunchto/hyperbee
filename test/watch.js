@@ -159,34 +159,7 @@ test('closing bee should destroy watcher', async function (t) {
   t.ok(watcher.destroyed)
 })
 
-test('watch and unwatch', async function (t) {
-  t.plan(1)
-
-  const db = create()
-
-  const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
-
-  const onchangefail = () => t.fail('should not trigger changes')
-  const onchangepass = () => t.pass('change')
-
-  watcher.unwatch()
-
-  watcher.on('change', onchangefail)
-  await db.put('/a')
-  await eventFlush()
-  await sleep(500)
-  watcher.off('change', onchangefail)
-
-  watcher.watch()
-
-  watcher.on('change', onchangepass)
-  await db.put('/b')
-  await eventFlush()
-  watcher.off('change', onchangepass)
-})
-
-test('unwatch should not trigger stream error', async function (t) {
+test('destroy should not trigger stream error', async function (t) {
   t.plan(3)
 
   const db = create()
@@ -195,7 +168,6 @@ test('unwatch should not trigger stream error', async function (t) {
   await db.put('/a')
 
   const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
 
   watcher.on('change', function () {
     t.fail('should not trigger changes')
@@ -207,7 +179,7 @@ test('unwatch should not trigger stream error', async function (t) {
 
   db.feed.once('append', function () {
     t.ok(watcher.running) // Ensures that stream is created
-    watcher.unwatch()
+    watcher.destroy()
   })
 
   watcher.on('error', function (err) {

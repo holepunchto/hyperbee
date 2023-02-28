@@ -225,7 +225,6 @@ test('create and destroy lots of watchers', async function (t) {
 
   const count = 1000
   const db = create()
-  const watchers = []
 
   for (let i = 0; i < count; i++) {
     const watcher = db.watch()

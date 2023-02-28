@@ -18,6 +18,21 @@ test('basic watch', async function (t) {
   await db.put('/a', Buffer.from('hi'))
 })
 
+test('basic watch with onchange option', async function (t) {
+  t.plan(1)
+
+  const db = create()
+
+  const watcher = db.watch('/', onchange)
+  t.teardown(() => watcher.destroy())
+
+  function onchange () {
+    t.pass('change')
+  }
+
+  await db.put('/a', Buffer.from('hi'))
+})
+
 test('basic watch on range', async function (t) {
   t.plan(1)
 

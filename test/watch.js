@@ -1,5 +1,4 @@
 const test = require('brittle')
-const b4a = require('b4a')
 const { create, createRange, createFromStorage, createTmpDir, eventFlush, sleep } = require('./helpers')
 
 test('basic watch', async function (t) {

@@ -917,7 +917,7 @@ class Watcher extends EventEmitter {
   unwatch () {
     if (!this.watching) return
     this.watching = false
- 
+
     this.core.off('append', this.onappend)
     if (this.stream) this.stream.destroy()
 

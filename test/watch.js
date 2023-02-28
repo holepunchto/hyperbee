@@ -84,6 +84,8 @@ test('watch a bee with entries already', async function (t) {
 
   await sleep(1)
 
+  await db.close()
+
   t.pass()
 })
 

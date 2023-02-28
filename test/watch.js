@@ -116,7 +116,7 @@ test('watch a bee with entries already', async function (t) {
 })
 
 test('destroy watch', async function (t) {
-  t.plan(1)
+  t.plan(4)
 
   const db = create()
 
@@ -127,7 +127,13 @@ test('destroy watch', async function (t) {
     t.fail('should not trigger changes')
   })
 
+  watcher.on('close', function () {
+    t.pass('watcher closed')
+  })
+
+  t.absent(watcher.destroyed)
   watcher.destroy()
+  t.ok(watcher.destroyed)
 
   await db.put('/a')
 
@@ -135,6 +141,22 @@ test('destroy watch', async function (t) {
   await sleep(500)
 
   t.pass()
+})
+
+test('closing bee should destroy watcher', async function (t) {
+  t.plan(3)
+
+  const db = create()
+
+  const watcher = db.watch()
+
+  watcher.on('close', function () {
+    t.pass('watcher closed')
+  })
+
+  t.absent(watcher.destroyed)
+  await db.close()
+  t.ok(watcher.destroyed)
 })
 
 test('watch and unwatch', async function (t) {

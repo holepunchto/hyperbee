@@ -391,6 +391,11 @@ class Hyperbee {
     }
 
     const watcher = new Watcher(this, range)
+
+    this.feed.once('close', () => {
+      watcher.destroy()
+    })
+
     if (onchange) watcher.on('change', onchange)
 
     watcher.watch()

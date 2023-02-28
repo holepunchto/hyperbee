@@ -1,36 +1,44 @@
 const test = require('brittle')
-const { create, createRange, createFromStorage, createTmpDir } = require('./helpers')
-
-// db.watch(prefix, onchange)
+const b4a = require('b4a')
+const { create, createRange, createFromStorage, createTmpDir, eventFlush, sleep } = require('./helpers')
 
 test('basic watch', async function (t) {
   t.plan(1)
 
   const db = create()
 
-  const watcher = db.watch('/')
+  const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
   watcher.on('change', function () {
     t.pass('change')
   })
 
-  await db.put('/a', Buffer.from('hi'))
+  await db.put('/a', b4a.from('hi'))
 })
 
-test('basic watch with onchange option', async function (t) {
+test('basic watch with onchange option on first arg', async function (t) {
   t.plan(1)
 
   const db = create()
+  const onchange = () => t.pass('change')
 
-  const watcher = db.watch('/', onchange)
+  const watcher = db.watch(onchange)
   t.teardown(() => watcher.destroy())
 
-  function onchange () {
-    t.pass('change')
-  }
+  await db.put('/a', b4a.from('hi'))
+})
 
-  await db.put('/a', Buffer.from('hi'))
+test('basic watch with onchange option on second arg', async function (t) {
+  t.plan(1)
+
+  const db = create()
+  const onchange = () => t.pass('change')
+
+  const watcher = db.watch({}, onchange)
+  t.teardown(() => watcher.destroy())
+
+  await db.put('/a', b4a.from('hi'))
 })
 
 test('basic watch on range', async function (t) {
@@ -46,12 +54,13 @@ test('basic watch on range', async function (t) {
 
   watcher.on('change', onchangefail)
   await db.put('13')
-  await sleep(1)
+  await eventFlush()
+  await sleep(500)
   watcher.off('change', onchangefail)
 
   watcher.on('change', onchangepass)
   await db.put('14')
-  await sleep(1)
+  await eventFlush()
   watcher.off('change', onchangepass)
 })
 
@@ -60,7 +69,7 @@ test('batch multiple changes', async function (t) {
 
   const db = create()
 
-  const watcher = db.watch('/')
+  const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
   watcher.on('change', function () {
@@ -68,9 +77,9 @@ test('batch multiple changes', async function (t) {
   })
 
   const batch = db.batch()
-  await batch.put('/a', Buffer.from('hi'))
-  await batch.put('/b', Buffer.from('hi'))
-  await batch.put('/c', Buffer.from('hi'))
+  await batch.put('/a', b4a.from('hi'))
+  await batch.put('/b', b4a.from('hi'))
+  await batch.put('/c', b4a.from('hi'))
   await batch.flush()
 })
 
@@ -80,14 +89,14 @@ test('watch a bee with entries already', async function (t) {
   const dir = createTmpDir(t)
 
   const bee = createFromStorage(dir)
-  await bee.put('/a', Buffer.from('hi'))
-  await bee.put('/b', Buffer.from('hi'))
+  await bee.put('/a', b4a.from('hi'))
+  await bee.put('/b', b4a.from('hi'))
   await bee.close()
 
   const db = createFromStorage(dir)
   t.is(db.version, 1)
 
-  const watcher = db.watch('/')
+  const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
   watcher.on('change', function () {
@@ -97,13 +106,32 @@ test('watch a bee with entries already', async function (t) {
   await db.ready()
   t.is(db.version, 3)
 
-  await sleep(1)
+  await eventFlush()
+  await sleep(500)
 
   await db.close()
 
   t.pass()
 })
 
-function sleep (ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+test('destroy watch', async function (t) {
+  t.plan(1)
+
+  const db = create()
+
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  watcher.on('change', function () {
+    t.fail('should not trigger changes')
+  })
+
+  watcher.destroy()
+
+  await db.put('/a', b4a.from('hi'))
+
+  await eventFlush()
+  await sleep(500)
+
+  t.pass()
+})

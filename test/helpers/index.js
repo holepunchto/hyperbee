@@ -14,7 +14,9 @@ module.exports = {
   rangeify,
   collect,
   createCore,
-  createTmpDir
+  createTmpDir,
+  eventFlush,
+  sleep
 }
 
 function collect (stream) {
@@ -93,4 +95,12 @@ function createTmpDir (t) {
   const dir = fs.mkdtempSync(tmpdir)
   t.teardown(() => fs.promises.rm(dir, { recursive: true, force: true }))
   return dir
+}
+
+async function eventFlush () {
+  await new Promise(resolve => setImmediate(resolve))
+}
+
+function sleep (ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }

@@ -236,19 +236,19 @@ Listens to changes that are on the optional `range`.
 
 `range` options are the same as `createReadStream` except for reverse.
 
-`watcher.watch()`
+`watcher.watch()`\
 Starts watching for changes. By default it already does it. This is only useful after you `unwatch()`.
 
-`watcher.unwatch()`
+`watcher.unwatch()`\
 Stops watching for changes.
 
-`watcher.destroy()`
+`watcher.destroy()`\
 Closes the watcher.
 
-`watcher.on('change', (leftVersion, rightVersion) => {})`
+`watcher.on('change', (leftVersion, rightVersion) => {})`\
 Emitted after a feed change.
 
-`watcher.on('close', onclose)`
+`watcher.on('close', onclose)`\
 Emitted after the watcher is closed.
 
 #### `dbCheckout = db.checkout(version)`

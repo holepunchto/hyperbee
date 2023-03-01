@@ -97,7 +97,10 @@ test('watch ready step should not trigger changes if already had entries', async
   const db = createFromStorage(dir)
   t.is(db.version, 1)
 
-  db.watch(function () {
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  watcher.on('change', function () {
     t.fail('should not trigger changes')
   })
 
@@ -108,7 +111,6 @@ test('watch ready step should not trigger changes if already had entries', async
   await sleep(500)
 
   await db.close()
-  await eventFlush()
 
   t.pass()
 })
@@ -126,7 +128,10 @@ test('watch without bee.ready() should trigger the correct version changes', asy
   const db = createFromStorage(dir)
   t.is(db.version, 1)
 
-  db.watch(function (newVersion, oldVersion) {
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  watcher.on('change', function (newVersion, oldVersion) {
     t.is(newVersion, 4)
     t.is(oldVersion, 3)
   })
@@ -135,7 +140,6 @@ test('watch without bee.ready() should trigger the correct version changes', asy
   await eventFlush()
 
   await db.close()
-  await eventFlush()
 
   t.pass()
 })

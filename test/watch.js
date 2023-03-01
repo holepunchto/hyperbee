@@ -84,7 +84,7 @@ test('batch multiple changes', async function (t) {
   await batch.flush()
 })
 
-test('watch a bee with entries already', async function (t) {
+test('watch ready step should not trigger changes if already had entries', async function (t) {
   t.plan(3)
 
   const dir = createTmpDir(t)

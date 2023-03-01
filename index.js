@@ -291,8 +291,8 @@ class Hyperbee {
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
     this._ready = opts._ready || null
-    this._watchers = new Set()
 
+    this._watchers = new Set()
     this._onappend = this._onappend.bind(this)
     this.core.on('append', this._onappend)
 

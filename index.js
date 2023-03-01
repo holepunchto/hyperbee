@@ -905,8 +905,7 @@ class Watcher extends EventEmitter {
   }
 
   async _run () {
-    // + I think it could repeat a last call even after bee is closed, should trigger it with a test first
-    // if (this.destroyed) return
+    if (this.destroyed) return
 
     const snapshot = this.bee.snapshot()
     this.stream = snapshot.createDiffStream(this.latestDiff, this.range)

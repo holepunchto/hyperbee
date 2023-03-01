@@ -115,7 +115,7 @@ test('watch ready step should not trigger changes if already had entries', async
 test('watch without bee.ready() should trigger the correct version changes', async function (t) {
   t.plan(4)
 
-  const create = createStored(t)
+  const create = createStored()
 
   const bee = create()
   await bee.put('/a')

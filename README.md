@@ -242,6 +242,9 @@ Closes the watcher.
 `watcher.on('change', (newVersion, oldVersion) => {})`\
 Emitted after a feed change.
 
+`watcher.on('error', onerror)`\
+Critical and unexpected errors will be thrown, but watcher is normally graceful.
+
 `watcher.on('close', onclose)`\
 Emitted after the watcher is closed.
 

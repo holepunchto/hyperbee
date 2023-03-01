@@ -97,10 +97,7 @@ test('watch a bee with entries already', async function (t) {
   const db = createFromStorage(dir)
   t.is(db.version, 1)
 
-  const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
-
-  watcher.on('change', function () {
+  db.watch(function () {
     t.fail('should not trigger changes')
   })
 

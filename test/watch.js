@@ -115,7 +115,7 @@ test('watch a bee with entries already', async function (t) {
   t.pass()
 })
 
-test('destroy watch', async function (t) {
+test('destroy watch (without stream)', async function (t) {
   t.plan(4)
 
   const db = create()
@@ -127,18 +127,40 @@ test('destroy watch', async function (t) {
     t.fail('should not trigger changes')
   })
 
-  watcher.on('close', function () {
-    t.pass('watcher closed')
-  })
-
   t.absent(watcher.destroyed)
   watcher.destroy()
   t.ok(watcher.destroyed)
+
+  watcher.on('close', function () {
+    t.pass('watcher closed')
+  })
 
   await db.put('/a')
 
   await eventFlush()
   await sleep(500)
+
+  t.pass()
+})
+
+test('destroy watch (with stream)', async function (t) {
+  t.plan(4)
+
+  const db = create()
+
+  const watcher = db.watch()
+
+  watcher.on('change', function () {
+    t.absent(watcher.destroyed)
+    watcher.destroy()
+    t.ok(watcher.destroyed)
+
+    watcher.on('close', function () {
+      t.pass('watcher closed')
+    })
+  })
+
+  await db.put('/a')
 
   t.pass()
 })

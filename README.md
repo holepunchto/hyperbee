@@ -239,7 +239,7 @@ Listens to changes that are on the optional `range`.
 `watcher.destroy()`\
 Closes the watcher.
 
-`watcher.on('change', (leftVersion, rightVersion) => {})`\
+`watcher.on('change', (newVersion, oldVersion) => {})`\
 Emitted after a feed change.
 
 `watcher.on('close', onclose)`\

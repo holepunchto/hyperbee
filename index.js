@@ -293,9 +293,8 @@ class Hyperbee {
     this._ready = opts._ready || null
     this._watchers = new Set()
 
-    const onappend = this._onappend.bind(this)
-    this.onappend = debounceify(onappend)
-    this.core.on('append', this.onappend)
+    this._onappend = this._onappend.bind(this)
+    this.core.on('append', this._onappend)
 
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
@@ -459,7 +458,7 @@ class Hyperbee {
   }
 
   async close () {
-    this.core.off('append', this.onappend)
+    this.core.off('append', this._onappend)
 
     for (const watcher of this._watchers) {
       watcher.destroy()
@@ -885,6 +884,9 @@ class Watcher extends EventEmitter {
     this.range = range
     this.latestDiff = this.bee.version
     this.stream = null
+
+    this._onappend = this._onappend.bind(this)
+    this._onappend = debounceify(this._onappend)
 
     // this.on('error', noop)
   }

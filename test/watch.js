@@ -167,9 +167,7 @@ test('destroy should not trigger stream error', async function (t) {
   await db.ready()
   await db.put('/a') // Ignore first append (header)
 
-  const watcher = db.watch()
-
-  watcher.on('change', function () {
+  const watcher = db.watch(function () {
     t.fail('should not trigger changes')
   })
 
@@ -201,9 +199,7 @@ test('close core in the middle of diffing', async function (t) {
   await db.ready()
   await db.put('/a') // Ignore first append (header)
 
-  const watcher = db.watch()
-
-  watcher.on('change', function () {
+  const watcher = db.watch(function () {
     t.fail('should not trigger changes')
   })
 
@@ -257,10 +253,9 @@ test('create and destroy lots of watchers', async function (t) {
   const db = create()
 
   for (let i = 0; i < count; i++) {
-    const watcher = db.watch()
     let changed = false
 
-    watcher.on('change', function () {
+    const watcher = db.watch(function () {
       changed = true
     })
 

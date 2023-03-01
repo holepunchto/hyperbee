@@ -108,6 +108,7 @@ test('watch ready step should not trigger changes if already had entries', async
   await sleep(500)
 
   await db.close()
+  await eventFlush()
 
   t.pass()
 })
@@ -134,6 +135,7 @@ test('watch without bee.ready() should trigger the correct version changes', asy
   await eventFlush()
 
   await db.close()
+  await eventFlush()
 
   t.pass()
 })

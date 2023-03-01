@@ -177,7 +177,7 @@ test('destroy should not trigger stream error', async function (t) {
 
   const put = db.put('/b')
 
-  db.feed.once('append', function () {
+  db.core.once('append', function () {
     t.ok(watcher.running) // Ensures that stream is created
     watcher.destroy()
   })
@@ -189,6 +189,36 @@ test('destroy should not trigger stream error', async function (t) {
   await put
   await eventFlush()
   await sleep(500)
+
+  t.pass()
+})
+
+test('close core in the middle of diffing', async function (t) {
+  t.plan(4)
+
+  const db = create()
+
+  await db.ready()
+  await db.put('/a') // Ignore first append (header)
+
+  const watcher = db.watch()
+
+  watcher.on('change', function () {
+    t.fail('should not trigger changes')
+  })
+
+  t.absent(watcher.running)
+
+  db.core.prependListener('append', function () {
+    t.absent(watcher.running) // Not running yet but about to
+    db.core.close()
+  })
+
+  watcher.on('error', function (err) {
+    t.is(err.code, 'SESSION_CLOSED')
+  })
+
+  await db.put('/b')
 
   t.pass()
 })

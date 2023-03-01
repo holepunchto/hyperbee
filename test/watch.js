@@ -9,9 +9,9 @@ test('basic watch', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.on('change', function (leftVersion, rightVersion) {
-    t.is(leftVersion, 2)
-    t.is(rightVersion, 1)
+  watcher.on('change', function (newVersion, oldVersion) {
+    t.is(newVersion, 2)
+    t.is(oldVersion, 1)
   })
 
   await db.put('/a')
@@ -72,9 +72,9 @@ test('batch multiple changes', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.on('change', function (leftVersion, rightVersion) {
-    t.is(leftVersion, 4)
-    t.is(rightVersion, 1)
+  watcher.on('change', function (newVersion, oldVersion) {
+    t.is(newVersion, 4)
+    t.is(oldVersion, 1)
   })
 
   const batch = db.batch()
@@ -254,8 +254,8 @@ test('create lots of watchers', async function (t) {
 
     watchers.push(watcher)
 
-    watcher.on('change', function (leftVersion, rightVersion) {
-      if (!(leftVersion === 2 && rightVersion === 1)) {
+    watcher.on('change', function (newVersion, oldVersion) {
+      if (!(newVersion === 2 && oldVersion === 1)) {
         t.fail('wrong versions')
       }
 

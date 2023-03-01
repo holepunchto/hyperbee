@@ -112,6 +112,32 @@ test('watch ready step should not trigger changes if already had entries', async
   t.pass()
 })
 
+test('watch without bee.ready() should trigger the correct version changes', async function (t) {
+  t.plan(4)
+
+  const dir = createTmpDir(t)
+
+  const bee = createFromStorage(dir)
+  await bee.put('/a')
+  await bee.put('/b')
+  await bee.close()
+
+  const db = createFromStorage(dir)
+  t.is(db.version, 1)
+
+  db.watch(function (newVersion, oldVersion) {
+    t.is(newVersion, 4)
+    t.is(oldVersion, 3)
+  })
+
+  await db.put('/c')
+  await eventFlush()
+
+  await db.close()
+
+  t.pass()
+})
+
 test('destroy watch (without stream)', async function (t) {
   t.plan(4)
 

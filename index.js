@@ -876,12 +876,19 @@ class Watcher extends EventEmitter {
     this.destroyed = false
 
     this.range = range
-    this.latestDiff = this.bee.version
+    this.latestDiff = null
     this.stream = null
 
     this._onappendBound = debounceify(this._onappend.bind(this))
 
     this.bee._watchers.add(this)
+
+    this._opening = this._ready().catch(safetyCatch)
+  }
+
+  async _ready () {
+    await this.bee.ready()
+    this.latestDiff = this.bee.version
   }
 
   async _onappend () {
@@ -899,6 +906,7 @@ class Watcher extends EventEmitter {
 
   async _run () {
     if (this.destroyed) return
+    if (this.latestDiff === null) await this._opening
 
     const snapshot = this.bee.snapshot()
     this.stream = snapshot.createDiffStream(this.latestDiff, this.range)

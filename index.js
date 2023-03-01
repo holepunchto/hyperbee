@@ -928,14 +928,11 @@ class Watcher extends EventEmitter {
     if (this.destroyed) return
     this.destroyed = true
 
-    const emitClose = () => this.emit('close')
-
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()
-      this.stream.once('close', emitClose)
-    } else {
-      setImmediate(emitClose)
     }
+
+    this.emit('close')
   }
 }
 

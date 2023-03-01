@@ -127,13 +127,13 @@ test('destroy watch (without stream)', async function (t) {
     t.fail('should not trigger changes')
   })
 
-  t.absent(watcher.destroyed)
-  watcher.destroy()
-  t.ok(watcher.destroyed)
-
   watcher.on('close', function () {
     t.pass('watcher closed')
   })
+
+  t.absent(watcher.destroyed)
+  watcher.destroy()
+  t.ok(watcher.destroyed)
 
   await db.put('/a')
 
@@ -151,13 +151,13 @@ test('destroy watch (with stream)', async function (t) {
   const watcher = db.watch()
 
   watcher.on('change', function () {
-    t.absent(watcher.destroyed)
-    watcher.destroy()
-    t.ok(watcher.destroyed)
-
     watcher.on('close', function () {
       t.pass('watcher closed')
     })
+
+    t.absent(watcher.destroyed)
+    watcher.destroy()
+    t.ok(watcher.destroyed)
   })
 
   await db.put('/a')

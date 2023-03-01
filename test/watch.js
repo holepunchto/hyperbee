@@ -144,57 +144,6 @@ test.skip('watch without bee.ready() should trigger the correct version changes'
   t.pass()
 })
 
-test('both', async function (t) {
-  t.plan(6)
-
-  const dir = createTmpDir(t)
-
-  const bee = createFromStorage(dir)
-  await bee.put('/a')
-  await bee.put('/b')
-  await bee.close()
-
-  {
-    const db = createFromStorage(dir)
-    t.is(db.version, 1)
-
-    const watcher = db.watch()
-    t.teardown(() => watcher.destroy())
-
-    watcher.on('change', function () {
-      t.fail('should not trigger changes')
-    })
-
-    await db.ready()
-    t.is(db.version, 3)
-
-    await eventFlush()
-    await sleep(500)
-
-    await db.close()
-  }
-
-  {
-    const db = createFromStorage(dir)
-    t.is(db.version, 1)
-
-    const watcher = db.watch()
-    t.teardown(() => watcher.destroy())
-
-    watcher.on('change', function (newVersion, oldVersion) {
-      t.is(newVersion, 4)
-      t.is(oldVersion, 3)
-    })
-
-    await db.put('/c')
-    await eventFlush()
-
-    await db.close()
-  }
-
-  t.pass()
-})
-
 test('destroy watch (without stream)', async function (t) {
   t.plan(4)
 

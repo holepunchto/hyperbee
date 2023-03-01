@@ -93,7 +93,7 @@ function createCore () {
 function createTmpDir (t) {
   const tmpdir = path.join(os.tmpdir(), 'hyperbee-test-')
   const dir = fs.mkdtempSync(tmpdir)
-  t.teardown(() => fs.promises.rm(dir, { recursive: true, force: true }))
+  t.teardown(() => fs.rmSync(dir, { recursive: true, force: true }))
   return dir
 }
 

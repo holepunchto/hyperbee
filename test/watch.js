@@ -84,7 +84,7 @@ test('batch multiple changes', async function (t) {
   await batch.flush()
 })
 
-test('watch ready step should not trigger changes if already had entries', async function (t) {
+test.skip('watch ready step should not trigger changes if already had entries', async function (t) {
   t.plan(3)
 
   const dir = createTmpDir(t)
@@ -115,7 +115,7 @@ test('watch ready step should not trigger changes if already had entries', async
   t.pass()
 })
 
-test('watch without bee.ready() should trigger the correct version changes', async function (t) {
+test.skip('watch without bee.ready() should trigger the correct version changes', async function (t) {
   t.plan(4)
 
   const dir = createTmpDir(t)
@@ -140,6 +140,57 @@ test('watch without bee.ready() should trigger the correct version changes', asy
   await eventFlush()
 
   await db.close()
+
+  t.pass()
+})
+
+test('both', async function (t) {
+  t.plan(6)
+
+  const dir = createTmpDir(t)
+
+  const bee = createFromStorage(dir)
+  await bee.put('/a')
+  await bee.put('/b')
+  await bee.close()
+
+  {
+    const db = createFromStorage(dir)
+    t.is(db.version, 1)
+
+    const watcher = db.watch()
+    t.teardown(() => watcher.destroy())
+
+    watcher.on('change', function () {
+      t.fail('should not trigger changes')
+    })
+
+    await db.ready()
+    t.is(db.version, 3)
+
+    await eventFlush()
+    await sleep(500)
+
+    await db.close()
+  }
+
+  {
+    const db = createFromStorage(dir)
+    t.is(db.version, 1)
+
+    const watcher = db.watch()
+    t.teardown(() => watcher.destroy())
+
+    watcher.on('change', function (newVersion, oldVersion) {
+      t.is(newVersion, 4)
+      t.is(oldVersion, 3)
+    })
+
+    await db.put('/c')
+    await eventFlush()
+
+    await db.close()
+  }
 
   t.pass()
 })

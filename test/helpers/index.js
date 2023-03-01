@@ -8,7 +8,7 @@ const os = require('os')
 module.exports = {
   toString,
   create,
-  createFromStorage,
+  createStored,
   createRange,
   insertRange,
   rangeify,
@@ -77,13 +77,25 @@ async function toString (tree) {
 }
 
 function create (opts) {
-  return createFromStorage(RAM, opts)
+  opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
+  const core = new Hypercore(RAM)
+  return new Hyperbee(core, opts)
 }
 
-function createFromStorage (storage, opts) {
-  opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
-  const core = new Hypercore(storage)
-  return new Hyperbee(core, opts)
+function createStored () {
+  const files = new Map()
+
+  return function (...args) {
+    const core = new Hypercore(storage, ...args)
+    return new Hyperbee(core)
+  }
+
+  function storage (name) {
+    if (files.has(name)) return files.get(name).clone()
+    const st = new RAM()
+    files.set(name, st)
+    return st
+  }
 }
 
 function createCore () {

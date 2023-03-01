@@ -1,5 +1,5 @@
 const test = require('brittle')
-const { create, createRange, createFromStorage, createTmpDir, eventFlush, sleep } = require('./helpers')
+const { create, createRange, createStored, eventFlush, sleep } = require('./helpers')
 
 test('basic watch', async function (t) {
   t.plan(2)
@@ -84,23 +84,20 @@ test('batch multiple changes', async function (t) {
   await batch.flush()
 })
 
-test.skip('watch ready step should not trigger changes if already had entries', async function (t) {
+test('watch ready step should not trigger changes if already had entries', async function (t) {
   t.plan(3)
 
-  const dir = createTmpDir(t)
+  const create = createStored()
 
-  const bee = createFromStorage(dir)
+  const bee = create()
   await bee.put('/a')
   await bee.put('/b')
   await bee.close()
 
-  const db = createFromStorage(dir)
+  const db = create()
   t.is(db.version, 1)
 
-  const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
-
-  watcher.on('change', function () {
+  db.watch(function () {
     t.fail('should not trigger changes')
   })
 
@@ -115,23 +112,20 @@ test.skip('watch ready step should not trigger changes if already had entries', 
   t.pass()
 })
 
-test.skip('watch without bee.ready() should trigger the correct version changes', async function (t) {
+test('watch without bee.ready() should trigger the correct version changes', async function (t) {
   t.plan(4)
 
-  const dir = createTmpDir(t)
+  const create = createStored(t)
 
-  const bee = createFromStorage(dir)
+  const bee = create()
   await bee.put('/a')
   await bee.put('/b')
   await bee.close()
 
-  const db = createFromStorage(dir)
+  const db = create()
   t.is(db.version, 1)
 
-  const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
-
-  watcher.on('change', function (newVersion, oldVersion) {
+  db.watch(function (newVersion, oldVersion) {
     t.is(newVersion, 4)
     t.is(oldVersion, 3)
   })

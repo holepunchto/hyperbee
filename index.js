@@ -395,12 +395,6 @@ class Hyperbee {
     }
 
     const watcher = new Watcher(this, range)
-
-    this._watchers.add(watcher)
-    watcher.once('close', () => {
-      this._watchers.delete(watcher)
-    })
-
     if (onchange) watcher.on('change', onchange)
 
     return watcher
@@ -887,7 +881,7 @@ class Watcher extends EventEmitter {
 
     this._onappendBound = debounceify(this._onappend.bind(this))
 
-    // this.on('error', noop)
+    this.bee._watchers.add(this)
   }
 
   async _onappend () {
@@ -931,6 +925,8 @@ class Watcher extends EventEmitter {
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()
     }
+
+    this.bee._watchers.delete(this)
 
     this.emit('close')
   }

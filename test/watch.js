@@ -1,5 +1,5 @@
 const test = require('brittle')
-const { create, createRange, createStored, eventFlush, sleep } = require('./helpers')
+const { create, createRange, createStored, eventFlush } = require('./helpers')
 
 test('basic watch', async function (t) {
   t.plan(2)
@@ -55,7 +55,6 @@ test('basic watch on range', async function (t) {
   watcher.on('change', onchangefail)
   await db.put('13')
   await eventFlush()
-  await sleep(500)
   watcher.off('change', onchangefail)
 
   watcher.on('change', onchangepass)
@@ -85,7 +84,7 @@ test('batch multiple changes', async function (t) {
 })
 
 test('watch ready step should not trigger changes if already had entries', async function (t) {
-  t.plan(3)
+  t.plan(2)
 
   const create = createStored()
 
@@ -105,15 +104,12 @@ test('watch ready step should not trigger changes if already had entries', async
   t.is(db.version, 3)
 
   await eventFlush()
-  await sleep(500)
 
   await db.close()
-
-  t.pass()
 })
 
 test('watch without bee.ready() should trigger the correct version changes', async function (t) {
-  t.plan(4)
+  t.plan(3)
 
   const create = createStored()
 
@@ -134,12 +130,10 @@ test('watch without bee.ready() should trigger the correct version changes', asy
   await eventFlush()
 
   await db.close()
-
-  t.pass()
 })
 
 test('destroy watch (without stream)', async function (t) {
-  t.plan(4)
+  t.plan(3)
 
   const db = create()
 
@@ -154,20 +148,16 @@ test('destroy watch (without stream)', async function (t) {
     t.pass('watcher closed')
   })
 
-  t.absent(watcher.destroyed)
+  t.absent(watcher.closed)
   watcher.destroy()
-  t.ok(watcher.destroyed)
+  t.ok(watcher.closed)
 
   await db.put('/a')
-
   await eventFlush()
-  await sleep(500)
-
-  t.pass()
 })
 
 test('destroy watch (with stream)', async function (t) {
-  t.plan(4)
+  t.plan(3)
 
   const db = create()
 
@@ -178,14 +168,12 @@ test('destroy watch (with stream)', async function (t) {
       t.pass('watcher closed')
     })
 
-    t.absent(watcher.destroyed)
+    t.absent(watcher.closed)
     watcher.destroy()
-    t.ok(watcher.destroyed)
+    t.ok(watcher.closed)
   })
 
   await db.put('/a')
-
-  t.pass()
 })
 
 test('closing bee should destroy watcher', async function (t) {
@@ -199,13 +187,13 @@ test('closing bee should destroy watcher', async function (t) {
     t.pass('watcher closed')
   })
 
-  t.absent(watcher.destroyed)
+  t.absent(watcher.closed)
   await db.close()
-  t.ok(watcher.destroyed)
+  t.ok(watcher.closed)
 })
 
 test('destroy should not trigger stream error', async function (t) {
-  t.plan(3)
+  t.plan(2)
 
   const db = create()
 
@@ -218,8 +206,6 @@ test('destroy should not trigger stream error', async function (t) {
 
   t.absent(watcher.running)
 
-  const put = db.put('/b')
-
   db.core.once('append', function () {
     t.ok(watcher.running) // Ensures that stream is created
     watcher.destroy()
@@ -229,15 +215,12 @@ test('destroy should not trigger stream error', async function (t) {
     t.fail('should not have given error: ' + err)
   })
 
-  await put
+  await db.put('/b')
   await eventFlush()
-  await sleep(500)
-
-  t.pass()
 })
 
 test('close core in the middle of diffing', async function (t) {
-  t.plan(4)
+  t.plan(3)
 
   const db = create()
 
@@ -260,8 +243,6 @@ test('close core in the middle of diffing', async function (t) {
   })
 
   await db.put('/b')
-
-  t.pass()
 })
 
 test('create lots of watchers', async function (t) {
@@ -292,8 +273,6 @@ test('create lots of watchers', async function (t) {
 })
 
 test('create and destroy lots of watchers', async function (t) {
-  t.plan(1)
-
   const count = 1000
   const db = create()
 
@@ -313,6 +292,4 @@ test('create and destroy lots of watchers', async function (t) {
 
     watcher.destroy()
   }
-
-  t.pass()
 })

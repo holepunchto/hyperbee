@@ -1,9 +1,6 @@
 const Hyperbee = require('../../')
 const Hypercore = require('hypercore')
 const RAM = require('random-access-memory')
-const path = require('path')
-const fs = require('fs')
-const os = require('os')
 
 module.exports = {
   toString,
@@ -14,9 +11,7 @@ module.exports = {
   rangeify,
   collect,
   createCore,
-  createTmpDir,
-  eventFlush,
-  sleep
+  eventFlush
 }
 
 function collect (stream) {
@@ -102,17 +97,6 @@ function createCore () {
   return new Hypercore(require('random-access-memory'))
 }
 
-function createTmpDir (t) {
-  const tmpdir = path.join(os.tmpdir(), 'hyperbee-test-')
-  const dir = fs.mkdtempSync(tmpdir)
-  t.teardown(() => fs.rmSync(dir, { recursive: true, force: true }))
-  return dir
-}
-
-async function eventFlush () {
-  await new Promise(resolve => setImmediate(resolve))
-}
-
-function sleep (ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+function eventFlush () {
+  return new Promise(resolve => setImmediate(resolve))
 }

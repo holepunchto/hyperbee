@@ -382,15 +382,15 @@ class Hyperbee {
     return b.del(key, opts)
   }
 
-  checkout (version) {
+  checkout (version, opts = {}) {
     return new Hyperbee(this.feed.snapshot(), {
       _ready: this.ready(),
       _sub: false,
       sep: this.sep,
       prefix: this.prefix,
       checkout: version,
-      keyEncoding: this.keyEncoding,
-      valueEncoding: this.valueEncoding,
+      keyEncoding: opts.keyEncoding || this.keyEncoding,
+      valueEncoding: opts.keyEncoding || this.valueEncoding,
       extension: this.extension !== null ? this.extension : false
     })
   }

@@ -464,3 +464,12 @@ test('isHyperbee is true for feed of actual hyperbee', async function (t) {
   await db.put('hi', 'ho') // Adds the header on the first put
   t.ok(await Hyperbee.isHyperbee(db.feed))
 })
+
+test('supports encodings in checkout', async function (t) {
+  const db = create()
+  await db.put('hi', 'there')
+
+  const checkout = db.checkout(db.version, { keyEncoding: 'binary', valueEncoding: 'binary' })
+  t.alike(await db.get('hi'), { seq: 1, key: 'hi', value: 'there' })
+  t.alike(await checkout.get('hi'), { seq: 1, key: b4a.from('hi'), value: b4a.from('there') })
+})

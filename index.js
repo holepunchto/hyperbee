@@ -395,8 +395,8 @@ class Hyperbee {
     })
   }
 
-  snapshot () {
-    return this.checkout(this.version)
+  snapshot (opts) {
+    return this.checkout(this.version, opts)
   }
 
   sub (prefix, opts = {}) {

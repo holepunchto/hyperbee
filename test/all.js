@@ -469,16 +469,20 @@ test('supports encodings in checkout', async function (t) {
   const db = create()
   await db.put('hi', 'there')
 
-  const checkout = db.checkout(db.version, { keyEncoding: 'binary', valueEncoding: 'binary' })
-  t.alike(await db.get('hi'), { seq: 1, key: 'hi', value: 'there' }) // sanity check
-  t.alike(await checkout.get('hi'), { seq: 1, key: b4a.from('hi'), value: b4a.from('there') })
+  const checkout1 = db.checkout(db.version, { keyEncoding: 'binary' })
+  const checkout2 = db.checkout(db.version, { valueEncoding: 'binary' })
+
+  t.alike(await checkout1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
+  t.alike(await checkout2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
 })
 
 test('supports encodings in snapshot', async function (t) {
   const db = create()
   await db.put('hi', 'there')
 
-  const snap = db.snapshot({ keyEncoding: 'binary', valueEncoding: 'binary' })
-  t.alike(await db.get('hi'), { seq: 1, key: 'hi', value: 'there' }) // sanity check
-  t.alike(await snap.get('hi'), { seq: 1, key: b4a.from('hi'), value: b4a.from('there') })
+  const snap1 = db.snapshot({ keyEncoding: 'binary' })
+  const snap2 = db.snapshot({ valueEncoding: 'binary' })
+
+  t.alike(await snap1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
+  t.alike(await snap2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
 })

@@ -390,7 +390,7 @@ class Hyperbee {
       prefix: this.prefix,
       checkout: version,
       keyEncoding: opts.keyEncoding || this.keyEncoding,
-      valueEncoding: opts.keyEncoding || this.valueEncoding,
+      valueEncoding: opts.valueEncoding || this.valueEncoding,
       extension: this.extension !== null ? this.extension : false
     })
   }

@@ -1,14 +1,17 @@
 const Hyperbee = require('../../')
 const Hypercore = require('hypercore')
+const RAM = require('random-access-memory')
 
 module.exports = {
   toString,
   create,
+  createStored,
   createRange,
   insertRange,
   rangeify,
   collect,
-  createCore
+  createCore,
+  eventFlush
 }
 
 function collect (stream) {
@@ -70,10 +73,30 @@ async function toString (tree) {
 
 function create (opts) {
   opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
-  const feed = new Hypercore(require('random-access-memory'))
-  return new Hyperbee(feed, opts)
+  const core = new Hypercore(RAM)
+  return new Hyperbee(core, opts)
+}
+
+function createStored () {
+  const files = new Map()
+
+  return function (...args) {
+    const core = new Hypercore(storage, ...args)
+    return new Hyperbee(core)
+  }
+
+  function storage (name) {
+    if (files.has(name)) return files.get(name).clone()
+    const st = new RAM()
+    files.set(name, st)
+    return st
+  }
 }
 
 function createCore () {
   return new Hypercore(require('random-access-memory'))
+}
+
+function eventFlush () {
+  return new Promise(resolve => setImmediate(resolve))
 }

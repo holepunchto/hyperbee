@@ -1,8 +1,10 @@
+const { EventEmitter } = require('events')
 const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
+const debounceify = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -290,6 +292,10 @@ class Hyperbee {
     this._checkout = opts.checkout || 0
     this._ready = opts._ready || null
 
+    this._watchers = new Set()
+    this._onappendBound = this._onappend.bind(this)
+    this.core.on('append', this._onappendBound)
+
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
     }
@@ -382,6 +388,24 @@ class Hyperbee {
     return b.del(key, opts)
   }
 
+  watch (range, onchange) {
+    if (typeof range === 'function') {
+      onchange = range
+      range = undefined
+    }
+
+    const watcher = new Watcher(this, range)
+    if (onchange) watcher.on('change', onchange)
+
+    return watcher
+  }
+
+  _onappend () {
+    for (const watcher of this._watchers) {
+      watcher._onappendBound()
+    }
+  }
+
   checkout (version, opts = {}) {
     return new Hyperbee(this.feed.snapshot(), {
       _ready: this.ready(),
@@ -427,7 +451,13 @@ class Hyperbee {
     return blk && Header.decode(blk)
   }
 
-  close () {
+  async close () {
+    this.core.off('append', this._onappendBound)
+
+    for (const watcher of this._watchers) {
+      watcher.destroy()
+    }
+
     return this.feed.close()
   }
 
@@ -832,6 +862,84 @@ class Batch {
     } finally {
       this._unlock()
     }
+  }
+}
+
+class Watcher extends EventEmitter {
+  constructor (bee, range) {
+    super()
+
+    bee._watchers.add(this)
+
+    this.bee = bee
+    this.core = bee.core
+
+    this.opened = false
+    this.closed = false
+
+    this.running = false
+
+    this.latestDiff = 0
+    this.range = range
+    this.stream = null
+
+    this._onappendBound = debounceify(this._onappend.bind(this))
+
+    this._opening = this._ready().catch(safetyCatch)
+  }
+
+  async _ready () {
+    await this.bee.ready()
+    this.latestDiff = this.bee.version
+    this.opened = true
+  }
+
+  async _onappend () {
+    this.running = true
+
+    try {
+      await this._run()
+    } catch (err) {
+      this.emit('error', err)
+      this.destroy()
+    } finally {
+      this.running = false
+    }
+  }
+
+  async _run () {
+    if (this.closed) return
+    if (this.opened === false) await this._opening
+
+    const snapshot = this.bee.snapshot()
+    this.stream = snapshot.createDiffStream(this.latestDiff, this.range)
+
+    try {
+      for await (const data of this.stream) { // eslint-disable-line
+        this.emit('change', snapshot.version, this.latestDiff)
+        break
+      }
+    } catch (err) {
+      if (this.closed) return
+      throw err
+    }
+
+    this.stream = null
+
+    this.latestDiff = snapshot.version
+  }
+
+  destroy () {
+    if (this.closed) return
+    this.closed = true
+
+    if (this.stream && !this.stream.destroying) {
+      this.stream.destroy()
+    }
+
+    this.bee._watchers.delete(this)
+
+    this.emit('close')
   }
 }
 

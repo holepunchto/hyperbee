@@ -925,8 +925,9 @@ class Watcher extends EventEmitter {
     }
 
     this.stream = null
-
     this.latestDiff = snapshot.version
+
+    await snapshot.close()
   }
 
   destroy () {

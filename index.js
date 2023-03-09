@@ -926,7 +926,13 @@ class Watcher extends EventEmitter {
       this.stream = null
       this.latestDiff = snapshot.version
 
-      await snapshot.close()
+      try {
+        throw new Error('aa')
+        await snapshot.close()
+      } catch (err) {
+        if (this.closed) return
+        throw err
+      }
     }
   }
 

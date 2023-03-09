@@ -927,11 +927,10 @@ class Watcher extends EventEmitter {
       this.latestDiff = snapshot.version
 
       try {
-        throw new Error('aa')
         await snapshot.close()
       } catch (err) {
-        if (this.closed) return
-        throw err
+        if (this.closed) return // eslint-disable-line no-unsafe-finally
+        throw err // eslint-disable-line no-unsafe-finally
       }
     }
   }

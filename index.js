@@ -926,7 +926,16 @@ class Watcher extends EventEmitter {
       this.stream = null
       this.latestDiff = snapshot.version
 
+      await this._closeSnapshot(snapshot)
+    }
+  }
+
+  async _closeSnapshot (snapshot) {
+    try {
       await snapshot.close()
+    } catch (err) {
+      if (this.closed) return
+      throw err
     }
   }
 

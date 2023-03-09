@@ -900,7 +900,7 @@ class Watcher extends EventEmitter {
     try {
       await this._run()
     } catch (err) {
-      this.emit('error', err)
+      if (!this.closed) this.emit('error', err)
       this.destroy()
     } finally {
       this.running = false
@@ -919,9 +919,6 @@ class Watcher extends EventEmitter {
         this.emit('change', snapshot.version, this.latestDiff)
         break
       }
-    } catch (err) {
-      if (this.closed) return
-      throw err
     } finally {
       this.stream = null
       this.latestDiff = snapshot.version

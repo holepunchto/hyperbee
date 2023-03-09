@@ -926,12 +926,16 @@ class Watcher extends EventEmitter {
       this.stream = null
       this.latestDiff = snapshot.version
 
-      try {
-        await snapshot.close()
-      } catch (err) {
-        if (this.closed) return // eslint-disable-line no-unsafe-finally
-        throw err // eslint-disable-line no-unsafe-finally
-      }
+      await this._closeSnapshot(snapshot)
+    }
+  }
+
+  async _closeSnapshot (snapshot) {
+    try {
+      await snapshot.close()
+    } catch (err) {
+      if (this.closed) return
+      throw err
     }
   }
 

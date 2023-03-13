@@ -455,7 +455,7 @@ class Hyperbee {
     this.core.off('append', this._onappendBound)
 
     for (const watcher of this._watchers) {
-      watcher.destroy()
+      await watcher.destroy()
     }
 
     return this.feed.close()
@@ -881,10 +881,12 @@ class Watcher extends EventEmitter {
 
     this.latestDiff = 0
     this.range = range
+
+    this.current = null
+    this.previous = null
     this.stream = null
 
     this._onappendBound = debounceify(this._onappend.bind(this))
-
     this._opening = this._ready().catch(safetyCatch)
   }
 
@@ -911,45 +913,35 @@ class Watcher extends EventEmitter {
     if (this.closed) return
     if (this.opened === false) await this._opening
 
-    const snapshot = this.bee.snapshot()
-    let previous = null
+    if (this.current) await this.current.close()
+    if (this.previous) await this.previous.close()
 
-    this.stream = snapshot.createDiffStream(this.latestDiff, this.range)
+    this.current = this.bee.snapshot()
+    this.previous = this.bee.checkout(this.latestDiff)
+    this.stream = this.current.createDiffStream(this.previous.version, this.range)
 
     try {
       for await (const data of this.stream) { // eslint-disable-line
-        if (!previous) previous = this.bee.checkout(this.latestDiff)
-
-        this.emit('change', snapshot, previous)
+        this.emit('change', this.current, this.previous)
         break
       }
     } finally {
       this.stream = null
-      this.latestDiff = snapshot.version
-
-      setImmediate(async () => {
-        try {
-          await snapshot.close()
-        } catch {
-          // + ignore atm
-        }
-
-        try {
-          if (previous) await previous.close()
-        } catch {
-          // + ignore atm
-        }
-      })
+      this.latestDiff = this.current.version
     }
   }
 
-  destroy () {
+  async destroy () {
     if (this.closed) return
     this.closed = true
 
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()
     }
+
+    // + reusable cleanup?
+    if (this.current) await this.current.close()
+    if (this.previous) await this.previous.close()
 
     this.bee._watchers.delete(this)
 

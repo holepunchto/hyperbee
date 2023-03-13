@@ -239,8 +239,8 @@ Listens to changes that are on the optional `range`.
 `watcher.destroy()`\
 Closes the watcher.
 
-`watcher.on('change', (newVersion, oldVersion) => {})`\
-Emitted after a feed change.
+`watcher.on('change', (current, previous) => {})`\
+Emitted after a feed change, `current` and `previous` are snapshots that are auto-closed on next tick.
 
 `watcher.on('error', onerror)`\
 Critical and unexpected errors will be thrown, but watcher is normally graceful.\

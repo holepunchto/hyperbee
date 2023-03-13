@@ -912,18 +912,34 @@ class Watcher extends EventEmitter {
     if (this.opened === false) await this._opening
 
     const snapshot = this.bee.snapshot()
+    let previous = null
+
     this.stream = snapshot.createDiffStream(this.latestDiff, this.range)
 
     try {
       for await (const data of this.stream) { // eslint-disable-line
-        this.emit('change', snapshot.version, this.latestDiff)
+        if (!previous) previous = this.bee.checkout(this.latestDiff)
+
+        this.emit('change', snapshot, previous)
         break
       }
     } finally {
       this.stream = null
       this.latestDiff = snapshot.version
 
-      await snapshot.close()
+      setImmediate(async () => {
+        try {
+          await snapshot.close()
+        } catch {
+          // + ignore atm
+        }
+
+        try {
+          if (previous) await previous.close()
+        } catch {
+          // + ignore atm
+        }
+      })
     }
   }
 

@@ -9,9 +9,9 @@ test('basic watch', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.on('change', function (newVersion, oldVersion) {
-    t.is(newVersion, 2)
-    t.is(oldVersion, 1)
+  watcher.on('change', function (current, previous) {
+    t.is(current.version, 2)
+    t.is(previous.version, 1)
   })
 
   await db.put('/a')
@@ -71,9 +71,9 @@ test('batch multiple changes', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.on('change', function (newVersion, oldVersion) {
-    t.is(newVersion, 4)
-    t.is(oldVersion, 1)
+  watcher.on('change', function (current, previous) {
+    t.is(current.version, 4)
+    t.is(previous.version, 1)
   })
 
   const batch = db.batch()
@@ -121,9 +121,9 @@ test('watch without bee.ready() should trigger the correct version changes', asy
   const db = create()
   t.is(db.version, 1)
 
-  db.watch(function (newVersion, oldVersion) {
-    t.is(newVersion, 4)
-    t.is(oldVersion, 3)
+  db.watch(function (current, previous) {
+    t.is(current.version, 4)
+    t.is(previous.version, 3)
   })
 
   await db.put('/c')
@@ -258,8 +258,8 @@ test('create lots of watchers', async function (t) {
 
     watchers.push(watcher)
 
-    watcher.on('change', function (newVersion, oldVersion) {
-      if (!(newVersion === 2 && oldVersion === 1)) {
+    watcher.on('change', function (current, previous) {
+      if (!(current.version === 2 && previous.version === 1)) {
         t.fail('wrong versions')
       }
 

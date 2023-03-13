@@ -108,6 +108,7 @@ class TreeIterator {
   async nextKey () {
     let n = null
     while (this.stack.length && n === null) n = await this.next()
+    if (!n) return null
     if (!this.lt) return n.final(this.encoding)
 
     const c = cmp(n.key, this.lt)

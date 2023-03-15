@@ -18,6 +18,39 @@ test('basic watch', async function (t) {
   t.is(previous.version, 1)
 })
 
+test('watch multiple next() on parallel', async function (t) {
+  t.plan(6)
+
+  const db = create()
+  // await db.put('/a') // Ignore first append (header)
+
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  const a = watcher.next()
+  const b = watcher.next()
+
+  db.put('/b') // Run on background
+
+  {
+    const { done, value: { current, previous } } = await a
+
+    t.is(done, false)
+    t.is(current.version, 2)
+    t.is(previous.version, 1)
+  }
+
+  db.put('/c') // Run on background
+
+  {
+    const { done, value: { current, previous } } = await b
+
+    t.is(done, false)
+    t.is(current.version, 3)
+    t.is(previous.version, 2)
+  }
+})
+
 test('watch waits for new change', async function (t) {
   t.plan(4)
 

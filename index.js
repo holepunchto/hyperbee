@@ -908,6 +908,11 @@ class Watcher extends EventEmitter {
   }
 
   async next () {
+    if (this.tick.next.resolved) {
+      await this.tick.yield.promise
+    }
+
+    this.tick.next.resolved = true // + new prop
     this.tick.next.resolve()
 
     try {

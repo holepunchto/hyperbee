@@ -1,20 +1,23 @@
 const test = require('brittle')
 const { create, createRange, createStored, eventFlush } = require('./helpers')
 
-test('basic watch', async function (t) {
-  t.plan(2)
+test.solo('basic watch', async function (t) {
+  t.plan(3)
 
   const db = create()
 
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.on('change', function (current, previous) {
-    t.is(current.version, 2)
-    t.is(previous.version, 1)
-  })
+  const put = db.put('/a')
 
-  await db.put('/a')
+  const { done, value: { current, previous } } = await watcher.next()
+
+  t.is(done, false)
+  t.is(current.version, 2)
+  t.is(previous.version, 1)
+
+  await put
 })
 
 test('basic watch with onchange option on first arg', async function (t) {

@@ -877,10 +877,14 @@ class Watcher extends EventEmitter {
     this.opened = false
     this.closed = false
 
-    this.running = false
-
     this.latestDiff = 0
     this.range = range
+
+    this.running = false
+    this.tick = {
+      start: invertedPromise(),
+      end: invertedPromise()
+    }
 
     this.current = null
     this.previous = null
@@ -896,6 +900,18 @@ class Watcher extends EventEmitter {
     this.opened = true
   }
 
+  [Symbol.asyncIterator] () {
+    return this
+  }
+
+  async next () {
+    this.tick.start.resolve()
+
+    const value = await this.tick.end.promise
+
+    return value ? { done: false, value } : { done: true }
+  }
+
   async _onappend () {
     this.running = true
 
@@ -903,7 +919,7 @@ class Watcher extends EventEmitter {
       await this._run()
     } catch (err) {
       if (!this.closed) this.emit('error', err)
-      this.destroy()
+      await this.destroy()
     } finally {
       this.running = false
     }
@@ -913,16 +929,32 @@ class Watcher extends EventEmitter {
     if (this.closed) return
     if (this.opened === false) await this._opening
 
+    // Waiting for next iterator call
+    await this.tick.start.promise
+
+    // + allSettled or catch errors individually // + or let it throw but properly handle it on destroy
     if (this.current) await this.current.close()
     if (this.previous) await this.previous.close()
 
+    // + reuse "previous"?
     this.current = this.bee.snapshot()
     this.previous = this.bee.checkout(this.latestDiff)
-    this.stream = this.current.createDiffStream(this.previous.version, this.range)
+
+    this.stream = this.current.createDiffStream(this.latestDiff, this.range)
+    let resolved = false
 
     try {
       for await (const data of this.stream) { // eslint-disable-line
-        this.emit('change', this.current, this.previous)
+        // Save current tick
+        const end = this.tick.end
+
+        // Reset ticks
+        this.tick.start = invertedPromise()
+        this.tick.end = invertedPromise()
+
+        // Finish current tick
+        end.resolve({ current: this.current, previous: this.previous })
+
         break
       }
     } finally {
@@ -943,10 +975,27 @@ class Watcher extends EventEmitter {
     if (this.current) await this.current.close()
     if (this.previous) await this.previous.close()
 
+    // + ticks cleanup, should reject them gracefully
+
     this.bee._watchers.delete(this)
 
     this.emit('close')
   }
+}
+
+function invertedPromise () {
+  const inverted = {
+    promise: null,
+    resolve: null,
+    reject: null
+  }
+
+  inverted.promise = new Promise((resolve, reject) => {
+    inverted.resolve = resolve
+    inverted.reject = reject
+  })
+
+  return inverted
 }
 
 async function leafSize (node, goLeft) {

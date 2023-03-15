@@ -50,7 +50,6 @@ test('destroy watch while waiting for a new change', async function (t) {
   const db = create()
 
   const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
 
   setImmediate(() => {
     watcher.destroy()

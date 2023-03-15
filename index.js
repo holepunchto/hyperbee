@@ -941,7 +941,6 @@ class Watcher extends EventEmitter {
     this.previous = this.bee.checkout(this.latestDiff)
 
     this.stream = this.current.createDiffStream(this.latestDiff, this.range)
-    let resolved = false
 
     try {
       for await (const data of this.stream) { // eslint-disable-line

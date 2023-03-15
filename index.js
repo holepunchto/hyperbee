@@ -961,14 +961,11 @@ class Watcher extends EventEmitter {
 
     try {
       for await (const data of this.stream) { // eslint-disable-line
-        // Save current tick
         const tickYield = this.tick.yield
 
-        // Reset ticks
         this.tick.next = this._createTick()
         this.tick.yield = this._createTick()
 
-        // Finish current tick
         tickYield.resolve({ current: this.current, previous: this.previous })
 
         break

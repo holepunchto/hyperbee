@@ -920,11 +920,9 @@ class Watcher extends EventEmitter {
 
     try {
       const value = await this.tick.yield.promise
-
-      return value ? { done: false, value } : { done: true }
+      return { done: false, value }
     } catch (err) {
       if (!this.closed) throw err
-
       return { done: true }
     }
   }

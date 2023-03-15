@@ -104,9 +104,9 @@ test('basic watch on range', async function (t) {
   // + could be simpler but could be a helper for other tests
   let next = watcher.next()
   let onchange = null
-  next.then(value => {
+  next.then(data => {
     next = watcher.next()
-    onchange(value)
+    onchange(data)
   })
 
   onchange = () => t.fail('should not trigger changes')
@@ -158,7 +158,7 @@ test('watch ready step should not trigger changes if already had entries', async
 
   const watcher = db.watch()
 
-  watcher.next().then(function ({ done }) {
+  watcher.next().then(({ done }) => {
     if (done) {
       t.pass()
       return
@@ -175,7 +175,7 @@ test('watch ready step should not trigger changes if already had entries', async
   await db.close()
 })
 
-test.skip('watch without bee.ready() should trigger the correct version changes', async function (t) {
+test('watch without bee.ready() should trigger the correct version changes', async function (t) {
   t.plan(3)
 
   const create = createStored()
@@ -188,7 +188,9 @@ test.skip('watch without bee.ready() should trigger the correct version changes'
   const db = create()
   t.is(db.version, 1)
 
-  db.watch(function (current, previous) {
+  const watcher = db.watch()
+  watcher.next().then(({ value }) => {
+    const { current, previous } = value
     t.is(current.version, 4)
     t.is(previous.version, 3)
   })
@@ -199,15 +201,20 @@ test.skip('watch without bee.ready() should trigger the correct version changes'
   await db.close()
 })
 
-test.skip('destroy watch (without stream)', async function (t) {
-  t.plan(3)
+test('destroy watch (without stream)', async function (t) {
+  t.plan(4)
 
   const db = create()
 
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.on('change', function () {
+  watcher.next().then(({ done }) => {
+    if (done) {
+      t.pass()
+      return
+    }
+
     t.fail('should not trigger changes')
   })
 
@@ -223,14 +230,16 @@ test.skip('destroy watch (without stream)', async function (t) {
   await eventFlush()
 })
 
-test.skip('destroy watch (with stream)', async function (t) {
+test('destroy watch (with stream)', async function (t) {
   t.plan(3)
 
   const db = create()
 
   const watcher = db.watch()
 
-  watcher.on('change', function () {
+  watcher.next().then(({ done }) => {
+    if (done) t.fail('should not have been closed')
+
     watcher.on('close', function () {
       t.pass('watcher closed')
     })
@@ -243,7 +252,7 @@ test.skip('destroy watch (with stream)', async function (t) {
   await db.put('/a')
 })
 
-test.skip('closing bee should destroy watcher', async function (t) {
+test('closing bee should destroy watcher', async function (t) {
   t.plan(3)
 
   const db = create()
@@ -259,15 +268,22 @@ test.skip('closing bee should destroy watcher', async function (t) {
   t.ok(watcher.closed)
 })
 
-test.skip('destroy should not trigger stream error', async function (t) {
-  t.plan(2)
+test('destroy should not trigger stream error', async function (t) {
+  t.plan(3)
 
   const db = create()
 
   await db.ready()
   await db.put('/a') // Ignore first append (header)
 
-  const watcher = db.watch(function () {
+  const watcher = db.watch()
+
+  watcher.next().then(({ done }) => {
+    if (done) {
+      t.pass()
+      return
+    }
+
     t.fail('should not trigger changes')
   })
 
@@ -286,15 +302,22 @@ test.skip('destroy should not trigger stream error', async function (t) {
   await eventFlush()
 })
 
-test.skip('close core in the middle of diffing', async function (t) {
-  t.plan(3)
+test('close core in the middle of diffing', async function (t) {
+  t.plan(4)
 
   const db = create()
 
   await db.ready()
   await db.put('/a') // Ignore first append (header)
 
-  const watcher = db.watch(function () {
+  const watcher = db.watch()
+
+  watcher.next().then(({ done }) => {
+    if (done) {
+      t.pass()
+      return
+    }
+
     t.fail('should not trigger changes')
   })
 
@@ -312,7 +335,7 @@ test.skip('close core in the middle of diffing', async function (t) {
   await db.put('/b')
 })
 
-test.skip('create lots of watchers', async function (t) {
+test('create lots of watchers', async function (t) {
   t.plan(1)
 
   const count = 1000
@@ -325,7 +348,9 @@ test.skip('create lots of watchers', async function (t) {
 
     watchers.push(watcher)
 
-    watcher.on('change', function (current, previous) {
+    watcher.next().then(({ value }) => {
+      const { current, previous } = value
+
       if (!(current.version === 2 && previous.version === 1)) {
         t.fail('wrong versions')
       }

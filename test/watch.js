@@ -65,7 +65,7 @@ test('watch waits for new change', async function (t) {
     await eventFlush()
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    db.put('/a') // Run on background
+    db.put('/b') // Run on background
   })
 
   const started = Date.now()

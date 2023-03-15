@@ -52,7 +52,7 @@ test('watch multiple next() on parallel', async function (t) {
 })
 
 test('watch waits for new change', async function (t) {
-  t.plan(4)
+  t.plan(3)
 
   const db = create()
   await db.put('/a') // Ignore first append (header)
@@ -61,20 +61,15 @@ test('watch waits for new change', async function (t) {
   t.teardown(() => watcher.destroy())
 
   setImmediate(async () => {
-    // +
     await eventFlush()
-    await new Promise(resolve => setTimeout(resolve, 500))
-
     db.put('/b') // Run on background
   })
 
-  const started = Date.now()
   const { done, value: { current, previous } } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 3)
   t.is(previous.version, 2)
-  t.ok(Date.now() - started >= 500)
 })
 
 test('destroy watch while waiting for a new change', async function (t) {

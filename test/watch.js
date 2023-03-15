@@ -60,31 +60,7 @@ test('destroy watch while waiting for a new change', async function (t) {
   t.is(value, undefined)
 })
 
-test.skip('basic watch with onchange option on first arg', async function (t) {
-  t.plan(1)
-
-  const db = create()
-  const onchange = () => t.pass('change')
-
-  const watcher = db.watch(onchange)
-  t.teardown(() => watcher.destroy())
-
-  await db.put('/a')
-})
-
-test.skip('basic watch with onchange option on second arg', async function (t) {
-  t.plan(1)
-
-  const db = create()
-  const onchange = () => t.pass('change')
-
-  const watcher = db.watch({}, onchange)
-  t.teardown(() => watcher.destroy())
-
-  await db.put('/a')
-})
-
-test.skip('basic watch on range', async function (t) {
+test('basic watch on range', async function (t) {
   t.plan(1)
 
   const db = await createRange(50)
@@ -92,18 +68,23 @@ test.skip('basic watch on range', async function (t) {
   const watcher = db.watch({ gte: '14' })
   t.teardown(() => watcher.destroy())
 
-  const onchangefail = () => t.fail('should not trigger changes')
-  const onchangepass = () => t.pass('change')
+  // + could be simpler but could be a helper for other tests
+  let next = watcher.next()
+  let onchange = null
+  next.then(value => {
+    next = watcher.next()
+    onchange(value)
+  })
 
-  watcher.on('change', onchangefail)
+  onchange = () => t.fail('should not trigger changes')
   await db.put('13')
   await eventFlush()
-  watcher.off('change', onchangefail)
+  onchange = null
 
-  watcher.on('change', onchangepass)
+  onchange = () => t.pass('change')
   await db.put('14')
   await eventFlush()
-  watcher.off('change', onchangepass)
+  onchange = null
 })
 
 test.skip('batch multiple changes', async function (t) {

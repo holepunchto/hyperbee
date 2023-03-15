@@ -230,7 +230,7 @@ returned, only the diff.
 
 Currently accepts the same options as the read stream except for reverse.
 
-#### `watcher = db.watch([range], [onchange])`
+#### `watcher = db.watch([range])`
 
 Listens to changes that are on the optional `range`.
 

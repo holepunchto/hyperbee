@@ -388,16 +388,8 @@ class Hyperbee {
     return b.del(key, opts)
   }
 
-  watch (range, onchange) {
-    if (typeof range === 'function') {
-      onchange = range
-      range = undefined
-    }
-
-    const watcher = new Watcher(this, range)
-    if (onchange) watcher.on('change', onchange)
-
-    return watcher
+  watch (range) {
+    return new Watcher(this, range)
   }
 
   _onappend () {

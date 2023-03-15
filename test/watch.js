@@ -87,7 +87,7 @@ test('basic watch on range', async function (t) {
   onchange = null
 })
 
-test.skip('batch multiple changes', async function (t) {
+test('batch multiple changes', async function (t) {
   t.plan(2)
 
   const db = create()
@@ -95,16 +95,19 @@ test.skip('batch multiple changes', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.on('change', function (current, previous) {
-    t.is(current.version, 4)
-    t.is(previous.version, 1)
+  setImmediate(async () => {
+    const batch = db.batch()
+    await batch.put('/a')
+    await batch.put('/b')
+    await batch.put('/c')
+    await batch.flush()
   })
 
-  const batch = db.batch()
-  await batch.put('/a')
-  await batch.put('/b')
-  await batch.put('/c')
-  await batch.flush()
+  for await (const { current, previous } of watcher) {
+    t.is(current.version, 4)
+    t.is(previous.version, 1)
+    break
+  }
 })
 
 test.skip('watch ready step should not trigger changes if already had entries', async function (t) {

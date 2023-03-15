@@ -78,6 +78,19 @@ test('watch multiple next() on parallel - done', async function (t) {
   }
 })
 
+test('watch next() after is destroyed', async function (t) {
+  t.plan(2)
+
+  const db = create()
+  const watcher = db.watch()
+
+  watcher.destroy()
+
+  const { done, value } = await watcher.next()
+  t.is(done, true)
+  t.is(value, undefined)
+})
+
 test('watch waits for new change', async function (t) {
   t.plan(3)
 

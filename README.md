@@ -236,11 +236,27 @@ Listens to changes that are on the optional `range`.
 
 `range` options are the same as `createReadStream` except for reverse.
 
+Usage example:
+```js
+for await (const { current, previous } of watcher) {
+  console.log(current.version)
+  console.log(previous.version)
+}
+```
+
+Or manually calling `next()`:
+```js
+const { done, value } = await watcher.next()
+if (done) return
+
+console.log(value.current.version)
+console.log(value.previous.version)
+```
+
+Returns a new value after a feed change, `current` and `previous` are snapshots that are auto-closed before next value.
+
 `watcher.destroy()`\
 Closes the watcher.
-
-`watcher.on('change', (current, previous) => {})`\
-Emitted after a feed change, `current` and `previous` are snapshots that are auto-closed on next tick.
 
 `watcher.on('error', onerror)`\
 Critical and unexpected errors will be thrown, but watcher is normally graceful.\

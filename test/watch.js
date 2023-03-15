@@ -110,8 +110,8 @@ test('batch multiple changes', async function (t) {
   }
 })
 
-test.skip('watch ready step should not trigger changes if already had entries', async function (t) {
-  t.plan(2)
+test('watch ready step should not trigger changes if already had entries', async function (t) {
+  t.plan(3)
 
   const create = createStored()
 
@@ -123,7 +123,14 @@ test.skip('watch ready step should not trigger changes if already had entries', 
   const db = create()
   t.is(db.version, 1)
 
-  db.watch(function () {
+  const watcher = db.watch()
+
+  watcher.next().then(function ({ done }) {
+    if (done) {
+      t.pass()
+      return
+    }
+
     t.fail('should not trigger changes')
   })
 

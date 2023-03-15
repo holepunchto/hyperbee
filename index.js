@@ -909,7 +909,11 @@ class Watcher extends EventEmitter {
 
   async next () {
     if (this.tick.next.resolved) {
-      await this.tick.yield.promise
+      try {
+        await this.tick.yield.promise
+      } catch {
+        return { done: true }
+      }
     }
 
     this.tick.next.resolved = true // + new prop
@@ -918,8 +922,7 @@ class Watcher extends EventEmitter {
     try {
       const value = await this.tick.yield.promise
       return { done: false, value }
-    } catch (err) {
-      if (!this.closed) throw err
+    } catch {
       return { done: true }
     }
   }

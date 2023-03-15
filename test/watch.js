@@ -18,7 +18,7 @@ test('basic watch', async function (t) {
   t.is(previous.version, 1)
 })
 
-test('watch multiple next() on parallel', async function (t) {
+test('watch multiple next() on parallel - value', async function (t) {
   t.plan(6)
 
   const db = create()
@@ -48,6 +48,33 @@ test('watch multiple next() on parallel', async function (t) {
     t.is(done, false)
     t.is(current.version, 3)
     t.is(previous.version, 2)
+  }
+})
+
+test('watch multiple next() on parallel - done', async function (t) {
+  t.plan(4)
+
+  const db = create()
+
+  const watcher = db.watch()
+
+  const a = watcher.next()
+  const b = watcher.next()
+
+  watcher.destroy()
+
+  {
+    const { done, value } = await a
+
+    t.is(done, true)
+    t.is(value, undefined)
+  }
+
+  {
+    const { done, value } = await b
+
+    t.is(done, true)
+    t.is(value, undefined)
   }
 })
 

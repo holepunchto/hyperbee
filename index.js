@@ -882,8 +882,8 @@ class Watcher extends EventEmitter {
 
     this.running = false
     this.tick = {
-      start: this._createTick(),
-      end: this._createTick()
+      next: this._createTick(),
+      yield: this._createTick()
     }
 
     this.current = null
@@ -916,10 +916,10 @@ class Watcher extends EventEmitter {
   }
 
   async next () {
-    this.tick.start.resolve()
+    this.tick.next.resolve()
 
     try {
-      const value = await this.tick.end.promise
+      const value = await this.tick.yield.promise
 
       return value ? { done: false, value } : { done: true }
     } catch (err) {
@@ -947,7 +947,7 @@ class Watcher extends EventEmitter {
     if (this.opened === false) await this._opening
 
     // Waiting for next iterator call
-    await this.tick.start.promise
+    await this.tick.next.promise
 
     // + allSettled or catch errors individually // + or let it throw but properly handle it on destroy
     if (this.current) await this.current.close()
@@ -962,14 +962,14 @@ class Watcher extends EventEmitter {
     try {
       for await (const data of this.stream) { // eslint-disable-line
         // Save current tick
-        const end = this.tick.end
+        const tickYield = this.tick.yield
 
         // Reset ticks
-        this.tick.start = this._createTick()
-        this.tick.end = this._createTick()
+        this.tick.next = this._createTick()
+        this.tick.yield = this._createTick()
 
         // Finish current tick
-        end.resolve({ current: this.current, previous: this.previous })
+        tickYield.resolve({ current: this.current, previous: this.previous })
 
         break
       }
@@ -992,8 +992,8 @@ class Watcher extends EventEmitter {
     if (this.previous) await this.previous.close()
 
     // + properly think how to cleanup ticks, should reject them gracefully
-    this.tick.start.reject(new Error('Watcher destroyed'))
-    this.tick.end.reject(new Error('Watcher destroyed'))
+    this.tick.next.reject(new Error('Watcher destroyed'))
+    this.tick.yield.reject(new Error('Watcher destroyed'))
 
     this.bee._watchers.delete(this)
 

@@ -136,7 +136,7 @@ test('batch multiple changes', async function (t) {
     await batch.flush()
   })
 
-  for await (const { current, previous } of watcher) {
+  for await (const { current, previous } of watcher) { // eslint-disable-line no-unreachable-loop
     t.is(current.version, 4)
     t.is(previous.version, 1)
     break

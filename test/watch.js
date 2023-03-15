@@ -48,7 +48,6 @@ test('destroy watch while waiting for a new change', async function (t) {
   t.plan(2)
 
   const db = create()
-  await db.put('/a') // Ignore first append (header)
 
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())

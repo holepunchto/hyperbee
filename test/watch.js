@@ -72,6 +72,28 @@ test('watch waits for new change', async function (t) {
   t.is(previous.version, 2)
 })
 
+test('watch does not lose changes if next() was not called yet', async function (t) {
+  t.plan(3)
+
+  const db = create()
+  await db.put('/a') // Ignore first append (header)
+
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  await db.put('/b')
+  await eventFlush()
+
+  await db.put('/c')
+  await eventFlush()
+
+  const { done, value: { current, previous } } = await watcher.next()
+
+  t.is(done, false)
+  t.is(current.version, 4)
+  t.is(previous.version, 2)
+})
+
 test('destroy watch while waiting for a new change', async function (t) {
   t.plan(2)
 

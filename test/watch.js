@@ -9,15 +9,13 @@ test.solo('basic watch', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  const put = db.put('/a')
+  db.put('/a') // Run on background
 
   const { done, value: { current, previous } } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 2)
   t.is(previous.version, 1)
-
-  await put
 })
 
 test('basic watch with onchange option on first arg', async function (t) {

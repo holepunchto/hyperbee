@@ -882,8 +882,8 @@ class Watcher extends EventEmitter {
 
     this.running = false
     this.tick = {
-      start: invertedPromise(),
-      end: invertedPromise()
+      start: this._createTick(),
+      end: this._createTick()
     }
 
     this.current = null
@@ -900,6 +900,17 @@ class Watcher extends EventEmitter {
     this.opened = true
   }
 
+  _createTick () {
+    const inverted = invertedPromise()
+
+    inverted.promise.catch(err => {
+      if (!this.closed) throw err
+      // Ignore errors if destroyed
+    })
+
+    return inverted
+  }
+
   [Symbol.asyncIterator] () {
     return this
   }
@@ -907,9 +918,15 @@ class Watcher extends EventEmitter {
   async next () {
     this.tick.start.resolve()
 
-    const value = await this.tick.end.promise
+    try {
+      const value = await this.tick.end.promise
 
-    return value ? { done: false, value } : { done: true }
+      return value ? { done: false, value } : { done: true }
+    } catch (err) {
+      if (!this.closed) throw err
+
+      return { done: true }
+    }
   }
 
   async _onappend () {
@@ -948,8 +965,8 @@ class Watcher extends EventEmitter {
         const end = this.tick.end
 
         // Reset ticks
-        this.tick.start = invertedPromise()
-        this.tick.end = invertedPromise()
+        this.tick.start = this._createTick()
+        this.tick.end = this._createTick()
 
         // Finish current tick
         end.resolve({ current: this.current, previous: this.previous })
@@ -974,7 +991,9 @@ class Watcher extends EventEmitter {
     if (this.current) await this.current.close()
     if (this.previous) await this.previous.close()
 
-    // + ticks cleanup, should reject them gracefully
+    // + properly think how to cleanup ticks, should reject them gracefully
+    this.tick.start.reject(new Error('Watcher destroyed'))
+    this.tick.end.reject(new Error('Watcher destroyed'))
 
     this.bee._watchers.delete(this)
 

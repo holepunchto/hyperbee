@@ -908,7 +908,7 @@ class Watcher extends EventEmitter {
   }
 
   async next () {
-    if (this.tick.next.resolved) {
+    while (this.tick.next.resolved) {
       try {
         await this.tick.yield.promise
       } catch {

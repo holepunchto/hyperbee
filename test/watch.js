@@ -364,15 +364,17 @@ test('create lots of watchers', async function (t) {
   await db.put('/a')
 })
 
-test.skip('create and destroy lots of watchers', async function (t) {
+test('create and destroy lots of watchers', async function (t) {
   const count = 1000
   const db = create()
 
   for (let i = 0; i < count; i++) {
     let changed = false
 
-    const watcher = db.watch(function () {
-      changed = true
+    const watcher = db.watch()
+
+    watcher.next().then(({ done }) => {
+      if (!done) changed = true
     })
 
     await db.put('/a')

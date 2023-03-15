@@ -5,7 +5,6 @@ test('basic watch', async function (t) {
   t.plan(3)
 
   const db = create()
-
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
@@ -22,8 +21,6 @@ test('watch multiple next() on parallel - value', async function (t) {
   t.plan(6)
 
   const db = create()
-  // await db.put('/a') // Ignore first append (header)
-
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
@@ -52,10 +49,9 @@ test('watch multiple next() on parallel - value', async function (t) {
 })
 
 test('watch multiple next() on parallel - done', async function (t) {
-  t.plan(4)
+  t.plan(2)
 
   const db = create()
-
   const watcher = db.watch()
 
   const a = watcher.next()
@@ -63,32 +59,19 @@ test('watch multiple next() on parallel - done', async function (t) {
 
   watcher.destroy()
 
-  {
-    const { done, value } = await a
-
-    t.is(done, true)
-    t.is(value, undefined)
-  }
-
-  {
-    const { done, value } = await b
-
-    t.is(done, true)
-    t.is(value, undefined)
-  }
+  t.alike(await a, { done: true, value: undefined })
+  t.alike(await b, { done: true, value: undefined })
 })
 
 test('watch next() after is destroyed', async function (t) {
-  t.plan(2)
+  t.plan(1)
 
   const db = create()
   const watcher = db.watch()
 
   watcher.destroy()
 
-  const { done, value } = await watcher.next()
-  t.is(done, true)
-  t.is(value, undefined)
+  t.alike(await watcher.next(), { done: true, value: undefined })
 })
 
 test('watch waits for new change', async function (t) {
@@ -135,7 +118,7 @@ test('watch does not lose changes if next() was not called yet', async function 
 })
 
 test('destroy watch while waiting for a new change', async function (t) {
-  t.plan(2)
+  t.plan(1)
 
   const db = create()
 
@@ -145,9 +128,7 @@ test('destroy watch while waiting for a new change', async function (t) {
     watcher.destroy()
   })
 
-  const { value, done } = await watcher.next()
-  t.is(done, true)
-  t.is(value, undefined)
+  t.alike(await watcher.next(), { done: true, value: undefined })
 })
 
 test('basic watch on range', async function (t) {

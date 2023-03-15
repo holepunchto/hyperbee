@@ -912,7 +912,7 @@ class Watcher extends EventEmitter {
       try {
         await this.tick.yield.promise
       } catch {
-        return { done: true }
+        return { done: true, value: undefined }
       }
     }
 
@@ -923,7 +923,7 @@ class Watcher extends EventEmitter {
       const value = await this.tick.yield.promise
       return { done: false, value }
     } catch {
-      return { done: true }
+      return { done: true, value: undefined }
     }
   }
 

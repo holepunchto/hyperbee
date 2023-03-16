@@ -18,6 +18,7 @@
     "streamx": "^2.12.4"
   },
   "devDependencies": {
+    "autobase-next": "^0.0.1",
     "brittle": "^3.1.0",
     "hypercore": "^10.0.0",
     "protocol-buffers": "^4.2.0",

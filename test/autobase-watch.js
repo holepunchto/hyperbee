@@ -5,7 +5,7 @@ const Corestore = require('corestore')
 const ram = require('random-access-memory')
 
 test.solo('watch works with autobase - basic', async function (t) {
-  /* Example output (non-deterministic, the 3-4 updates can also go from 3 to 5)
+  /* Example output (non-deterministic)
                                       bee appended -- version: 1
                                       bee appended -- version: 2
       printwatch bee1 from 1 to 2

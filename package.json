@@ -12,13 +12,14 @@
     "b4a": "^1.6.0",
     "codecs": "^3.0.0",
     "debounceify": "^1.0.0",
+    "hyperbee-diff-stream": "github:holepunchto/hyperbee-diff-stream",
     "mutexify": "^1.4.0",
     "protocol-buffers-encodings": "^1.2.0",
     "safety-catch": "^1.0.2",
     "streamx": "^2.12.4"
   },
   "devDependencies": {
-    "autobase-next": "^0.0.1",
+    "autobase-next": "github:holepunchto/autobase-next",
     "brittle": "^3.1.0",
     "hypercore": "^10.0.0",
     "protocol-buffers": "^4.2.0",

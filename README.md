@@ -301,6 +301,12 @@ Current version.
 
 Makes sure internal state is loaded. Call this once before checking the version if you haven't called any of the other APIs.
 
+#### `header = await db.getHeader([opts])`
+
+Returns the header contained in the first block. Throws if undecodable.
+
+`opts` are the same as the `Hypercore get` method.
+
 #### `await Hyperbee.isHyperbee(core, opts?)`
 
 Returns true if the core contains a hyperbee, false otherwise.

@@ -85,7 +85,7 @@ Number that indicates how many modifications were made, useful as a version iden
 
 Insert a new key. Value can be optional.
 
-If you're inserting a series of data atomically or want more performance then check the `db.batch()` API.
+If you're inserting a series of data atomically or want more performance then check the `db.batch` API.
 
 `options` includes:
 ```js
@@ -122,7 +122,7 @@ function cas (prev, next) {
 
 Get a key's value. Returns `null` if key doesn't exists.
 
-`seq` is the Hypercore version at which this key was inserted.
+`seq` is the `db.version` (Hypercore length) at which this key was inserted.
 
 #### `await db.del(key, [options])`
 
@@ -253,13 +253,13 @@ and `right` will be null, and vice versa.
 If the entries are causally equal (i.e. the have the same seq), they are not
 returned, only the diff.
 
-`options` are the same as `createReadStream`, except for `reverse`.
+`options` are the same as `db.createReadStream`, except for `reverse`.
 
 #### `const watcher = db.watch([range])`
 
 Listens to changes that are on the optional `range`.
 
-`range` options are the same as `createReadStream` except for reverse.
+`range` options are the same as `db.createReadStream` except for `reverse`.
 
 Usage example:
 ```js
@@ -320,7 +320,7 @@ await sub.get('b')
 
 Returns the header contained in the first block. Throws if undecodable.
 
-`options` are the same as the `Hypercore get` method.
+`options` are the same as the `core.get` method.
 
 #### `const isHyperbee = await Hyperbee.isHyperbee(core, [options])`
 
@@ -328,4 +328,4 @@ Returns `true` if the core contains a Hyperbee, `false` otherwise.
 
 This requests the first block on the core, so it can throw depending on the options.
 
-`options` are the same as the `Hypercore get` method.
+`options` are the same as the `core.get` method.

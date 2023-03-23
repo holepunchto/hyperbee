@@ -253,7 +253,7 @@ returned, only the diff.
 
 `options` are the same as `createReadStream`, except for `reverse`.
 
-#### `watcher = db.watch([range])`
+#### `const watcher = db.watch([range])`
 
 Listens to changes that are on the optional `range`.
 

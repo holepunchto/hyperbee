@@ -2,8 +2,7 @@
 
 [See API docs at docs.holepunch.to](https://docs.holepunch.to/building-blocks/hyperbee)
 
-An append-only B-tree running on a Hypercore.
-Allows sorted iteration and more.
+An append-only B-tree running on a Hypercore. Allows sorted iteration and more.
 
 ```
 npm install hyperbee
@@ -11,66 +10,82 @@ npm install hyperbee
 
 ## Usage
 
-``` js
+```js
 const Hyperbee = require('hyperbee')
-const db = new Hyperbee(core, {
-  keyEncoding: 'utf-8', // can be set to undefined (binary), utf-8, ascii or and abstract-encoding
-  valueEncoding: 'binary' // same options as above
-})
+const Hypercore = require('hypercore')
+const RAM = require('random-access-memory')
 
-// if you own the feed
-await db.put('key', 'value')
+const core = new Hypercore(RAM)
+const db = new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'binary' })
+
+// If you own the core
+await db.put('key1', 'value1')
+await db.put('key2', 'value2')
 await db.del('some-key')
 
-// if you want to insert/delete batched values
+// If you want to insert/delete batched values
 const batch = db.batch()
 
 await batch.put('key', 'value')
 await batch.del('some-key')
-await batch.flush() // execute the batch
+await batch.flush() // Execute the batch
 
-// if you want to query the feed
-const node = await db.get('key') // null or { key, value }
+// Query the core
+const entry = await db.get('key') // => null or { key, value }
 
-// if you want to read a range
-const rs = db.createReadStream({ gt: 'a', lt: 'd' }) // anything >a and <d
-const rs = db.createReadStream({ gte: 'a', lte: 'd' }) // anything >=a and <=d
+// Read all entries
+for await (const entry of db.createReadStream()) {
+  // ..
+}
 
-// get the last written entry
-const rs = db.createHistoryStream({ reverse: true, limit: 1 })
+// Read a range
+for await (const entry of db.createReadStream({ gte: 'a', lt: 'd' })) {
+  // Anything >=a and <d
+}
+
+// Get the last written entry
+for await (const entry of db.createHistoryStream({ reverse: true, limit: 1 })) {
+  // ..
+}
 ```
 
-Some of the internals are still being tweaked, but overall the API and feature set is pretty
-stable, if you want to try it out.
-
-All of the above methods work with sparse feeds, meaning only a small subset of the full
-feed is downloaded to satisfy your queries.
+It works with sparse cores, only a small subset of the full core is downloaded to satisfy your queries.
 
 ## API
 
 #### `const db = new Hyperbee(core, [options])`
 
-Make a new Hyperbee instance. `feed` should be a [Hypercore](https://github.com/holepunchto/hypercore).
+Make a new Hyperbee instance. `core` should be a [Hypercore](https://github.com/holepunchto/hypercore).
 
-Options include:
-
-```
+`options` include:
+```js
 {
-  keyEncoding: 'utf-8' | 'binary' | 'ascii', // or some abstract encoding
-  valueEncoding: <same as above>
+  keyEncoding: 'binary', // "binary" (default), "utf-8", "ascii", "json", or an abstract-encoding
+  valueEncoding: 'binary' // Same options as keyEncoding like "json", etc
 }
 ```
 
 Note that currently read/diff streams sort based on the *encoded* value of the keys.
 
+#### `await db.ready()`
+
+Waits until internal state is loaded. Use it once before reading `db.version` unless you called any of the other APIs.
+
+#### `await db.close()`
+
+Fully close this bee, including its core.
+
+#### `db.version`
+
+Number that indicates how many modifications were made, useful as a version identifier.
+
 #### `await db.put(key, [value], [options])`
 
-Insert a new key. Value can be optional. If you are inserting a series of data atomically,
-or you just have a batch of inserts/deletions available using a batch can be much faster
-than simply using a series of puts/dels on the db.
+Insert a new key. Value can be optional.
 
-Options include:
+If you're inserting a series of data atomically or want more performance then check the `db.batch()` API.
 
+`options` includes:
 ```js
 {
   cas (prev, next) { return true }
@@ -78,30 +93,40 @@ Options include:
 ```
 
 ##### Compare And Swap (cas)
-You have the option to pass a `cas` function as an option to `put` that controls whether the `put` succeeds. Given `bee.put(key, value, { cas })`, `cas` is passed the current node (i.e. `{ seq, key, value }`) in `bee` at `key` and the next _tentative_ node. Then `put` succeeds only if `cas` returns `true` and fails otherwise.
+`cas` option is a function comparator to control whether the `put` succeeds.
+
+By returning `true` it will insert the value, otherwise it won't.
+
+It receives two args: `prev` is the current node entry, and `next` is the potential new node.
 
 ```js
-const cas = (prev, next) => prev.value !== next.value
-const db = new Hyperbee(core, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
-await db.put('key', 'value')
-console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
-await db.put('key', 'value', { cas })
-console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
-await db.put('key', 'value*', { cas })
-console.log(await db.get('key')) // { seq: 2, key: 'key', value: 'value*' }
+await db.put('number', '123', { cas })
+console.log(await db.get('number')) // => { seq: 1, key: 'number', value: '123' }
+
+await db.put('number', '123', { cas })
+console.log(await db.get('number')) // => { seq: 1, key: 'number', value: '123' }
+// Without cas this would have been { seq: 2, ... }, and the next { seq: 3 }
+
+await db.put('number', '456', { cas })
+console.log(await db.get('number')) // => { seq: 2, key: 'number', value: '456' }
+
+function cas (prev, next) {
+  // You can use same-data or same-object lib, depending on the value complexity
+  return prev.value !== next.value
+}
 ```
 
-#### `{ seq, key, value } = await db.get(key)`
+#### `const { seq, key, value } = await db.get(key)`
 
-Get a key, value. If the key does not exist, `null` is returned.
-`seq` is the hypercore version at which this key was inserted.
+Get a key's value. Returns `null` if key doesn't exists.
+
+`seq` is the Hypercore version at which this key was inserted.
 
 #### `await db.del(key, [options])`
 
-Delete a key
+Delete a key.
 
-Options include:
-
+`options` include:
 ```js
 {
   cas (prev, next) { return true }
@@ -109,40 +134,41 @@ Options include:
 ```
 
 ##### Compare And Swap (cas)
-You can pass a `cas` function as an option to `del` that controls whether the `del` succeeds. Given `bee.del(key, { cas })`, `cas` is passed the current node (i.e. `{ seq, key, value }`) in `bee` at `key`, and `del` succeeds only if `cas` returns `true` and fails otherwise.
+`cas` option is a function comparator to control whether the `del` succeeds.
+
+By returning `true` it will delete the value, otherwise it won't.
+
+It only receives one arg: `prev` which is the current node entry.
 
 ```js
-const cas = (prev) => prev.value === 'value*'
-const db = new Hyperbee(core, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
-await db.put('key', 'value')
-console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
-await db.del('key', { cas })
-console.log(await db.get('key')) // { seq: 1, key: 'key', value: 'value' }
-await db.put('key', 'value*')
-console.log(await db.get('key')) // { seq: 2, key: 'key', value: 'value*' }
-await db.del('key', { cas })
-console.log(await db.get('key')) // null
+// This won't get deleted
+await db.del('number', { cas })
+console.log(await db.get('number')) // => { seq: 1, key: 'number', value: 'value' }
+
+// Change the value so the next time we try to delete it then "cas" will return true
+await db.put('number', 'can-be-deleted')
+
+await db.del('number', { cas })
+console.log(await db.get('number')) // => null
+
+function cas (prev) {
+  return prev.value === 'can-be-deleted'
+}
 ```
 
-#### `batch = db.batch()`
+#### `const batch = db.batch()`
 
-Make a new batch.
+Make a new atomic batch that is either fully processed or not processed at all.
 
-A batch is atomic: it is either processed fully or not at all.
+If you have several inserts and deletions then a batch can be much faster.
 
 #### `await batch.put(key, [value], [options])`
 
 Insert a key into a batch.
 
-Options include:
+`options` are the same as `db.put` method.
 
-```js
-{
-  cas (prev, next) { return true } // see await db.put(key, value, { cas })
-}
-```
-
-#### `{ seq, key, value } = await batch.get(key)`
+#### `const { seq, key, value } = await batch.get(key)`
 
 Get a key, value out of a batch.
 
@@ -150,13 +176,7 @@ Get a key, value out of a batch.
 
 Delete a key into the batch.
 
-Options include:
-
-```js
-{
-  cas (prev, next) { return true } // see await db.del(key, { cas })
-}
-```
+`options` are the same as `db.del` method.
 
 #### `await batch.flush()`
 
@@ -165,23 +185,24 @@ Commit the batch to the database.
 #### `batch.destroy()`
 
 Destroy a batch and releases any locks it has aquired on the db.
+
 Call this if you want to abort a batch without flushing it.
 
-#### `stream = db.createReadStream([options])`
+#### `const stream = db.createReadStream([options])`
 
-Make a read stream. All entries in the stream are similar to the ones returned from .get and the
-sort order is based on the binary value of the keys.
+Make a read stream. Sort order is based on the binary value of the keys.
 
-Options include:
+All entries in the stream are similar to the ones returned from `db.get`.
 
-``` js
+`options` include:
+```js
 {
   gt: 'only return keys > than this',
   gte: 'only return keys >= than this',
   lt: 'only return keys < than this',
   lte: 'only return keys <= than this',
-  reverse: false // set to true to get them in reverse order,
-  limit: -1 // set to the max number of entries you want
+  reverse: false // Set to true to get them in reverse order,
+  limit: -1 // Set to the max number of entries you want
 }
 ```
 
@@ -189,35 +210,35 @@ Options include:
 
 Similar to doing a read stream and returning the first value, but a bit faster than that.
 
-#### `stream = db.createHistoryStream([options])`
+#### `const stream = db.createHistoryStream([options])`
 
 Create a stream of all entries ever inserted or deleted from the db.
+
 Each entry has an additional `type` property indicating if it was a `put` or `del` operation.
 
-Options include:
-
-``` js
+`options` include:
+```js
 {
-  live: false, // if true the stream will wait for new data and never end
-  reverse: false, // if true get from the newest to the oldest
-  gte: seq, // start with this seq (inclusive)
-  gt: seq, // start after this index
-  lte: seq, // stop after this index
-  lt: seq, // stop before this index
-  limit: -1 // set to the max number of entries you want
+  live: false, // If true the stream will wait for new data and never end
+  reverse: false, // If true get from the newest to the oldest
+  gte: seq, // Start with this seq (inclusive)
+  gt: seq, // Start after this index
+  lte: seq, // Stop after this index
+  lt: seq, // Stop before this index
+  limit: -1 // Set to the max number of entries you want
 }
-````
+```
 
-If any of the gte, gt, lte, lt arguments are `< 0` then
+If any of the `gte`, `gt`, `lte`, `lt` arguments are `< 0` then
 they'll implicitly be added with the version before starting so
 doing `{ gte: -1 }` makes a stream starting at the last index.
 
-#### `stream = db.createDiffStream(otherVersion, [options])`
+#### `const stream = db.createDiffStream(otherVersion, [options])`
 
 Efficiently create a stream of the shallow changes between two versions of the db.
-Each entry is sorted by key and looks like this:
 
-``` js
+Each entry is sorted by key and looks like this:
+```js
 {
   left: <the entry in the db>,
   right: <the entry in the other version>
@@ -230,7 +251,7 @@ and `right` will be null, and vice versa.
 If the entries are causally equal (i.e. the have the same seq), they are not
 returned, only the diff.
 
-Currently accepts the same options as the read stream except for reverse.
+`options` are the same as `createReadStream`, except for `reverse`.
 
 #### `watcher = db.watch([range])`
 
@@ -258,62 +279,51 @@ Waits until the watcher is loaded and detecting changes.
 
 Stops the watcher. You could also stop it by using `break` in the loop.
 
-#### `dbCheckout = db.checkout(version)`
+#### `const snapshot = db.checkout(version)`
 
-Get a readonly db checkout of a previous version.
+Get a readonly snapshot of a previous version.
 
-#### `dbCheckout = db.snapshot()`
+#### `const snapshot = db.snapshot()`
 
 Shorthand for getting a checkout for the current version.
 
-#### `const sub = db.sub('sub-prefix', opts = {})`
+#### `const sub = db.sub('sub-prefix', options = {})`
 
 Create a sub-database where all entries will be prefixed by a given value.
 
 This makes it easy to create namespaces within a single Hyperbee.
 
-Options include:
+`options` include:
 ```js
 {
   sep: Buffer.alloc(1), // A namespace separator
-  valueEncoding, // optional sub valueEncoding (defaults to the parents)
-  keyEncoding // optional sub keyEncoding (defaults to the parents)
+  valueEncoding, // Optional sub valueEncoding (defaults to the parents)
+  keyEncoding // Optional sub keyEncoding (defaults to the parents)
 }
 ```
 
 For example:
 ```js
-const rootDb = new Hyperbee(core)
-const subDb = rootDb.sub('a')
+const root = new Hyperbee(core)
+const sub = root.sub('a')
 
-// In rootDb, this will have the key ('a' + separator + 'b')
-await subDb.put('b', 'hello')
+// In root, this will have the key ('a' + separator + 'b')
+await sub.put('b', 'hello')
 
-// Returns { key: 'b', value: 'hello')
-await subDb.get('b')
+// Returns => { key: 'b', value: 'hello')
+await sub.get('b')
 ```
 
-#### `db.version`
-
-Current version.
-
-#### `await db.ready()`
-
-Makes sure internal state is loaded. Call this once before checking the version if you haven't called any of the other APIs.
-
-#### `header = await db.getHeader([opts])`
+#### `const header = await db.getHeader([options])`
 
 Returns the header contained in the first block. Throws if undecodable.
 
-`opts` are the same as the `Hypercore get` method.
+`options` are the same as the `Hypercore get` method.
 
-#### `await Hyperbee.isHyperbee(core, opts?)`
+#### `const isHyperbee = await Hyperbee.isHyperbee(core, [options])`
 
-Returns true if the core contains a hyperbee, false otherwise.
+Returns `true` if the core contains a Hyperbee, `false` otherwise.
 
-Throws if the first block could not be loaded.
-This can only happen when the likes of `wait: false` or `timeout: someTimeout` are set
-(see the documentation for `hypercore.get`).
-The default behaviour is to wait until the first block is available
-(thereafter returning either true or false).
+This requests the first block on the core, so it can throw depending on the options.
 
+`options` are the same as the `Hypercore get` method.

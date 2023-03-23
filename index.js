@@ -5,7 +5,6 @@ const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
 const debounceify = require('debounceify')
-const BeeDiffStream = require('hyperbee-diff-stream')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -954,9 +953,7 @@ class Watcher extends EventEmitter {
     if (this.current) await this.current.close()
     this.current = this.bee.snapshot()
 
-    this.stream = this.bee.feed.isAutobase
-      ? new BeeDiffStream(this.current, this.previous)
-      : this.current.createDiffStream(this.previous.version, this.range)
+    this.stream = this.current.createDiffStream(this.previous.version, this.range)
 
     try {
       for await (const data of this.stream) { // eslint-disable-line

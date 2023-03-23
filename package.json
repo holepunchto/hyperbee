@@ -12,7 +12,6 @@
     "b4a": "^1.6.0",
     "codecs": "^3.0.0",
     "debounceify": "^1.0.0",
-    "hyperbee-diff-stream": "github:holepunchto/hyperbee-diff-stream",
     "mutexify": "^1.4.0",
     "protocol-buffers-encodings": "^1.2.0",
     "safety-catch": "^1.0.2",

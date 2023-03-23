@@ -69,7 +69,9 @@ Note that currently read/diff streams sort based on the *encoded* value of the k
 
 #### `await db.ready()`
 
-Waits until internal state is loaded. Use it once before reading `db.version` unless you called any of the other APIs.
+Waits until internal state is loaded.
+
+Use it once before reading `db.version` unless you called any of the other APIs.
 
 #### `await db.close()`
 

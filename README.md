@@ -253,7 +253,9 @@ console.log(value.current.version)
 console.log(value.previous.version)
 ```
 
-Returns a new value after a feed change, `current` and `previous` are snapshots that are auto-closed before next value.
+Returns a new value after a change, `current` and `previous` are snapshots that are auto-closed before next value.
+
+Don't close those snapshots yourself because they're used internally, let them be auto-closed.
 
 `watcher.destroy()`
 

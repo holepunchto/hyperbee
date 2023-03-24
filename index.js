@@ -872,7 +872,7 @@ class Watcher {
     this.previous = null
     this.stream = null
 
-    this._mutex = { lock: mutexify(), release: null }
+    this._lock = mutexify()
     this._resolveOnChange = null
 
     this._opening = this._ready().catch(safetyCatch)
@@ -903,7 +903,7 @@ class Watcher {
   }
 
   async next () {
-    this._mutex.release = await this._mutex.lock()
+    const release = await this._lock()
 
     try {
       if (this.closed) return { value: undefined, done: true }
@@ -931,7 +931,7 @@ class Watcher {
         }
       }
     } finally {
-      this._mutex.release()
+      release()
     }
   }
 
@@ -947,7 +947,8 @@ class Watcher {
 
     this._onappend() // Continue execution being closed
 
-    if (this._mutex.lock.locked && this._mutex.release) this._mutex.release()
+    const release = await this._lock()
+    release()
 
     await this._closeAll()
   }

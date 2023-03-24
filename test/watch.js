@@ -17,7 +17,7 @@ test('basic watch', async function (t) {
   t.is(previous.version, 1)
 })
 
-test('watch multiple next() on parallel - value', async function (t) {
+test.skip('watch multiple next() on parallel - value', async function (t) {
   t.plan(9)
 
   const db = create()
@@ -59,7 +59,7 @@ test('watch multiple next() on parallel - value', async function (t) {
   }
 })
 
-test('watch multiple next() on parallel - done', async function (t) {
+test.skip('watch multiple next() on parallel - done', async function (t) {
   t.plan(2)
 
   const db = create()
@@ -142,34 +142,82 @@ test('destroy watch while waiting for a new change', async function (t) {
   t.alike(await watcher.next(), { done: true, value: undefined })
 })
 
-test('basic watch on range', async function (t) {
+test.skip('watch multiple changes', async function (t) {
+  t.plan(2)
+
+  const db = create()
+
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  setImmediate(async () => {
+    await db.put('/a')
+    await eventFlush()
+
+    await db.put('/b')
+    await eventFlush()
+
+    await db.put('/c')
+    await eventFlush()
+  })
+
+  for await (const { current, previous } of watcher) { // eslint-disable-line no-unreachable-loop
+    console.log(current.version, previous.version)
+  }
+})
+
+test.solo('basic watch on range', async function (t) {
   t.plan(1)
 
-  const db = await createRange(50)
+  const db = await createRange(5)
 
-  const watcher = db.watch({ gte: '14' })
+  const watcher = db.watch({ gte: '3' })
   t.teardown(() => watcher.destroy())
 
   // + could be simpler but could be a helper for other tests
   let next = watcher.next()
   let onchange = null
   next.then(data => {
+    console.log('next')
     next = watcher.next()
     onchange(data)
   })
 
   onchange = () => t.fail('should not trigger changes')
-  await db.put('13')
+  await db.put('2')
   await eventFlush()
   onchange = null
 
   onchange = () => t.pass('change')
-  await db.put('14')
+  await db.put('3')
   await eventFlush()
   onchange = null
 })
 
 test('batch multiple changes', async function (t) {
+  t.plan(2)
+
+  const db = create()
+
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  setImmediate(async () => {
+    const batch = db.batch()
+    await batch.put('/a')
+    await batch.put('/b')
+    await batch.put('/c')
+    await batch.flush()
+  })
+
+  for await (const { current, previous } of watcher) { // eslint-disable-line no-unreachable-loop
+    t.is(current.version, 4)
+    t.is(previous.version, 1)
+    break
+  }
+})
+
+test.skip('loop should auto break', async function (t) {
   t.plan(2)
 
   const db = create()

@@ -42,6 +42,7 @@ async function insertRange (db, start, end) {
 
   const b = db.batch()
   for (const r of rangeify(start, end)) {
+    console.log('inserting rate', r)
     await b.put(r)
   }
 

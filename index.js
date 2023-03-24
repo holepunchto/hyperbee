@@ -394,7 +394,7 @@ class Hyperbee {
 
   _onappend () {
     for (const watcher of this._watchers) {
-      watcher._onappendBound()
+      watcher._onappend()
     }
   }
 
@@ -857,33 +857,26 @@ class Batch {
   }
 }
 
-class Watcher extends EventEmitter {
+class Watcher {
   constructor (bee, range) {
-    super()
-
     bee._watchers.add(this)
 
     this.bee = bee
-    this.core = bee.core
 
     this.opened = false
     this.closed = false
 
-    this.latestDiff = 0
     this.range = range
-
-    this.running = false
-    this.tick = {
-      next: this._createTick(),
-      yield: this._createTick()
-    }
 
     this.current = null
     this.previous = null
+
     this.stream = null
 
-    this._onappendBound = debounceify(this._onappend.bind(this))
-    this._opening = this._ready().catch(safetyCatch)
+    this._resolveOnAppend = null
+
+    this._opening = this._ready()
+    this._opening.catch(safetyCatch)
   }
 
   async _ready () {
@@ -892,82 +885,77 @@ class Watcher extends EventEmitter {
     this.opened = true
   }
 
-  _createTick () {
-    const inverted = invertedPromise()
-
-    inverted.promise.catch(err => {
-      if (!this.closed) throw err
-      // Ignore errors if destroyed
-    })
-
-    return inverted
-  }
-
   [Symbol.asyncIterator] () {
     return this
   }
 
+  _onappend () {
+    const resolve = this._resolveOnAppend
+    this._resolveOnAppend = null
+    if (resolve) resolve()
+  }
+
+  async _waitForAppend () {
+    if (this.current.version < this.bee.version) {
+      console.log('_waitForAppend', this.current.version, 'vs', this.bee.version)
+      return
+    }
+
+    await new Promise(resolve => {
+      this._resolveOnAppend = resolve
+    })
+  }
+
   async next () {
-    while (this.tick.next.resolved) {
+    if (!this.opened) await this._opening
+
+    if (this.previous) {
+      const previous = this.previous
+      this.previous = null
+      await previous.close()
+    }
+
+    while (true) {
+      if (this.closed) return { value: undefined, done: true }
+
+      console.log('waiting for append')
+      await this._waitForAppend()
+      console.log('waited', this.closed)
+
+      if (this.closed) return { value: undefined, done: true }
+
+      const previous = this.current
+      const current = this.bee.snapshot()
+
+      console.log('createDiffStream', current.version, previous.version)
+
+      console.log('current.core:')
+      console.log(await current.get('0'))
+      console.log(await current.get('1'))
+      console.log(await current.get('2'))
+      console.log(await current.get('3'))
+      console.log(await current.get('4'))
+
+      console.log('previous.core:')
+      console.log(await previous.get('0'))
+      console.log(await previous.get('1'))
+      console.log(await previous.get('2'))
+      console.log(await previous.get('3'))
+      console.log(await previous.get('4'))
+
+      this.stream = current.createDiffStream(previous.version, this.range)
+
       try {
-        await this.tick.yield.promise
-      } catch {
-        return { done: true, value: undefined }
+        for await (const data of this.stream) { // eslint-disable-line
+          console.log('some diff')
+          this.current = current
+          this.previous = previous
+          return { value: { current, previous }, done: false }
+        }
+        await current.close()
+      } finally {
+        this.stream = null
       }
-    }
-
-    this.tick.next.resolved = true // + new prop
-    this.tick.next.resolve()
-
-    try {
-      const value = await this.tick.yield.promise
-      return { done: false, value }
-    } catch {
-      return { done: true, value: undefined }
-    }
-  }
-
-  async _onappend () {
-    this.running = true
-
-    try {
-      await this._run()
-    } catch (err) {
-      if (!this.closed) this.emit('error', err)
-      await this.destroy()
-    } finally {
-      this.running = false
-    }
-  }
-
-  async _run () {
-    if (this.closed) return
-    if (this.opened === false) await this._opening
-
-    // Waiting for next iterator call
-    await this.tick.next.promise
-
-    if (this.previous) await this.previous.close()
-    this.previous = this.current.snapshot()
-
-    if (this.current) await this.current.close()
-    this.current = this.bee.snapshot()
-
-    this.stream = this.current.createDiffStream(this.previous.version, this.range)
-
-    try {
-      for await (const data of this.stream) { // eslint-disable-line
-        const tickYield = this.tick.yield
-
-        this.tick.next = this._createTick()
-        this.tick.yield = this._createTick()
-
-        tickYield.resolve({ current: this.current, previous: this.previous })
-
-        break
-      }
-    } finally {
-      this.stream = null
     }
   }
 
@@ -975,21 +963,29 @@ class Watcher extends EventEmitter {
     if (this.closed) return
     this.closed = true
 
+    this.bee._watchers.delete(this)
+
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()
     }
 
-    // + reusable cleanup?
-    if (this.current) await this.current.close()
-    if (this.previous) await this.previous.close()
+    this._onappend() // Continue execution
 
-    // + properly think how to cleanup ticks, should reject them gracefully
-    this.tick.next.reject(new Error('Watcher destroyed'))
-    this.tick.yield.reject(new Error('Watcher destroyed'))
+    await this._closeAll()
+  }
 
-    this.bee._watchers.delete(this)
+  async _closeAll () {
+    if (this.previous) {
+      const previous = this.previous
+      this.previous = null
+      await previous.close()
+    }
 
-    this.emit('close')
+    if (this.current) {
+      const current = this.current
+      this.current = null
+      await current.close()
+    }
   }
 }
 

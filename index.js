@@ -1,10 +1,8 @@
-const { EventEmitter } = require('events')
 const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
-const debounceify = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -394,7 +392,7 @@ class Hyperbee {
 
   _onappend () {
     for (const watcher of this._watchers) {
-      watcher._onappendBound()
+      watcher._onappend()
     }
   }
 
@@ -857,10 +855,8 @@ class Batch {
   }
 }
 
-class Watcher extends EventEmitter {
+class Watcher {
   constructor (bee, range) {
-    super()
-
     bee._watchers.add(this)
 
     this.bee = bee
@@ -872,17 +868,13 @@ class Watcher extends EventEmitter {
     this.latestDiff = 0
     this.range = range
 
-    this.running = false
-    this.tick = {
-      next: this._createTick(),
-      yield: this._createTick()
-    }
-
     this.current = null
     this.previous = null
     this.stream = null
 
-    this._onappendBound = debounceify(this._onappend.bind(this))
+    this._tick = null
+    this._resolveOnChange = null
+
     this._opening = this._ready().catch(safetyCatch)
   }
 
@@ -892,82 +884,59 @@ class Watcher extends EventEmitter {
     this.opened = true
   }
 
-  _createTick () {
-    const inverted = invertedPromise()
-
-    inverted.promise.catch(err => {
-      if (!this.closed) throw err
-      // Ignore errors if destroyed
-    })
-
-    return inverted
-  }
-
   [Symbol.asyncIterator] () {
     return this
   }
 
+  _onappend () {
+    const resolve = this._resolveOnChange
+    this._resolveOnChange = null
+    if (resolve) resolve()
+  }
+
+  async _waitForChanges () {
+    if (this.current.version < this.bee.version || this.closed) return
+
+    await new Promise(resolve => {
+      this._resolveOnChange = resolve
+    })
+  }
+
   async next () {
-    while (this.tick.next.resolved) {
+    // + mutexify might be able to avoid _tick
+
+    while (this._tick && this._tick.running) await this._tick.promise
+
+    if (!this._tick || !this._tick.running) this._tick = invertedPromise()
+
+    if (this.closed) return { value: undefined, done: true }
+
+    this._tick.running = true
+
+    if (!this.opened) await this._opening
+
+    while (true) {
+      await this._waitForChanges()
+      if (this.closed) return { value: undefined, done: true }
+
+      if (this.previous) await this.previous.close()
+      this.previous = this.current.snapshot()
+
+      if (this.current) await this.current.close()
+      this.current = this.bee.snapshot()
+
+      this.stream = this.current.createDiffStream(this.previous.version, this.range)
+
       try {
-        await this.tick.yield.promise
-      } catch {
-        return { done: true, value: undefined }
+        for await (const data of this.stream) { // eslint-disable-line
+          this._tick.running = false
+          this._tick.resolve()
+
+          return { done: false, value: { current: this.current, previous: this.previous } }
+        }
+      } finally {
+        this.stream = null
       }
-    }
-
-    this.tick.next.resolved = true // + new prop
-    this.tick.next.resolve()
-
-    try {
-      const value = await this.tick.yield.promise
-      return { done: false, value }
-    } catch {
-      return { done: true, value: undefined }
-    }
-  }
-
-  async _onappend () {
-    this.running = true
-
-    try {
-      await this._run()
-    } catch (err) {
-      if (!this.closed) this.emit('error', err)
-      await this.destroy()
-    } finally {
-      this.running = false
-    }
-  }
-
-  async _run () {
-    if (this.closed) return
-    if (this.opened === false) await this._opening
-
-    // Waiting for next iterator call
-    await this.tick.next.promise
-
-    if (this.previous) await this.previous.close()
-    this.previous = this.current.snapshot()
-
-    if (this.current) await this.current.close()
-    this.current = this.bee.snapshot()
-
-    this.stream = this.current.createDiffStream(this.previous.version, this.range)
-
-    try {
-      for await (const data of this.stream) { // eslint-disable-line
-        const tickYield = this.tick.yield
-
-        this.tick.next = this._createTick()
-        this.tick.yield = this._createTick()
-
-        tickYield.resolve({ current: this.current, previous: this.previous })
-
-        break
-      }
-    } finally {
-      this.stream = null
     }
   }
 
@@ -975,34 +944,43 @@ class Watcher extends EventEmitter {
     if (this.closed) return
     this.closed = true
 
+    this.bee._watchers.delete(this)
+
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()
     }
 
-    // + reusable cleanup?
-    if (this.current) await this.current.close()
-    if (this.previous) await this.previous.close()
+    this._onappend() // Continue execution being closed
 
-    // + properly think how to cleanup ticks, should reject them gracefully
-    this.tick.next.reject(new Error('Watcher destroyed'))
-    this.tick.yield.reject(new Error('Watcher destroyed'))
+    if (this._tick) {
+      this._tick.running = false
+      this._tick.resolve()
+    }
 
-    this.bee._watchers.delete(this)
+    await this._closeAll()
+  }
 
-    this.emit('close')
+  async _closeAll () {
+    if (this.previous) {
+      await this.previous.close()
+      this.previous = null
+    }
+
+    if (this.current) {
+      await this.current.close()
+      this.current = null
+    }
   }
 }
 
 function invertedPromise () {
   const inverted = {
     promise: null,
-    resolve: null,
-    reject: null
+    resolve: null
   }
 
-  inverted.promise = new Promise((resolve, reject) => {
+  inverted.promise = new Promise(resolve => {
     inverted.resolve = resolve
-    inverted.reject = reject
   })
 
   return inverted

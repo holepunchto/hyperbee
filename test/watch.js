@@ -68,7 +68,7 @@ test('watch multiple next() on parallel - done', async function (t) {
   const a = watcher.next()
   const b = watcher.next()
 
-  watcher.destroy()
+  await watcher.destroy()
 
   t.alike(await a, { done: true, value: undefined })
   t.alike(await b, { done: true, value: undefined })
@@ -80,7 +80,7 @@ test('watch next() after is destroyed', async function (t) {
   const db = create()
   const watcher = db.watch()
 
-  watcher.destroy()
+  await watcher.destroy()
 
   t.alike(await watcher.next(), { done: true, value: undefined })
 })
@@ -135,8 +135,8 @@ test('destroy watch while waiting for a new change', async function (t) {
 
   const watcher = db.watch()
 
-  setImmediate(() => {
-    watcher.destroy()
+  setImmediate(async () => {
+    await watcher.destroy()
   })
 
   t.alike(await watcher.next(), { done: true, value: undefined })
@@ -251,7 +251,7 @@ test('watch without bee.ready() should trigger the correct version changes', asy
 })
 
 test('destroy watch (without stream)', async function (t) {
-  t.plan(4)
+  t.plan(3)
 
   const db = create()
 
@@ -267,12 +267,8 @@ test('destroy watch (without stream)', async function (t) {
     t.fail('should not trigger changes')
   })
 
-  watcher.on('close', function () {
-    t.pass('watcher closed')
-  })
-
   t.absent(watcher.closed)
-  watcher.destroy()
+  await watcher.destroy()
   t.ok(watcher.closed)
 
   await db.put('/a')
@@ -280,21 +276,17 @@ test('destroy watch (without stream)', async function (t) {
 })
 
 test('destroy watch (with stream)', async function (t) {
-  t.plan(3)
+  t.plan(2)
 
   const db = create()
 
   const watcher = db.watch()
 
-  watcher.next().then(({ done }) => {
+  watcher.next().then(async ({ done }) => {
     if (done) t.fail('should not have been closed')
 
-    watcher.on('close', function () {
-      t.pass('watcher closed')
-    })
-
     t.absent(watcher.closed)
-    watcher.destroy()
+    await watcher.destroy()
     t.ok(watcher.closed)
   })
 
@@ -302,15 +294,11 @@ test('destroy watch (with stream)', async function (t) {
 })
 
 test('closing bee should destroy watcher', async function (t) {
-  t.plan(3)
+  t.plan(2)
 
   const db = create()
 
   const watcher = db.watch()
-
-  watcher.on('close', function () {
-    t.pass('watcher closed')
-  })
 
   t.absent(watcher.closed)
   await db.close()
@@ -318,7 +306,7 @@ test('closing bee should destroy watcher', async function (t) {
 })
 
 test('destroy should not trigger stream error', async function (t) {
-  t.plan(3)
+  t.plan(1)
 
   const db = create()
 
@@ -334,17 +322,12 @@ test('destroy should not trigger stream error', async function (t) {
     }
 
     t.fail('should not trigger changes')
-  })
-
-  t.absent(watcher.running)
-
-  db.core.once('append', function () {
-    t.ok(watcher.running) // Ensures that stream is created
-    watcher.destroy()
-  })
-
-  watcher.on('error', function (err) {
+  }).catch(err => {
     t.fail('should not have given error: ' + err)
+  })
+
+  db.core.once('append', async function () {
+    await watcher.destroy()
   })
 
   await db.put('/b')
@@ -352,7 +335,7 @@ test('destroy should not trigger stream error', async function (t) {
 })
 
 test('close core in the middle of diffing', async function (t) {
-  t.plan(4)
+  t.plan(1)
 
   const db = create()
 
@@ -361,24 +344,14 @@ test('close core in the middle of diffing', async function (t) {
 
   const watcher = db.watch()
 
-  watcher.next().then(({ done }) => {
-    if (done) {
-      t.pass()
-      return
-    }
-
+  watcher.next().then(() => {
     t.fail('should not trigger changes')
+  }).catch(err => {
+    t.is(err.code, 'SESSION_CLOSED')
   })
-
-  t.absent(watcher.running)
 
   db.core.prependListener('append', function () {
-    t.absent(watcher.running) // Not running yet but about to
     db.core.close()
-  })
-
-  watcher.on('error', function (err) {
-    t.is(err.code, 'SESSION_CLOSED')
   })
 
   await db.put('/b')
@@ -433,6 +406,6 @@ test('create and destroy lots of watchers', async function (t) {
       t.fail('should have changed')
     }
 
-    watcher.destroy()
+    await watcher.destroy()
   }
 })

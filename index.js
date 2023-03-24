@@ -912,6 +912,7 @@ class Watcher {
 
       while (true) {
         await this._waitForChanges()
+
         if (this.closed) return { value: undefined, done: true }
 
         if (this.previous) await this.previous.close()
@@ -955,13 +956,15 @@ class Watcher {
 
   async _closeAll () {
     if (this.previous) {
-      await this.previous.close()
+      const previous = this.previous
       this.previous = null
+      await previous.close()
     }
 
     if (this.current) {
-      await this.current.close()
+      const current = this.current
       this.current = null
+      await current.close()
     }
   }
 }

@@ -872,7 +872,7 @@ class Watcher {
     this.previous = null
     this.stream = null
 
-    this._tick = null
+    this._mutex = { lock: mutexify(), release: null }
     this._resolveOnChange = null
 
     this._opening = this._ready().catch(safetyCatch)
@@ -903,40 +903,35 @@ class Watcher {
   }
 
   async next () {
-    // + mutexify might be able to avoid _tick
+    this._mutex.release = await this._mutex.lock()
 
-    while (this._tick && this._tick.running) await this._tick.promise
-
-    if (!this._tick || !this._tick.running) this._tick = invertedPromise()
-
-    if (this.closed) return { value: undefined, done: true }
-
-    this._tick.running = true
-
-    if (!this.opened) await this._opening
-
-    while (true) {
-      await this._waitForChanges()
+    try {
       if (this.closed) return { value: undefined, done: true }
 
-      if (this.previous) await this.previous.close()
-      this.previous = this.current.snapshot()
+      if (!this.opened) await this._opening
 
-      if (this.current) await this.current.close()
-      this.current = this.bee.snapshot()
+      while (true) {
+        await this._waitForChanges()
+        if (this.closed) return { value: undefined, done: true }
 
-      this.stream = this.current.createDiffStream(this.previous.version, this.range)
+        if (this.previous) await this.previous.close()
+        this.previous = this.current.snapshot()
 
-      try {
-        for await (const data of this.stream) { // eslint-disable-line
-          this._tick.running = false
-          this._tick.resolve()
+        if (this.current) await this.current.close()
+        this.current = this.bee.snapshot()
 
-          return { done: false, value: { current: this.current, previous: this.previous } }
+        this.stream = this.current.createDiffStream(this.previous.version, this.range)
+
+        try {
+          for await (const data of this.stream) { // eslint-disable-line
+            return { done: false, value: { current: this.current, previous: this.previous } }
+          }
+        } finally {
+          this.stream = null
         }
-      } finally {
-        this.stream = null
       }
+    } finally {
+      this._mutex.release()
     }
   }
 
@@ -952,10 +947,7 @@ class Watcher {
 
     this._onappend() // Continue execution being closed
 
-    if (this._tick) {
-      this._tick.running = false
-      this._tick.resolve()
-    }
+    if (this._mutex.lock.locked && this._mutex.release) this._mutex.release()
 
     await this._closeAll()
   }
@@ -971,19 +963,6 @@ class Watcher {
       this.current = null
     }
   }
-}
-
-function invertedPromise () {
-  const inverted = {
-    promise: null,
-    resolve: null
-  }
-
-  inverted.promise = new Promise(resolve => {
-    inverted.resolve = resolve
-  })
-
-  return inverted
 }
 
 async function leafSize (node, goLeft) {

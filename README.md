@@ -255,15 +255,9 @@ console.log(value.previous.version)
 
 Returns a new value after a feed change, `current` and `previous` are snapshots that are auto-closed before next value.
 
-`watcher.destroy()`\
+`watcher.destroy()`
+
 Closes the watcher.
-
-`watcher.on('error', onerror)`\
-Critical and unexpected errors will be thrown, but watcher is normally graceful.\
-Also, watcher auto closes on errors.
-
-`watcher.on('close', onclose)`\
-Emitted after the watcher is closed.
 
 #### `dbCheckout = db.checkout(version)`
 

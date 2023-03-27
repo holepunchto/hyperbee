@@ -1,6 +1,4 @@
 const test = require('brittle')
-const b4a = require('b4a')
-const { createStored } = require('./helpers')
 const createTestnet = require('@hyperswarm/testnet')
 const Hyperswarm = require('hyperswarm')
 const Hypercore = require('hypercore')

@@ -230,24 +230,27 @@ returned, only the diff.
 
 Currently accepts the same options as the read stream except for reverse.
 
-#### `watcher = db.watch([range], [onchange])`
+#### `watcher = db.watch([range])`
 
 Listens to changes that are on the optional `range`.
 
 `range` options are the same as `createReadStream` except for reverse.
 
-`watcher.destroy()`\
-Closes the watcher.
+Usage example:
+```js
+for await (const { current, previous } of watcher) {
+  console.log(current.version)
+  console.log(previous.version)
+}
+```
 
-`watcher.on('change', (newVersion, oldVersion) => {})`\
-Emitted after a feed change.
+Returns a new value after a change, `current` and `previous` are snapshots that are auto-closed before next value.
 
-`watcher.on('error', onerror)`\
-Critical and unexpected errors will be thrown, but watcher is normally graceful.\
-Also, watcher auto closes on errors.
+Don't close those snapshots yourself because they're used internally, let them be auto-closed.
 
-`watcher.on('close', onclose)`\
-Emitted after the watcher is closed.
+`watcher.destroy()`
+
+Stops the watcher. You could also stop it by using `break` in the loop.
 
 #### `dbCheckout = db.checkout(version)`
 

@@ -1,10 +1,8 @@
-const { EventEmitter } = require('events')
 const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
-const debounceify = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -388,21 +386,13 @@ class Hyperbee {
     return b.del(key, opts)
   }
 
-  watch (range, onchange) {
-    if (typeof range === 'function') {
-      onchange = range
-      range = undefined
-    }
-
-    const watcher = new Watcher(this, range)
-    if (onchange) watcher.on('change', onchange)
-
-    return watcher
+  watch (range) {
+    return new Watcher(this, range)
   }
 
   _onappend () {
     for (const watcher of this._watchers) {
-      watcher._onappendBound()
+      watcher._onappend()
     }
   }
 
@@ -455,7 +445,7 @@ class Hyperbee {
     this.core.off('append', this._onappendBound)
 
     for (const watcher of this._watchers) {
-      watcher.destroy()
+      await watcher.destroy()
     }
 
     return this.feed.close()
@@ -865,10 +855,8 @@ class Batch {
   }
 }
 
-class Watcher extends EventEmitter {
+class Watcher {
   constructor (bee, range) {
-    super()
-
     bee._watchers.add(this)
 
     this.bee = bee
@@ -877,67 +865,126 @@ class Watcher extends EventEmitter {
     this.opened = false
     this.closed = false
 
-    this.running = false
-
     this.latestDiff = 0
     this.range = range
+
+    this.current = null
+    this.previous = null
     this.stream = null
 
-    this._onappendBound = debounceify(this._onappend.bind(this))
+    this._lock = mutexify()
+    this._resolveOnChange = null
 
-    this._opening = this._ready().catch(safetyCatch)
+    this._opening = this._ready()
+    this._opening.catch(safetyCatch)
   }
 
   async _ready () {
     await this.bee.ready()
-    this.latestDiff = this.bee.version
+    this.current = this.bee.snapshot() // Point from which to start watching
     this.opened = true
   }
 
-  async _onappend () {
-    this.running = true
+  [Symbol.asyncIterator] () {
+    return this
+  }
 
+  _onappend () {
+    const resolve = this._resolveOnChange
+    this._resolveOnChange = null
+    if (resolve) resolve()
+  }
+
+  async _waitForChanges () {
+    if (this.current.version < this.bee.version || this.closed) return
+
+    await new Promise(resolve => {
+      this._resolveOnChange = resolve
+    })
+  }
+
+  async next () {
     try {
-      await this._run()
+      return await this._next()
     } catch (err) {
-      if (!this.closed) this.emit('error', err)
-      this.destroy()
-    } finally {
-      this.running = false
+      await this.destroy()
+      throw err
     }
   }
 
-  async _run () {
-    if (this.closed) return
-    if (this.opened === false) await this._opening
-
-    const snapshot = this.bee.snapshot()
-    this.stream = snapshot.createDiffStream(this.latestDiff, this.range)
+  async _next () {
+    const release = await this._lock()
 
     try {
-      for await (const data of this.stream) { // eslint-disable-line
-        this.emit('change', snapshot.version, this.latestDiff)
-        break
+      if (this.closed) return { value: undefined, done: true }
+
+      if (!this.opened) await this._opening
+
+      while (true) {
+        await this._waitForChanges()
+
+        if (this.closed) return { value: undefined, done: true }
+
+        if (this.previous) await this.previous.close()
+        this.previous = this.current.snapshot()
+
+        if (this.current) await this.current.close()
+        this.current = this.bee.snapshot()
+
+        this.stream = this.current.createDiffStream(this.previous.version, this.range)
+
+        try {
+          for await (const data of this.stream) { // eslint-disable-line
+            return { done: false, value: { current: this.current, previous: this.previous } }
+          }
+        } finally {
+          this.stream = null
+        }
       }
     } finally {
-      this.stream = null
-      this.latestDiff = snapshot.version
-
-      await snapshot.close()
+      release()
     }
   }
 
-  destroy () {
+  async return () {
+    await this.destroy()
+    return { done: true }
+  }
+
+  async destroy () {
     if (this.closed) return
     this.closed = true
+
+    this.bee._watchers.delete(this)
 
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()
     }
 
-    this.bee._watchers.delete(this)
+    this._onappend() // Continue execution being closed
 
-    this.emit('close')
+    await this._closeSnapshots()
+
+    const release = await this._lock()
+    release()
+  }
+
+  _closeSnapshots () {
+    const closing = []
+
+    if (this.previous) {
+      const previous = this.previous
+      this.previous = null
+      closing.push(previous.close())
+    }
+
+    if (this.current) {
+      const current = this.current
+      this.current = null
+      closing.push(current.close())
+    }
+
+    return Promise.all(closing)
   }
 }
 

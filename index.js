@@ -961,17 +961,21 @@ class Watcher {
   }
 
   async _closeSnapshots () {
+    const closing = []
+
     if (this.previous) {
       const previous = this.previous
       this.previous = null
-      await previous.close()
+      closing.push(previous.close())
     }
 
     if (this.current) {
       const current = this.current
       this.current = null
-      await current.close()
+      closing.push(current.close())
     }
+
+    return Promise.all(closing)
   }
 }
 

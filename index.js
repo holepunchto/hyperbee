@@ -875,7 +875,8 @@ class Watcher {
     this._lock = mutexify()
     this._resolveOnChange = null
 
-    this._opening = this._ready().catch(safetyCatch)
+    this._opening = this._ready()
+    this._opening.catch(safetyCatch)
   }
 
   async _ready () {

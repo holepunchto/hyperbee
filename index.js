@@ -386,8 +386,8 @@ class Hyperbee {
     return b.del(key, opts)
   }
 
-  watch (range) {
-    return new Watcher(this, range)
+  watch (range, differ) {
+    return new Watcher(this, range, differ)
   }
 
   _onappend () {
@@ -856,7 +856,7 @@ class Batch {
 }
 
 class Watcher {
-  constructor (bee, range) {
+  constructor (bee, range, differ) {
     bee._watchers.add(this)
 
     this.bee = bee
@@ -877,6 +877,8 @@ class Watcher {
 
     this._opening = this._ready()
     this._opening.catch(safetyCatch)
+
+    this._differ = differ || defaultDiffer
   }
 
   async _ready () {
@@ -931,7 +933,7 @@ class Watcher {
         if (this.current) await this.current.close()
         this.current = this.bee.snapshot()
 
-        this.stream = this.current.createDiffStream(this.previous.version, this.range)
+        this.stream = this._differ(this.current, this.previous, this.range)
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
@@ -1137,6 +1139,10 @@ function prefixEncoding (prefix, keyEncoding) {
       return keyEncoding ? keyEncoding.decode(sliced) : sliced
     }
   }
+}
+
+function defaultDiffer (currentSnap, previousSnap, opts) {
+  return currentSnap.createDiffStream(previousSnap.version, opts)
 }
 
 function noop () {}

@@ -238,7 +238,7 @@ Listens to changes that are on the optional `range`.
 
 Usage example:
 ```js
-for await (const { current, previous } of watcher) {
+for await (const [current, previous] of watcher) {
   console.log(current.version)
   console.log(previous.version)
 }

@@ -935,7 +935,7 @@ class Watcher {
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            return { done: false, value: { current: this.current, previous: this.previous } }
+            return { done: false, value: [this.current, this.previous] }
           }
         } finally {
           this.stream = null

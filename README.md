@@ -244,15 +244,6 @@ for await (const { current, previous } of watcher) {
 }
 ```
 
-Or manually calling `next()`:
-```js
-const { done, value } = await watcher.next()
-if (done) return
-
-console.log(value.current.version)
-console.log(value.previous.version)
-```
-
 Returns a new value after a change, `current` and `previous` are snapshots that are auto-closed before next value.
 
 Don't close those snapshots yourself because they're used internally, let them be auto-closed.

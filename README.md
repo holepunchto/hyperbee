@@ -239,6 +239,8 @@ doing `{ gte: -1 }` makes a stream starting at the last index.
 
 Efficiently create a stream of the shallow changes between two versions of the db.
 
+`options` are the same as `db.createReadStream`, except for `reverse`.
+
 Each entry is sorted by key and looks like this:
 ```js
 {
@@ -252,8 +254,6 @@ and `right` will be null, and vice versa.
 
 If the entries are causally equal (i.e. the have the same seq), they are not
 returned, only the diff.
-
-`options` are the same as `db.createReadStream`, except for `reverse`.
 
 #### `const watcher = db.watch([range])`
 

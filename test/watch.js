@@ -1,5 +1,6 @@
 const test = require('brittle')
-const { create, createRange, createStored, eventFlush } = require('./helpers')
+const { create, createRange, createStoredCore, createStored, eventFlush } = require('./helpers')
+const Hyperbee = require('../index.js')
 
 test('basic watch', async function (t) {
   t.plan(3)
@@ -336,10 +337,17 @@ test('destroy should not trigger stream error', async function (t) {
 test('close core in the middle of diffing', async function (t) {
   t.plan(3)
 
-  const db = create()
+  const createCore = createStoredCore()
+  const beeOptions = { keyEncoding: 'utf-8', valueEncoding: 'utf-8' }
 
-  await db.ready()
-  await db.put('/a') // Ignore first append (header)
+  const core = createCore()
+  const bee = new Hyperbee(core, beeOptions)
+  await bee.put('/a') // Ignore first append (header)
+  await bee.close()
+
+  const core2 = createCore()
+  core2.on('append', () => core2.close())
+  const db = new Hyperbee(core2, beeOptions)
 
   const watcher = db.watch()
 
@@ -349,10 +357,6 @@ test('close core in the middle of diffing', async function (t) {
     t.is(err.code, 'SESSION_CLOSED')
     t.is(watcher.current, null)
     t.is(watcher.previous, null)
-  })
-
-  db.core.prependListener('append', function () {
-    db.core.close()
   })
 
   await db.put('/b')

@@ -5,6 +5,7 @@ const RAM = require('random-access-memory')
 module.exports = {
   toString,
   create,
+  createStoredCore,
   createStored,
   createRange,
   insertRange,
@@ -77,12 +78,11 @@ function create (opts) {
   return new Hyperbee(core, opts)
 }
 
-function createStored () {
+function createStoredCore () {
   const files = new Map()
 
   return function (...args) {
-    const core = new Hypercore(storage, ...args)
-    return new Hyperbee(core)
+    return new Hypercore(storage, ...args)
   }
 
   function storage (name) {
@@ -90,6 +90,15 @@ function createStored () {
     const st = new RAM()
     files.set(name, st)
     return st
+  }
+}
+
+function createStored () {
+  const create = createStoredCore()
+
+  return function (...args) {
+    const core = create(...args)
+    return new Hyperbee(core)
   }
 }
 

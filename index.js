@@ -881,7 +881,7 @@ class Watcher {
 
   async _ready () {
     await this.bee.ready()
-    this.current = this.bee.snapshot() // point from which to start watching
+    this.current = this.bee.snapshot() // Point from which to start watching
     this.opened = true
   }
 

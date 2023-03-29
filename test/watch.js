@@ -94,9 +94,8 @@ test('watch waits for new change', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  setImmediate(async () => {
-    await eventFlush()
-    db.put('/b') // Run on background
+  eventFlush().then(async () => {
+    await db.put('/b') // Run on background
   })
 
   const { done, value: { current, previous } } = await watcher.next()
@@ -135,7 +134,7 @@ test('destroy watch while waiting for a new change', async function (t) {
 
   const watcher = db.watch()
 
-  setImmediate(async () => {
+  eventFlush().then(async () => {
     await watcher.destroy()
   })
 
@@ -177,7 +176,7 @@ test('batch multiple changes', async function (t) {
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  setImmediate(async () => {
+  eventFlush().then(async () => {
     const batch = db.batch()
     await batch.put('/a')
     await batch.put('/b')

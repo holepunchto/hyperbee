@@ -11,7 +11,7 @@ test('basic watch', async function (t) {
 
   db.put('/a') // Run on background
 
-  const { done, value: { current, previous } } = await watcher.next()
+  const { done, value: [current, previous] } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 2)
@@ -32,7 +32,7 @@ test('watch multiple next() on parallel - value', async function (t) {
   db.put('/a') // Run on background
 
   {
-    const { done, value: { current, previous } } = await a
+    const { done, value: [current, previous] } = await a
 
     t.is(done, false)
     t.is(current.version, 2)
@@ -42,7 +42,7 @@ test('watch multiple next() on parallel - value', async function (t) {
   db.put('/b') // Run on background
 
   {
-    const { done, value: { current, previous } } = await b
+    const { done, value: [current, previous] } = await b
 
     t.is(done, false)
     t.is(current.version, 3)
@@ -52,7 +52,7 @@ test('watch multiple next() on parallel - value', async function (t) {
   db.put('/c') // Run on background
 
   {
-    const { done, value: { current, previous } } = await c
+    const { done, value: [current, previous] } = await c
 
     t.is(done, false)
     t.is(current.version, 4)
@@ -99,7 +99,7 @@ test('watch waits for new change', async function (t) {
     await db.put('/b') // Run on background
   })
 
-  const { done, value: { current, previous } } = await watcher.next()
+  const { done, value: [current, previous] } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 3)
@@ -121,7 +121,7 @@ test('watch does not lose changes if next() was not called yet', async function 
   await db.put('/c')
   await eventFlush()
 
-  const { done, value: { current, previous } } = await watcher.next()
+  const { done, value: [current, previous] } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 4)
@@ -185,7 +185,7 @@ test('batch multiple changes', async function (t) {
     await batch.flush()
   })
 
-  for await (const { current, previous } of watcher) { // eslint-disable-line no-unreachable-loop
+  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
     t.is(current.version, 4)
     t.is(previous.version, 1)
     break
@@ -239,7 +239,7 @@ test('watch without bee.ready() should trigger the correct version changes', asy
 
   const watcher = db.watch()
   watcher.next().then(({ value }) => {
-    const { current, previous } = value
+    const [current, previous] = value
     t.is(current.version, 4)
     t.is(previous.version, 3)
   })
@@ -376,7 +376,7 @@ test('create lots of watchers', async function (t) {
     watchers.push(watcher)
 
     watcher.next().then(({ value }) => {
-      const { current, previous } = value
+      const [current, previous] = value
 
       if (!(current.version === 2 && previous.version === 1)) {
         t.fail('wrong versions')

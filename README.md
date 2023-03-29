@@ -132,7 +132,7 @@ Make a new batch.
 A batch is atomic: it is either processed fully or not at all.
 
 Note that a Hyperbee has a single write lock.
-A batch acquires this write lock with its first modifying operation (`put`, `delete`),
+A batch acquires this write lock with its first modifying operation (`put`, `del`),
 and releases it when it flushes.
 You can also explicitly acquire the lock with `await batch.lock()`.
 If you use the batch only for read operations, the write lock is never acquired.

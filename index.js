@@ -954,13 +954,13 @@ class Watcher {
 
     this._onappend() // Continue execution being closed
 
+    await this._closeSnapshots()
+
     const release = await this._lock()
     release()
-
-    await this._closeAll()
   }
 
-  async _closeAll () {
+  async _closeSnapshots () {
     if (this.previous) {
       const previous = this.previous
       this.previous = null

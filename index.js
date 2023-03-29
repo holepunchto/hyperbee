@@ -904,6 +904,15 @@ class Watcher {
   }
 
   async next () {
+    try {
+      return await this._next()
+    } catch (err) {
+      await this.destroy()
+      throw err
+    }
+  }
+
+  async _next () {
     const release = await this._lock()
 
     try {

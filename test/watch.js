@@ -334,7 +334,7 @@ test('destroy should not trigger stream error', async function (t) {
 })
 
 test('close core in the middle of diffing', async function (t) {
-  t.plan(1)
+  t.plan(3)
 
   const db = create()
 
@@ -347,6 +347,8 @@ test('close core in the middle of diffing', async function (t) {
     t.fail('should not trigger changes')
   }).catch(err => {
     t.is(err.code, 'SESSION_CLOSED')
+    t.is(watcher.current, null)
+    t.is(watcher.previous, null)
   })
 
   db.core.prependListener('append', function () {

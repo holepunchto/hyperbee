@@ -122,7 +122,7 @@ function cas (prev, next) {
 
 Get a key's value. Returns `null` if key doesn't exists.
 
-`seq` is the `db.version` (Hypercore length) at which this key was inserted.
+`seq` is the Hypercore index at which this key was inserted.
 
 #### `await db.del(key, [options])`
 

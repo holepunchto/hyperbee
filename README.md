@@ -131,10 +131,20 @@ Make a new batch.
 
 A batch is atomic: it is either processed fully or not at all.
 
-Note that a Hyperbee has a single write lock. A batch acquires this write lock with its first modifying operation ( `put`, `delete`), and releases it when it flushes. You can also explicitly acquire the lock with `await batch.lock()`. If you use the batch only for read operations, the write lock is never acquired.
-Once the write lock is acquired, the batch must flush before any other writes to the hyperbee can be processed.
+Note that a Hyperbee has a single write lock.
+A batch acquires this write lock with its first modifying operation (`put`, `delete`),
+and releases it when it flushes.
+You can also explicitly acquire the lock with `await batch.lock()`.
+If you use the batch only for read operations, the write lock is never acquired.
+Once the write lock is acquired,
+the batch must flush before any other writes to the hyperbee can be processed.
 
-Note that a batch’s state snaps at creation time, so writes applied outside of the batch are not taken into account when reading. Writes within the batch do get taken into account, as is to be expected—if you first run `await batch.put('myKey', 'newValue')` and later run  `await batch.get('myKey')`, you will observe `'newValue'`.
+Note that a batch’s state snaps at creation time,
+so writes applied outside of the batch are not taken into account when reading.
+Writes within the batch do get taken into account,
+as is to be expected—
+if you first run `await batch.put('myKey', 'newValue')` and later run  `await batch.get('myKey')`,
+you will observe `'newValue'`.
 
 #### `await batch.put(key, [value], [options])`
 

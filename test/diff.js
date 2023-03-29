@@ -137,3 +137,42 @@ test('diff key encoding option', async function (t) {
   const entries = await collect(diffStream)
   t.is(entries.length, 1)
 })
+
+test('streams on bee being appended to take create-time snapshot', async function (t) {
+  t.plan(3)
+  const db = create()
+
+  let entrySpammer
+  try {
+    let counter = 0
+    entrySpammer = setInterval(async () => db.put(counter++), 1)
+
+    await new Promise((resolve) => setTimeout(resolve, 1))
+
+    const funs = [
+      db => db.createHistoryStream(),
+      db => db.createDiffStream(1),
+      db => db.createReadStream()
+    ]
+
+    for (const fun of funs) {
+      const s1 = fun(db)
+      const s2 = fun(db)
+
+      // DEVNOTE: this test is probably non-deterministic
+      // (can have different behaviour depending on the CPU speed)
+      // To trigger the race condition, both the entrySpammer, the timeout
+      // and the manual background-puts seem to be required
+      db.put('more')
+      db.put('background confusion')
+
+      const s1Added = []
+      const s2Added = []
+      for await (const elem of s1) { s1Added.push(elem) }
+      for await (const elem of s2) { s2Added.push(elem) }
+      t.is(s1Added.length, s2Added.length)
+    }
+  } finally {
+    if (entrySpammer) clearInterval(entrySpammer)
+  }
+})

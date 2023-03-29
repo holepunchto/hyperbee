@@ -137,3 +137,21 @@ test('diff key encoding option', async function (t) {
   const entries = await collect(diffStream)
   t.is(entries.length, 1)
 })
+
+test('diff oob seek', async function (t) {
+  const db = create()
+
+  await db.put('d0')
+  await db.put('d1')
+  await db.put('d2')
+  await db.put('d3')
+  await db.put('d4')
+  await db.put('d5')
+  await db.put('d6')
+  await db.put('d7')
+  await db.put('d8')
+  await db.put('d9')
+  await db.del('d9')
+
+  await collect(db.createDiffStream(1, { gt: 'e', lt: 'f' }))
+})

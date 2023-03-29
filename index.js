@@ -969,7 +969,7 @@ class Watcher {
     release()
   }
 
-  async _closeSnapshots () {
+  _closeSnapshots () {
     const closing = []
 
     if (this.previous) {

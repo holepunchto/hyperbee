@@ -250,7 +250,7 @@ Don't close those snapshots yourself because they're used internally, let them b
 
 `watcher.destroy()`
 
-Closes the watcher.
+Stops the watcher. You could also stop it by using `break` in the loop.
 
 #### `dbCheckout = db.checkout(version)`
 

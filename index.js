@@ -941,10 +941,6 @@ class Watcher {
     return { done: true }
   }
 
-  throw (err) { // eslint-disable-line n/handle-callback-err
-    // No-op
-  }
-
   async destroy () {
     if (this.closed) return
     this.closed = true

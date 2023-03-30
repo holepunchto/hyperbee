@@ -79,7 +79,7 @@ Fully close this bee, including its core.
 
 #### `db.version`
 
-Number that indicates how many modifications were made, useful as a version identifier.
+Number that indicates how many modifications were made (Hypercore length), useful as a version identifier.
 
 #### `await db.put(key, [value], [options])`
 
@@ -283,7 +283,7 @@ Stops the watcher. You could also stop it by using `break` in the loop.
 
 #### `const snapshot = db.checkout(version)`
 
-Get a readonly snapshot of a previous version.
+Get a read-only snapshot of a previous version.
 
 #### `const snapshot = db.snapshot()`
 

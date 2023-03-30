@@ -875,6 +875,7 @@ class Watcher {
     this._lock = mutexify()
     this._resolveOnChange = null
 
+    this._closing = null
     this._opening = this._ready()
     this._opening.catch(safetyCatch)
   }
@@ -956,6 +957,12 @@ class Watcher {
   }
 
   async destroy () {
+    if (this._closing) return this._closing
+    this._closing = this._destroy()
+    return this._closing
+  }
+
+  async _destroy () {
     if (this.closed) return
     this.closed = true
 

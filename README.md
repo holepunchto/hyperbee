@@ -77,6 +77,10 @@ Use it once before reading synchronous properties like `db.version`, unless you 
 
 Fully close this bee, including its core.
 
+#### `db.core`
+
+The underlying Hypercore backing this bee.
+
 #### `db.version`
 
 Number that indicates how many modifications were made (Hypercore length), useful as a version identifier.

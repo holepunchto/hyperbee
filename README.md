@@ -248,7 +248,11 @@ Returns a new value after a change, `current` and `previous` are snapshots that 
 
 Don't close those snapshots yourself because they're used internally, let them be auto-closed.
 
-`watcher.destroy()`
+`await watcher.ready()`
+
+Waits until the watcher is loaded and detecting changes.
+
+`await watcher.destroy()`
 
 Stops the watcher. You could also stop it by using `break` in the loop.
 

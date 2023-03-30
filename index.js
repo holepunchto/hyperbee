@@ -879,6 +879,10 @@ class Watcher {
     this._opening.catch(safetyCatch)
   }
 
+  ready () {
+    return this._opening
+  }
+
   async _ready () {
     await this.bee.ready()
     this.current = this.bee.snapshot() // Point from which to start watching

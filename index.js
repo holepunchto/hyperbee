@@ -966,6 +966,8 @@ class Watcher {
     if (this.closed) return
     this.closed = true
 
+    if (!this.opened) await this._opening.catch(safetyCatch)
+
     this.bee._watchers.delete(this)
 
     if (this.stream && !this.stream.destroying) {

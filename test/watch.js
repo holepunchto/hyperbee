@@ -3,6 +3,26 @@ const { create, createRange, createStoredCore, createStored, eventFlush } = requ
 const Hyperbee = require('../index.js')
 
 test('basic watch', async function (t) {
+  t.plan(2)
+
+  const db = create()
+  const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
+
+  await watcher.ready()
+
+  eventFlush().then(async () => {
+    await db.put('/a.txt')
+  })
+
+  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+    t.is(current.version, 2)
+    t.is(previous.version, 1)
+    break
+  }
+})
+
+test('basic watch next', async function (t) {
   t.plan(3)
 
   const db = create()

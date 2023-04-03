@@ -434,3 +434,33 @@ test('create and destroy lots of watchers', async function (t) {
     await watcher.destroy()
   }
 })
+
+test('can specify own differ', async function (t) {
+  const db = create()
+
+  await db.ready()
+  await db.put('e1', 'entry1')
+
+  const defaultWatcher = db.watch()
+  const ignoreAllWatcher = db.watch(null, {
+    differ: () => []
+  })
+
+  let defaultChanged = false
+  defaultWatcher.next().then(({ done }) => {
+    if (!done) defaultChanged = true
+  })
+
+  let allChanged = false
+  ignoreAllWatcher.next().then(({ done }) => {
+    if (!done) allChanged = true
+  })
+
+  await db.put('e2', 'entry2')
+  await eventFlush()
+
+  t.is(defaultChanged, true)
+  t.is(allChanged, false)
+
+  await Promise.all([ignoreAllWatcher.destroy(), defaultWatcher.destroy()])
+})

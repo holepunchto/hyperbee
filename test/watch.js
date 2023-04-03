@@ -422,7 +422,9 @@ test('can specify own differ', async function (t) {
   await db.put('e1', 'entry1')
 
   const defaultWatcher = db.watch()
-  const ignoreAllWatcher = db.watch(null, () => [])
+  const ignoreAllWatcher = db.watch(null, {
+    differ: () => []
+  })
 
   let defaultChanged = false
   defaultWatcher.next().then(({ done }) => {

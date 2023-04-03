@@ -386,8 +386,8 @@ class Hyperbee {
     return b.del(key, opts)
   }
 
-  watch (range, differ) {
-    return new Watcher(this, range, differ)
+  watch (range, opts) {
+    return new Watcher(this, range, opts)
   }
 
   _onappend () {
@@ -856,7 +856,7 @@ class Batch {
 }
 
 class Watcher {
-  constructor (bee, range, differ) {
+  constructor (bee, range, opts = {}) {
     bee._watchers.add(this)
 
     this.bee = bee
@@ -878,7 +878,7 @@ class Watcher {
     this._opening = this._ready()
     this._opening.catch(safetyCatch)
 
-    this._differ = differ || defaultDiffer
+    this._differ = opts.differ || defaultDiffer
   }
 
   async _ready () {

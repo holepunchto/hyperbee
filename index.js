@@ -293,6 +293,7 @@ class Hyperbee {
     this._watchers = new Set()
     this._onappendBound = this._onappend.bind(this)
     this.core.on('append', this._onappendBound)
+    if (this.core.isAutobase) this.core.on('truncate', this._onappendBound)
 
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
@@ -443,6 +444,7 @@ class Hyperbee {
 
   async close () {
     this.core.off('append', this._onappendBound)
+    if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
 
     for (const watcher of this._watchers) {
       await watcher.destroy()

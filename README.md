@@ -83,7 +83,7 @@ The underlying Hypercore backing this bee.
 
 #### `db.version`
 
-Number that indicates how many modifications were made (Hypercore length), useful as a version identifier.
+Number that indicates how many modifications were made, useful as a version identifier.
 
 #### `await db.put(key, [value], [options])`
 
@@ -248,8 +248,8 @@ Efficiently create a stream of the shallow changes between two versions of the d
 Each entry is sorted by key and looks like this:
 ```js
 {
-  left: <the entry in the db>,
-  right: <the entry in the other version>
+  left: Object, // The entry in the `db`
+  right: Object // The entry in `otherVersion`
 }
 ```
 

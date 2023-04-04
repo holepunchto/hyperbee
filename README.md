@@ -65,7 +65,7 @@ Make a new Hyperbee instance. `core` should be a [Hypercore](https://github.com/
 }
 ```
 
-Note that currently read/diff streams sort based on the *encoded* value of the keys.
+Note that currently read/diff streams sort based on the encoded value of the keys.
 
 #### `await db.ready()`
 

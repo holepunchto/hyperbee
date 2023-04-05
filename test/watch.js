@@ -474,10 +474,9 @@ test('slow differ that gets destroyed should not throw', async function (t) {
   await db.put('/a')
   await eventFlush()
 
-  eventFlush().then(async () => {
-    await watcher.destroy()
-  })
+  const flush = eventFlush().then(() => watcher.destroy())
   await watcher.next()
+  await flush
 
   t.pass()
 

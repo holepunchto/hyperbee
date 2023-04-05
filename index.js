@@ -869,6 +869,7 @@ class Watcher {
 
     this.latestDiff = 0
     this.range = range
+    this.map = opts.map || defaultWatchMap
 
     this.current = null
     this.previous = null
@@ -944,7 +945,7 @@ class Watcher {
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            return { done: false, value: [this.current, this.previous] }
+            return { done: false, value: [this.map(this.current), this.map(this.previous)] }
           }
         } finally {
           this.stream = null
@@ -1003,6 +1004,10 @@ class Watcher {
 
     return Promise.all(closing)
   }
+}
+
+function defaultWatchMap (snapshot) {
+  return snapshot
 }
 
 async function leafSize (node, goLeft) {

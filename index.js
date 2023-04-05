@@ -916,8 +916,9 @@ class Watcher {
     try {
       return await this._next()
     } catch (err) {
+      const throwError = !this.closed
       await this.destroy()
-      throw err
+      if (throwError) throw err
     }
   }
 

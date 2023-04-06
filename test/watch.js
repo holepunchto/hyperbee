@@ -464,3 +464,31 @@ test('can specify own differ', async function (t) {
 
   await Promise.all([ignoreAllWatcher.destroy(), defaultWatcher.destroy()])
 })
+
+test('slow differ that gets destroyed should not throw', async function (t) {
+  t.plan(1)
+
+  const db = create()
+  const watcher = db.watch({}, { differ })
+
+  await db.put('/a')
+  await eventFlush()
+
+  const flush = eventFlush().then(() => watcher.destroy())
+  await watcher.next()
+  await flush
+
+  t.pass()
+
+  function differ () {
+    return {
+      async * [Symbol.asyncIterator] () {
+        while (true) {
+          if (watcher.closed) throw new Error('Custom stream was destroyed')
+          await eventFlush()
+        }
+      },
+      destroy () {}
+    }
+  }
+})

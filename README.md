@@ -96,7 +96,6 @@ console.log(await db.get('key')) // { seq: 2, key: 'key', value: 'value*' }
 Get a key, value. If the key does not exist, `null` is returned.
 `seq` is the hypercore version at which this key was inserted.
 
-Note: uses the state at the time of initiating the read, so write operations which complete after the `get` is initiated but before it resolves are ignored.
 #### `await db.del(key, [options])`
 
 Delete a key
@@ -130,21 +129,6 @@ console.log(await db.get('key')) // null
 Make a new batch.
 
 A batch is atomic: it is either processed fully or not at all.
-
-Note that a Hyperbee has a single write lock.
-A batch acquires this write lock with its first modifying operation (`put`, `del`),
-and releases it when it flushes.
-You can also explicitly acquire the lock with `await batch.lock()`.
-If you use the batch only for read operations, the write lock is never acquired.
-Once the write lock is acquired,
-the batch must flush before any other writes to the hyperbee can be processed.
-
-Note that a batch’s state snaps at creation time,
-so writes applied outside of the batch are not taken into account when reading.
-Writes within the batch do get taken into account,
-as is to be expected—
-if you first run `await batch.put('myKey', 'newValue')` and later run  `await batch.get('myKey')`,
-you will observe `'newValue'`.
 
 #### `await batch.put(key, [value], [options])`
 

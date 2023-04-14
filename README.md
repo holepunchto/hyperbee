@@ -128,6 +128,8 @@ console.log(await db.get('key')) // null
 
 Make a new batch.
 
+A batch is atomic: it is either processed fully or not at all.
+
 #### `await batch.put(key, [value], [options])`
 
 Insert a key into a batch.

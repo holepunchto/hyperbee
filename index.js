@@ -1,3 +1,4 @@
+const sameData = require('same-data')
 const codecs = require('codecs')
 const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
@@ -284,6 +285,7 @@ class Hyperbee {
     this.sep = opts.sep || SEP
     this.readonly = !!opts.readonly
     this.prefix = opts.prefix || null
+    this.onlyIfChanged = !!opts.onlyIfChanged
 
     this._unprefixedKeyEncoding = this.keyEncoding
     this._sub = !!this.prefix
@@ -616,7 +618,7 @@ class Batch {
   async put (key, value, opts) {
     const release = this.batchLock ? await this.batchLock() : null
 
-    const cas = (opts && opts.cas) || null
+    const cas = (opts && opts.cas) || (this.tree.onlyIfChanged ? sameData : null)
     const encoding = this._getEncoding(opts)
 
     if (!this.locked) await this.lock()

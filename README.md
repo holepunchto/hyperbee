@@ -57,7 +57,8 @@ Options include:
 ```
 {
   keyEncoding: 'utf-8' | 'binary' | 'ascii', // or some abstract encoding
-  valueEncoding: <same as above>
+  valueEncoding: <same as above>,
+  onlyIfChanged: true // put or delete a value only if it means a change in the db
 }
 ```
 

@@ -4,6 +4,7 @@ const RAM = require('random-access-memory')
 
 module.exports = {
   toString,
+  clone,
   create,
   createStoredCore,
   createStored,
@@ -70,6 +71,12 @@ async function toString (tree) {
     }
     return res
   }
+}
+
+function clone (db, opts) {
+  opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
+  const clone = new Hypercore(RAM, db.core.key)
+  return new Hyperbee(clone, opts)
 }
 
 function create (opts) {

@@ -345,7 +345,7 @@ class Hyperbee {
       opts = encRange(keyEncoding, { ...opts, sub: this._sub })
     }
 
-    const ite = new RangeIterator(new Batch(this, this.feed.snapshot(), null, false, opts), null, opts)
+    const ite = new RangeIterator(new Batch(this, this._makeSnapshot(), null, false, opts), null, opts)
     return ite
   }
 
@@ -354,13 +354,13 @@ class Hyperbee {
   }
 
   createHistoryStream (opts) {
-    const session = (opts && opts.live) ? this.feed.session() : this.feed.snapshot()
+    const session = (opts && opts.live) ? this.feed.session() : this._makeSnapshot()
     return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
   }
 
   createDiffStream (right, opts) {
     if (typeof right === 'number') right = this.checkout(Math.max(1, right))
-    const snapshot = right.version > this.version ? right.feed.snapshot() : this.feed.snapshot()
+    const snapshot = right.version > this.version ? right._makeSnapshot() : this._makeSnapshot()
 
     const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
     if (keyEncoding) opts = encRange(keyEncoding, { ...opts, sub: this._sub })
@@ -369,7 +369,7 @@ class Hyperbee {
   }
 
   get (key, opts) {
-    const b = new Batch(this, this.feed.snapshot(), null, true, opts)
+    const b = new Batch(this, this._makeSnapshot(), null, true, opts)
     return b.get(key)
   }
 
@@ -397,8 +397,16 @@ class Hyperbee {
     }
   }
 
+  _makeSnapshot () {
+    // TODO: better if we could encapsulate this in hypercore in the future
+    return this._checkout <= this.feed.length ? this.feed.snapshot() : this.feed.session()
+  }
+
   checkout (version, opts = {}) {
-    return new Hyperbee(this.feed.snapshot(), {
+    // same as above, just checkout isn't set yet...
+    const snap = version <= this.feed.length ? this.feed.snapshot() : this.feed.session()
+
+    return new Hyperbee(snap, {
       _ready: this.ready(),
       _sub: false,
       sep: this.sep,

@@ -828,6 +828,9 @@ class Batch {
   }
 
   _append (root, seq, key, value) {
+    const ret = { seq, key: null, value: null }
+    if (key) ret.key = (this.keyEncoding) ? this.keyEncoding.decode(key) : key
+    if (value) ret.value = (this.valueEncoding) ? this.valueEncoding.decode(value) : value
     const index = []
     root.indexChanges(index, seq)
     index[0] = new Child(seq, 0, root)
@@ -838,14 +841,14 @@ class Batch {
       this.root = root
       this.length++
       this.blocks.set(seq, block)
-      return
+      return ret
     }
 
     return this._appendBatch(Node.encode({
       key,
       value,
       index: deflate(index)
-    }))
+    })).then(() => ret)
   }
 
   async _appendBatch (raw) {

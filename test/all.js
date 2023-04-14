@@ -486,3 +486,29 @@ test('supports encodings in snapshot', async function (t) {
   t.alike(await snap1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
   t.alike(await snap2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
 })
+
+tape('put returns key & value', async t => {
+  
+  const db0 = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+  const k0 = 'key'
+  const v0 = { value: 'value' }
+  const res0 = await db0.put(k0, v0)
+  t.equals(res0.key, k0)
+  t.deepEquals(res0.value, v0)
+
+  const db1 = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+  const k1 = 'key'
+  const v1 = 'value'
+  const res1 = await db1.put(k1, v1)
+  t.equals(res1.key, k1)
+  t.equals(res1.value, v1)
+
+  const db2 = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+  const k2 = Buffer.from('key')
+  const v2 = Buffer.from('value')
+  const res2 = await db2.put(k2, v2)
+  t.equals(Buffer.compare(res2.key, k2), 0)
+  t.equals(Buffer.compare(res2.value, v2), 0)
+
+  t.end()
+})

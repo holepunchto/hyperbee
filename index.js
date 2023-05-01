@@ -271,10 +271,10 @@ class BatchEntry extends BlockEntry {
 }
 
 class Hyperbee {
-  constructor (feed, opts = {}) {
+  constructor (core, opts = {}) {
     // this.feed is now deprecated, and will be this.core going forward
-    this.feed = feed
-    this.core = feed
+    this.feed = core
+    this.core = core
 
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
@@ -301,15 +301,15 @@ class Hyperbee {
   }
 
   ready () {
-    return this.feed.ready()
+    return this.core.ready()
   }
 
   get version () {
-    return Math.max(1, this._checkout || this.feed.length)
+    return Math.max(1, this._checkout || this.core.length)
   }
 
   update () {
-    return this.feed.update({ ifAvailable: true, hash: false })
+    return this.core.update({ ifAvailable: true, hash: false })
   }
 
   peek (opts) {
@@ -354,7 +354,7 @@ class Hyperbee {
   }
 
   createHistoryStream (opts) {
-    const session = (opts && opts.live) ? this.feed.session() : this._makeSnapshot()
+    const session = (opts && opts.live) ? this.core.session() : this._makeSnapshot()
     return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
   }
 
@@ -374,16 +374,16 @@ class Hyperbee {
   }
 
   put (key, value, opts) {
-    const b = new Batch(this, this.feed, null, true, opts)
+    const b = new Batch(this, this.core, null, true, opts)
     return b.put(key, value, opts)
   }
 
   batch (opts) {
-    return new Batch(this, this.feed, mutexify(), true, opts)
+    return new Batch(this, this.core, mutexify(), true, opts)
   }
 
   del (key, opts) {
-    const b = new Batch(this, this.feed, null, true, opts)
+    const b = new Batch(this, this.core, null, true, opts)
     return b.del(key, opts)
   }
 
@@ -399,12 +399,12 @@ class Hyperbee {
 
   _makeSnapshot () {
     // TODO: better if we could encapsulate this in hypercore in the future
-    return this._checkout <= this.feed.length ? this.feed.snapshot() : this.feed.session()
+    return this._checkout <= this.core.length ? this.core.snapshot() : this.core.session()
   }
 
   checkout (version, opts = {}) {
     // same as above, just checkout isn't set yet...
-    const snap = version <= this.feed.length ? this.feed.snapshot() : this.feed.session()
+    const snap = version <= this.core.length ? this.core.snapshot() : this.core.session()
 
     return new Hyperbee(snap, {
       _ready: this.ready(),
@@ -431,7 +431,7 @@ class Hyperbee {
     const valueEncoding = codecs(opts.valueEncoding || this.valueEncoding)
     const keyEncoding = codecs(opts.keyEncoding || this._unprefixedKeyEncoding)
 
-    return new Hyperbee(this.feed, {
+    return new Hyperbee(this.core, {
       _ready: this.ready(),
       _sub: true,
       prefix,
@@ -446,7 +446,7 @@ class Hyperbee {
   }
 
   async getHeader (opts) {
-    const blk = await this.feed.get(0, opts)
+    const blk = await this.core.get(0, opts)
     return blk && Header.decode(blk)
   }
 
@@ -458,7 +458,7 @@ class Hyperbee {
       await watcher.destroy()
     }
 
-    return this.feed.close()
+    return this.core.close()
   }
 
   static async isHyperbee (core, opts) {
@@ -477,11 +477,11 @@ class Hyperbee {
 }
 
 class Batch {
-  constructor (tree, feed, batchLock, cache, options = {}) {
+  constructor (tree, core, batchLock, cache, options = {}) {
     this.tree = tree
     // this.feed is now deprecated, and will be this.core going forward
-    this.feed = feed
-    this.core = feed
+    this.feed = core
+    this.core = core
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
     this.rootSeq = 0
@@ -492,7 +492,7 @@ class Batch {
     this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
     this.appending = null
-    this.isSnapshot = this.feed !== this.tree.feed
+    this.isSnapshot = this.core !== this.tree.core
     this.shouldUpdate = this.options.update !== false
     this.encoding = {
       key: options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding,
@@ -510,20 +510,20 @@ class Batch {
   }
 
   get version () {
-    return Math.max(1, this.tree._checkout ? this.tree._checkout : this.feed.length + this.length)
+    return Math.max(1, this.tree._checkout ? this.tree._checkout : this.core.length + this.length)
   }
 
   async getRoot (ensureHeader) {
     await this.ready()
     if (ensureHeader) {
-      if (this.feed.length === 0 && this.feed.writable && !this.tree.readonly) {
-        await this.feed.append(Header.encode({
+      if (this.core.length === 0 && this.core.writable && !this.tree.readonly) {
+        await this.core.append(Header.encode({
           protocol: 'hyperbee',
           metadata: this.tree.metadata
         }))
       }
     }
-    if (this.tree._checkout === 0 && this.shouldUpdate) await this.feed.update()
+    if (this.tree._checkout === 0 && this.shouldUpdate) await this.core.update()
     if (this.version < 2) return null
     return (await this.getBlock(this.version - 1)).getTreeNode(0)
   }
@@ -537,7 +537,7 @@ class Batch {
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
-    const entry = await this.feed.get(seq, { ...this.options, valueEncoding: Node })
+    const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
     if (entry === null) throw new Error('Block not available locally')
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
@@ -644,7 +644,7 @@ class Batch {
     let node = root = await this.getRoot(true)
     if (!node) node = root = TreeNode.create(null)
 
-    const seq = newNode.seq = this.feed.length + this.length
+    const seq = newNode.seq = this.core.length + this.length
     const target = new Key(seq, key)
 
     while (node.children.length) {
@@ -725,7 +725,7 @@ class Batch {
     let node = await this.getRoot(true)
     if (!node) return this._unlockMaybe()
 
-    const seq = delNode.seq = this.feed.length + this.length
+    const seq = delNode.seq = this.core.length + this.length
 
     while (true) {
       stack.push(node)
@@ -759,12 +759,12 @@ class Batch {
   }
 
   async _closeSnapshot () {
-    if (this.isSnapshot) await this.feed.close()
+    if (this.isSnapshot) await this.core.close()
   }
 
   async close () {
     if (this.isSnapshot) {
-      await this.feed.close()
+      await this.core.close()
       return
     }
 
@@ -784,7 +784,7 @@ class Batch {
     const batch = new Array(this.length)
 
     for (let i = 0; i < this.length; i++) {
-      const seq = this.feed.length + i
+      const seq = this.core.length + i
       const { pendingIndex, key, value } = this.blocks.get(seq)
 
       if (i < this.length - 1) {
@@ -858,7 +858,7 @@ class Batch {
 
   async _appendBatch (raw) {
     try {
-      await this.feed.append(raw)
+      await this.core.append(raw)
     } finally {
       this._unlock()
     }

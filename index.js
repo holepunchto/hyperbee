@@ -3,6 +3,7 @@ const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
+const ReadyResource = require('ready-resource')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -270,8 +271,9 @@ class BatchEntry extends BlockEntry {
   }
 }
 
-class Hyperbee {
+class Hyperbee extends ReadyResource {
   constructor (core, opts = {}) {
+    super()
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
     this.core = core
@@ -300,7 +302,7 @@ class Hyperbee {
     }
   }
 
-  ready () {
+  _open () {
     return this.core.ready()
   }
 
@@ -450,7 +452,7 @@ class Hyperbee {
     return blk && Header.decode(blk)
   }
 
-  async close () {
+  async _close () {
     this.core.off('append', this._onappendBound)
     if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
 

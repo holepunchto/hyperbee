@@ -391,6 +391,7 @@ class Hyperbee {
   }
 
   watch (range, opts) {
+    if (!this._watchers) throw new Error('Can only watch the main bee instance')
     return new Watcher(this, range, opts)
   }
 

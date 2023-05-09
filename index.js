@@ -462,7 +462,7 @@ class Hyperbee extends ReadyResource {
       if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
 
       for (const watcher of this._watchers) {
-        await watcher.destroy()
+        await watcher.close()
       }
     }
 
@@ -873,15 +873,13 @@ class Batch {
   }
 }
 
-class Watcher {
+class Watcher extends ReadyResource {
   constructor (bee, range, opts = {}) {
+    super()
     bee._watchers.add(this)
 
     this.bee = bee
     this.core = bee.core
-
-    this.opened = false
-    this.closed = false
 
     this.latestDiff = 0
     this.range = range
@@ -894,21 +892,14 @@ class Watcher {
     this._lock = mutexify()
     this._resolveOnChange = null
 
-    this._closing = null
-    this._opening = this._ready()
-    this._opening.catch(safetyCatch)
+    this.ready().catch(safetyCatch)
 
     this._differ = opts.differ || defaultDiffer
   }
 
-  ready () {
-    return this._opening
-  }
-
-  async _ready () {
+  async _open () {
     await this.bee.ready()
     this.current = this.bee.snapshot() // Point from which to start watching
-    this.opened = true
   }
 
   [Symbol.asyncIterator] () {
@@ -930,11 +921,13 @@ class Watcher {
   }
 
   async next () {
+    if (!this.opened) await this.ready()
+
     try {
       return await this._next()
     } catch (err) {
-      if (this.closed) return { value: undefined, done: true }
-      await this.destroy()
+      if (this.closing) return { value: undefined, done: true }
+      await this.close()
       throw err
     }
   }
@@ -945,7 +938,7 @@ class Watcher {
     try {
       if (this.closed) return { value: undefined, done: true }
 
-      if (!this.opened) await this._opening
+      if (!this.opened) await this.ready()
 
       while (true) {
         await this._waitForChanges()
@@ -974,22 +967,11 @@ class Watcher {
   }
 
   async return () {
-    await this.destroy()
+    await this.close()
     return { done: true }
   }
 
-  async destroy () {
-    if (this._closing) return this._closing
-    this._closing = this._destroy()
-    return this._closing
-  }
-
-  async _destroy () {
-    if (this.closed) return
-    this.closed = true
-
-    if (!this.opened) await this._opening.catch(safetyCatch)
-
+  async _close () {
     this.bee._watchers.delete(this)
 
     if (this.stream && !this.stream.destroying) {
@@ -1002,6 +984,11 @@ class Watcher {
 
     const release = await this._lock()
     release()
+  }
+
+  // For backward compat
+  async destroy () {
+    await this.close()
   }
 
   _closeSnapshots () {

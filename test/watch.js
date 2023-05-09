@@ -484,7 +484,7 @@ test('slow differ that gets destroyed should not throw', async function (t) {
     return {
       async * [Symbol.asyncIterator] () {
         while (true) {
-          if (watcher.closed) throw new Error('Custom stream was destroyed')
+          if (watcher.closing) throw new Error('Custom stream was destroyed')
           await eventFlush()
         }
       },

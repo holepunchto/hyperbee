@@ -986,8 +986,8 @@ class Watcher extends ReadyResource {
     release()
   }
 
-  async destroy () {
-    await this.close()
+  destroy () {
+    return this.close()
   }
 
   _closeSnapshots () {

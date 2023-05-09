@@ -3,6 +3,7 @@ const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
+const ReadyResource = require('ready-resource')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -270,8 +271,9 @@ class BatchEntry extends BlockEntry {
   }
 }
 
-class Hyperbee {
+class Hyperbee extends ReadyResource {
   constructor (core, opts = {}) {
+    super()
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
     this.core = core
@@ -288,9 +290,9 @@ class Hyperbee {
     this._unprefixedKeyEncoding = this.keyEncoding
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
-    this._ready = opts._ready || null
+    this._view = !!opts._view
 
-    this._onappendBound = opts._ready ? null : this._onappend.bind(this)
+    this._onappendBound = this._view ? null : this._onappend.bind(this)
     this._watchers = this._onappendBound ? new Set() : null
 
     if (this._onappendBound) {
@@ -303,7 +305,7 @@ class Hyperbee {
     }
   }
 
-  ready () {
+  _open () {
     return this.core.ready()
   }
 
@@ -411,7 +413,7 @@ class Hyperbee {
     const snap = version <= this.core.length ? this.core.snapshot() : this.core.session()
 
     return new Hyperbee(snap, {
-      _ready: this.ready(),
+      _view: true,
       _sub: false,
       sep: this.sep,
       prefix: this.prefix,
@@ -436,7 +438,7 @@ class Hyperbee {
     const keyEncoding = codecs(opts.keyEncoding || this._unprefixedKeyEncoding)
 
     return new Hyperbee(this.core, {
-      _ready: this.ready(),
+      _view: true,
       _sub: true,
       prefix,
       sep: this.sep,
@@ -454,7 +456,7 @@ class Hyperbee {
     return blk && Header.decode(blk)
   }
 
-  async close () {
+  async _close () {
     if (this._onappendBound) {
       this.core.off('append', this._onappendBound)
       if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)

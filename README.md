@@ -283,7 +283,7 @@ Watchers on subs and checkouts are not supported. Instead, use the range option 
 
 Waits until the watcher is loaded and detecting changes.
 
-`await watcher.destroy()`
+`await watcher.close()`
 
 Stops the watcher. You could also stop it by using `break` in the loop.
 

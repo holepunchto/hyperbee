@@ -921,8 +921,6 @@ class Watcher extends ReadyResource {
   }
 
   async next () {
-    if (!this.opened) await this.ready()
-
     try {
       return await this._next()
     } catch (err) {

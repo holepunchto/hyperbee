@@ -986,7 +986,6 @@ class Watcher extends ReadyResource {
     release()
   }
 
-  // For backward compat
   async destroy () {
     await this.close()
   }

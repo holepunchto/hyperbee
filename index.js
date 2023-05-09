@@ -292,10 +292,13 @@ class Hyperbee extends ReadyResource {
     this._checkout = opts.checkout || 0
     this._ready = opts._ready || null
 
-    this._watchers = new Set()
-    this._onappendBound = this._onappend.bind(this)
-    this.core.on('append', this._onappendBound)
-    if (this.core.isAutobase) this.core.on('truncate', this._onappendBound)
+    this._onappendBound = opts._ready ? null : this._onappend.bind(this)
+    this._watchers = this._onappendBound ? new Set() : null
+
+    if (this._onappendBound) {
+      this.core.on('append', this._onappendBound)
+      if (this.core.isAutobase) this.core.on('truncate', this._onappendBound)
+    }
 
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
@@ -390,6 +393,7 @@ class Hyperbee extends ReadyResource {
   }
 
   watch (range, opts) {
+    if (!this._watchers) throw new Error('Can only watch the main bee instance')
     return new Watcher(this, range, opts)
   }
 
@@ -453,11 +457,13 @@ class Hyperbee extends ReadyResource {
   }
 
   async _close () {
-    this.core.off('append', this._onappendBound)
-    if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
+    if (this._onappendBound) {
+      this.core.off('append', this._onappendBound)
+      if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
 
-    for (const watcher of this._watchers) {
-      await watcher.destroy()
+      for (const watcher of this._watchers) {
+        await watcher.destroy()
+      }
     }
 
     return this.core.close()

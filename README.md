@@ -277,6 +277,8 @@ Returns a new value after a change, `current` and `previous` are snapshots that 
 
 Don't close those snapshots yourself because they're used internally, let them be auto-closed.
 
+Watchers on subs and checkouts are not supported. Instead, use the range option to limit scope.
+
 `await watcher.ready()`
 
 Waits until the watcher is loaded and detecting changes.

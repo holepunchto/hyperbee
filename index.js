@@ -913,7 +913,7 @@ class Watcher extends ReadyResource {
   }
 
   async _waitForChanges () {
-    if (this.current.version < this.bee.version || this.closed) return
+    if (this.current.version < this.bee.version || this.closing) return
 
     await new Promise(resolve => {
       this._resolveOnChange = resolve
@@ -936,14 +936,14 @@ class Watcher extends ReadyResource {
     const release = await this._lock()
 
     try {
-      if (this.closed) return { value: undefined, done: true }
+      if (this.closing) return { value: undefined, done: true }
 
       if (!this.opened) await this.ready()
 
       while (true) {
         await this._waitForChanges()
 
-        if (this.closed) return { value: undefined, done: true }
+        if (this.closing) return { value: undefined, done: true }
 
         if (this.previous) await this.previous.close()
         this.previous = this.current.snapshot()

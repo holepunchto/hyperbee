@@ -290,9 +290,9 @@ class Hyperbee extends ReadyResource {
     this._unprefixedKeyEncoding = this.keyEncoding
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
-    this._ready = opts._ready || null
+    this._view = !!opts._view
 
-    this._onappendBound = opts._ready ? null : this._onappend.bind(this)
+    this._onappendBound = this._view ? null : this._onappend.bind(this)
     this._watchers = this._onappendBound ? new Set() : null
 
     if (this._onappendBound) {
@@ -413,7 +413,7 @@ class Hyperbee extends ReadyResource {
     const snap = version <= this.core.length ? this.core.snapshot() : this.core.session()
 
     return new Hyperbee(snap, {
-      _ready: this.ready(),
+      _view: true,
       _sub: false,
       sep: this.sep,
       prefix: this.prefix,
@@ -438,7 +438,7 @@ class Hyperbee extends ReadyResource {
     const keyEncoding = codecs(opts.keyEncoding || this._unprefixedKeyEncoding)
 
     return new Hyperbee(this.core, {
-      _ready: this.ready(),
+      _view: true,
       _sub: true,
       prefix,
       sep: this.sep,

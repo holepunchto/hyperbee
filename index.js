@@ -294,6 +294,7 @@ class Hyperbee extends ReadyResource {
 
     this._onappendBound = this._view ? null : this._onappend.bind(this)
     this._watchers = this._onappendBound ? new Set() : null
+    this._batches = []
 
     if (this._onappendBound) {
       this.core.on('append', this._onappendBound)
@@ -467,6 +468,10 @@ class Hyperbee extends ReadyResource {
       }
     }
 
+    while (this._batches.length) {
+      await this._batches[this._batches.length - 1].close()
+    }
+
     return this.core.close()
   }
 
@@ -491,6 +496,7 @@ class Batch {
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
     this.core = core
+    this.index = tree._batches.push(this) - 1
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
     this.rootSeq = 0
@@ -768,14 +774,14 @@ class Batch {
   }
 
   async _closeSnapshot () {
-    if (this.isSnapshot) await this.core.close()
+    if (this.isSnapshot) {
+      await this.core.close()
+      this._finalize()
+    }
   }
 
   async close () {
-    if (this.isSnapshot) {
-      await this.core.close()
-      return
-    }
+    if (this.isSnapshot) return this._closeSnapshot()
 
     this.root = null
     this.blocks.clear()
@@ -842,6 +848,15 @@ class Batch {
     const locked = this.locked
     this.locked = null
     if (locked !== null) locked()
+    this._finalize()
+  }
+
+  _finalize () {
+    if (this.index >= this.tree._batches.length || this.tree._batches[this.index] !== this) return
+    const top = this.tree._batches.pop()
+    if (top === this) return
+    top.index = this.index
+    this.tree._batches[top.index] = top
   }
 
   _append (root, seq, key, value) {

@@ -852,6 +852,7 @@ class Batch {
   }
 
   _finalize () {
+    // technically finalize can be called more than once, so here we just check if we already have been removed
     if (this.index >= this.tree._batches.length || this.tree._batches[this.index] !== this) return
     const top = this.tree._batches.pop()
     if (top === this) return

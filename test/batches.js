@@ -248,3 +248,16 @@ test('batch createRangeIterator supports custom key/value encodings', async func
     { seq: 2, key: { a: 3 }, value: { b: 4 } }
   ])
 })
+
+test('batches close when instance closes', async function (t) {
+  t.plan(1)
+
+  const db = create()
+  const d = db.checkout(100)
+
+  d.get('hello').catch(function () {
+    t.ok('Request was cancelled')
+  })
+
+  await d.close()
+})

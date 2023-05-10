@@ -916,6 +916,9 @@ class Watcher {
   }
 
   _onappend () {
+    // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
+    // the better solution is propably just to change non-sparse sessions to not report a fake length
+    if (!this.core.core || this.core.core.tree.length !== this.core.length) return
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()

@@ -2,6 +2,118 @@ const test = require('brittle')
 const { create, createRange, createStoredCore, createStored, eventFlush } = require('./helpers')
 const Hyperbee = require('../index.js')
 
+test('basic getAndWatch append flow', async function (t) {
+  const db = create()
+  const watcher = db.getAndWatch('aKey')
+
+  await watcher.ready()
+  t.is(watcher.node, null)
+
+  await db.put('other', 'key')
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('aKey', 'here')
+  await eventFlush()
+  const node = watcher.node
+  t.is(node.value, 'here')
+
+  await db.put('aKey?', 'not here')
+  await eventFlush()
+  t.alike(watcher.node, node)
+
+  await db.put('aKey', 'now here')
+  await eventFlush()
+  t.is(watcher.node.value, 'now here')
+})
+
+test('getAndWatch truncate flow', async function (t) {
+  const db = create()
+  const watcher = db.getAndWatch('aKey')
+
+  await db.put('aKey', 'here')
+  await db.put('otherKey', 'other1Val')
+  await db.put('otherKey2', 'otherVal2')
+  t.is(db.core.length, 4) // Sanity check
+
+  // Note: Truncate happens before the _onAppend handler was triggered
+  // So the onAppend handler will operate on an already-truncated core
+  await db.core.truncate(2)
+
+  await eventFlush()
+  t.is(watcher.node.value, 'here')
+
+  await db.core.truncate(1)
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('something', 'irrelevant')
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('aKey', 'is back')
+  await eventFlush()
+  t.is(watcher.node.value, 'is back')
+})
+
+test('getAndWatch emits update', async function (t) {
+  t.plan(2)
+
+  const db = create()
+  const watcher = db.getAndWatch('aKey')
+
+  let first = true
+  watcher.on('update', () => {
+    if (first) {
+      t.is(watcher.node.value, 'here')
+      first = false
+    } else {
+      t.is(watcher.node, null)
+    }
+  })
+  await db.put('aKey', 'here')
+  await eventFlush()
+
+  await db.core.truncate(1)
+  // updates before closing go through
+  await watcher.close()
+
+  // After not
+  await db.put('aKey', 'back')
+  await eventFlush()
+})
+
+test('getAndWatch chaos', async function (t) {
+  const db = create()
+  const watcher = db.getAndWatch('aKey')
+
+  const updates = []
+  watcher.on('update', () => updates.push(watcher.node))
+
+  const proms = []
+  for (let i = 0; i < 5; i++) {
+    proms.push(db.put('some', `thing irrelevant${i}`))
+    proms.push(db.put('aKey', `value ${i}`))
+    proms.push(db.put(`other key ${i}`, 'irrelevant'))
+  }
+
+  await Promise.all(proms)
+  await eventFlush() // TODO: figure out why an event flush is needed
+
+  const moreProms = []
+  moreProms.push(db.core.truncate(6)) // Back to value1
+  for (let i = 5; i < 10; i++) {
+    moreProms.push(db.put('some', `thing irrelevant${i}`))
+    moreProms.push(db.put('aKey', `value ${i}`))
+    moreProms.push(db.put(`other key ${i}`, 'irrelevant'))
+  }
+  await Promise.all(moreProms)
+
+  t.is(watcher.node.value, 'value 9')
+  t.is(updates.at(-1).value, 'value 9')
+  t.is((await db.get('aKey')).value, 'value 9')
+})
+
 test('basic watch', async function (t) {
   t.plan(2)
 

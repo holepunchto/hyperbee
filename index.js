@@ -297,7 +297,7 @@ class Hyperbee extends ReadyResource {
 
     if (this._onappendBound) {
       this.core.on('append', this._onappendBound)
-      if (this.core.isAutobase) this.core.on('truncate', this._onappendBound)
+      this.core.on('truncate', () => this._onappendBound(true))
     }
 
     if (this.prefix && opts._sub) {
@@ -397,9 +397,14 @@ class Hyperbee extends ReadyResource {
     return new Watcher(this, range, opts)
   }
 
-  _onappend () {
+  getAndWatch (key) {
+    if (!this._watchers) throw new Error('Can only watch the main bee instance')
+    return new EntryWatcher(this, key)
+  }
+
+  _onappend (isTruncate = false) {
     for (const watcher of this._watchers) {
-      watcher._onappend()
+      watcher._onappend(isTruncate)
     }
   }
 
@@ -873,6 +878,50 @@ class Batch {
   }
 }
 
+class EntryWatcher extends ReadyResource {
+  constructor (bee, key) {
+    super()
+
+    bee._watchers.add(this)
+    this.bee = bee
+
+    this.key = key
+    this.node = null
+
+    this.ready().catch(safetyCatch)
+  }
+
+  async _open () {
+    this.node = await this.bee.get(this.key)
+  }
+
+  _close () {
+    this.bee._watchers.delete(this)
+  }
+
+  async _onappend () {
+    if (!this.opened) await this.ready()
+    // TODO: truncate optimisation
+
+    let newNode
+    try {
+      newNode = await this.bee.get(this.key)
+    } catch (e) {
+      if (e.code === 'SNAPSHOT_NOT_AVAILABLE') {
+        // There was a truncate event before the get resolved
+        // So this handler will run again anyway
+        return
+      }
+      throw e
+    }
+
+    if (newNode?.seq !== this.node?.seq) {
+      this.node = newNode
+      this.emit('update')
+    }
+  }
+}
+
 class Watcher extends ReadyResource {
   constructor (bee, range, opts = {}) {
     super()
@@ -906,7 +955,9 @@ class Watcher extends ReadyResource {
     return this
   }
 
-  _onappend () {
+  _onappend (isTruncate) {
+    if (isTruncate && !this.core.isAutobase) return
+
     // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
     // the better solution is propably just to change non-sparse sessions to not report a fake length
     if (!this.core.core || this.core.core.tree.length !== this.core.length) return

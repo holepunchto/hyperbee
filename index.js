@@ -293,10 +293,10 @@ class Hyperbee extends ReadyResource {
     this._view = !!opts._view
 
     this._onappendBound = this._view ? null : this._onappend.bind(this)
-    this._watchers = this._onappendBound ? new Set() : null
+    this._watchers = this._onappendBound ? [] : null
     this._batches = []
 
-    if (this._onappendBound) {
+    if (this._watchers) {
       this.core.on('append', this._onappendBound)
       if (this.core.isAutobase) this.core.on('truncate', this._onappendBound)
     }
@@ -459,12 +459,12 @@ class Hyperbee extends ReadyResource {
   }
 
   async _close () {
-    if (this._onappendBound) {
+    if (this._watchers) {
       this.core.off('append', this._onappendBound)
       if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
 
-      for (const watcher of this._watchers) {
-        await watcher.close()
+      while (this._watchers.length) {
+        await this._watchers[this._watchers.length - 1].close()
       }
     }
 
@@ -892,8 +892,8 @@ class Batch {
 class Watcher extends ReadyResource {
   constructor (bee, range, opts = {}) {
     super()
-    bee._watchers.add(this)
 
+    this.index = bee._watchers.push(this) - 1
     this.bee = bee
     this.core = bee.core
 
@@ -989,7 +989,11 @@ class Watcher extends ReadyResource {
   }
 
   async _close () {
-    this.bee._watchers.delete(this)
+    const top = this.bee._watchers.pop()
+    if (top !== this) {
+      top.index = this.index
+      this.bee._watchers[top.index] = top
+    }
 
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()

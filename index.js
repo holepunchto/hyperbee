@@ -415,8 +415,9 @@ class Hyperbee extends ReadyResource {
     return new Hyperbee(snap, {
       _view: true,
       _sub: false,
-      sep: this.sep,
       prefix: this.prefix,
+      sep: this.sep,
+      lock: this.lock,
       checkout: version,
       keyEncoding: opts.keyEncoding || this.keyEncoding,
       valueEncoding: opts.valueEncoding || this.valueEncoding,

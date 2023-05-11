@@ -972,7 +972,7 @@ class EntryWatcher extends ReadyResource {
 
   async _ontruncate () {
     this._forceUpdate = true
-    await this._debouncedUpdate(true)
+    await this._debouncedUpdate()
   }
 }
 

@@ -924,8 +924,6 @@ class EntryWatcher extends ReadyResource {
 
     this.key = key
     this.node = null
-
-    this.ready().catch(safetyCatch)
   }
 
   async _open () {

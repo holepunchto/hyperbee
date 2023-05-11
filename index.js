@@ -962,6 +962,7 @@ class EntryWatcher extends ReadyResource {
         return
       }
       this.emit('error', e)
+      return
     }
 
     if (force || newNode?.seq !== this.node?.seq) {

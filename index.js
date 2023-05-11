@@ -409,6 +409,7 @@ class Hyperbee extends ReadyResource {
     await watcher._debouncedUpdate()
 
     if (this.closing) {
+      await watcher.close()
       throw new Error('Bee closed')
     }
 

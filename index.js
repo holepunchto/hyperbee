@@ -941,6 +941,10 @@ class EntryWatcher extends ReadyResource {
   }
 
   async _onappend () {
+    await this._processUpdate()
+  }
+
+  async _processUpdate (force = false) {
     if (!this.opened) await this.ready()
 
     let newNode
@@ -955,14 +959,14 @@ class EntryWatcher extends ReadyResource {
       this.emit('error', e)
     }
 
-    if (newNode?.seq !== this.node?.seq) {
+    if (force || newNode?.seq !== this.node?.seq) {
       this.node = newNode
       this.emit('update')
     }
   }
 
   async _ontruncate () {
-    await this._onappend()
+    await this._processUpdate(true)
   }
 }
 

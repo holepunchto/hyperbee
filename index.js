@@ -952,7 +952,7 @@ class EntryWatcher extends ReadyResource {
         // So this handler will run again anyway
         return
       }
-      throw e
+      this.emit('error', e)
     }
 
     if (newNode?.seq !== this.node?.seq) {

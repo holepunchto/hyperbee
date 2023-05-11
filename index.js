@@ -947,6 +947,11 @@ class EntryWatcher extends ReadyResource {
     this._debouncedUpdate()
   }
 
+  _ontruncate () {
+    this._forceUpdate = true
+    this._debouncedUpdate()
+  }
+
   async _processUpdate () {
     try {
       if (!this.opened) await this.ready()
@@ -978,11 +983,6 @@ class EntryWatcher extends ReadyResource {
       }
       this.emit('error', e)
     }
-  }
-
-  _ontruncate () {
-    this._forceUpdate = true
-    this._debouncedUpdate()
   }
 }
 

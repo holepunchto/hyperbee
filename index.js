@@ -899,10 +899,8 @@ class EntryWatcher extends ReadyResource {
     this.bee._watchers.delete(this)
   }
 
-  async _onappend (isTruncate) {
+  async _onappend () {
     if (!this.opened) await this.ready()
-
-    if (isTruncate && (this.node?.seq || 0) < this.bee.version) return
 
     let newNode
     try {

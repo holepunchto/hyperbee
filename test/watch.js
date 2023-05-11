@@ -56,6 +56,28 @@ test('getAndWatch truncate flow', async function (t) {
   t.is(watcher.node.value, 'is back')
 })
 
+test('getAndWatch truncate flow with deletes', async function (t) {
+  const db = create()
+  const watcher = db.getAndWatch('aKey')
+
+  await db.put('aKey', 'here')
+  await db.put('otherKey', 'other1Val')
+  await db.put('otherKey2', 'otherVal2')
+  await db.del('aKey')
+  t.is(db.core.length, 5) // Sanity check
+
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.core.truncate(2)
+  await eventFlush()
+  t.is(watcher.node.value, 'here')
+
+  await db.core.truncate(1)
+  await eventFlush()
+  t.is(watcher.node, null)
+})
+
 test('getAndWatch emits update', async function (t) {
   t.plan(2)
 

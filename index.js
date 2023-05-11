@@ -293,9 +293,10 @@ class Hyperbee extends ReadyResource {
     this._view = !!opts._view
 
     this._onappendBound = this._view ? null : this._onappend.bind(this)
-    this._watchers = this._onappendBound ? new Set() : null
+    this._watchers = this._onappendBound ? [] : null
+    this._batches = []
 
-    if (this._onappendBound) {
+    if (this._watchers) {
       this.core.on('append', this._onappendBound)
       this.core.on('truncate', () => this._onappendBound(true))
     }
@@ -420,8 +421,9 @@ class Hyperbee extends ReadyResource {
     return new Hyperbee(snap, {
       _view: true,
       _sub: false,
-      sep: this.sep,
       prefix: this.prefix,
+      sep: this.sep,
+      lock: this.lock,
       checkout: version,
       keyEncoding: opts.keyEncoding || this.keyEncoding,
       valueEncoding: opts.valueEncoding || this.valueEncoding,
@@ -462,13 +464,17 @@ class Hyperbee extends ReadyResource {
   }
 
   async _close () {
-    if (this._onappendBound) {
+    if (this._watchers) {
       this.core.off('append', this._onappendBound)
       if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
 
-      for (const watcher of this._watchers) {
-        await watcher.close()
+      while (this._watchers.length) {
+        await this._watchers[this._watchers.length - 1].close()
       }
+    }
+
+    while (this._batches.length) {
+      await this._batches[this._batches.length - 1].close()
     }
 
     return this.core.close()
@@ -495,6 +501,7 @@ class Batch {
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
     this.core = core
+    this.index = tree._batches.push(this) - 1
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
     this.rootSeq = 0
@@ -772,14 +779,14 @@ class Batch {
   }
 
   async _closeSnapshot () {
-    if (this.isSnapshot) await this.core.close()
+    if (this.isSnapshot) {
+      await this.core.close()
+      this._finalize()
+    }
   }
 
   async close () {
-    if (this.isSnapshot) {
-      await this.core.close()
-      return
-    }
+    if (this.isSnapshot) return this._closeSnapshot()
 
     this.root = null
     this.blocks.clear()
@@ -846,6 +853,16 @@ class Batch {
     const locked = this.locked
     this.locked = null
     if (locked !== null) locked()
+    this._finalize()
+  }
+
+  _finalize () {
+    // technically finalize can be called more than once, so here we just check if we already have been removed
+    if (this.index >= this.tree._batches.length || this.tree._batches[this.index] !== this) return
+    const top = this.tree._batches.pop()
+    if (top === this) return
+    top.index = this.index
+    this.tree._batches[top.index] = top
   }
 
   _append (root, seq, key, value) {
@@ -924,8 +941,8 @@ class EntryWatcher extends ReadyResource {
 class Watcher extends ReadyResource {
   constructor (bee, range, opts = {}) {
     super()
-    bee._watchers.add(this)
 
+    this.index = bee._watchers.push(this) - 1
     this.bee = bee
     this.core = bee.core
 
@@ -959,7 +976,7 @@ class Watcher extends ReadyResource {
 
     // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
     // the better solution is propably just to change non-sparse sessions to not report a fake length
-    if (!this.core.core || this.core.core.tree.length !== this.core.length) return
+    if (!this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()
@@ -1023,7 +1040,11 @@ class Watcher extends ReadyResource {
   }
 
   async _close () {
-    this.bee._watchers.delete(this)
+    const top = this.bee._watchers.pop()
+    if (top !== this) {
+      top.index = this.index
+      this.bee._watchers[top.index] = top
+    }
 
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()

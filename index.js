@@ -493,10 +493,16 @@ class Hyperbee extends ReadyResource {
   async _close () {
     if (this._watchers) {
       this.core.off('append', this._onappendBound)
-      if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
+      this.core.off('truncate', this._onappendBound)
 
       while (this._watchers.length) {
         await this._watchers[this._watchers.length - 1].close()
+      }
+    }
+
+    if (this._entryWatchers) {
+      while (this._entryWatchers.length) {
+        await this._entryWatchers[this._entryWatchers.length - 1].close()
       }
     }
 

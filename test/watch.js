@@ -34,6 +34,27 @@ test('current value loaded when getAndWatch resolves', async function (t) {
   t.is(watcher.node.value, 'here')
 })
 
+test('throws if bee closing while calling getAndWatch', async function (t) {
+  const db = create()
+  await db.put('aKey', 'here')
+
+  const prom = db.close()
+  await t.exception(db.getAndWatch('aKey'), /Bee closed/)
+
+  await prom
+})
+
+test('throws if bee starts closing before getAndWatch resolves', async function (t) {
+  const db = create()
+  await db.put('aKey', 'here')
+
+  const prom = db.getAndWatch('aKey')
+  const closeProm = db.close()
+  await t.exception(prom, /Bee closed/)
+
+  await closeProm
+})
+
 test('getAndWatch truncate flow', async function (t) {
   const db = create()
   const watcher = await db.getAndWatch('aKey')

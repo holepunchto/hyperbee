@@ -404,8 +404,13 @@ class Hyperbee extends ReadyResource {
 
   async getAndWatch (key) {
     if (!this._watchers) throw new Error('Can only watch the main bee instance')
+
     const watcher = new EntryWatcher(this, key)
-    await watcher.ready()
+    await watcher._debouncedUpdate()
+
+    if (this.closing) {
+      throw new Error('Bee closed')
+    }
 
     return watcher
   }
@@ -930,10 +935,6 @@ class EntryWatcher extends ReadyResource {
     this._debouncedUpdate = debounce(this._processUpdate.bind(this))
   }
 
-  async _open () {
-    this.node = await this.bee.get(this.key)
-  }
-
   _close () {
     const top = this.bee._entryWatchers.pop()
     if (top !== this) {
@@ -971,6 +972,10 @@ class EntryWatcher extends ReadyResource {
         this.emit('update')
       }
     } catch (e) {
+      if (e.code === 'SESSION_CLOSED') {
+        this.close().catch(safetyCatch)
+        return
+      }
       this.emit('error', e)
     }
   }

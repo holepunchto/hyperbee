@@ -47,17 +47,13 @@ test('throws if bee closing while calling getAndWatch', async function (t) {
   await prom
 })
 
-test.skip('throws if bee starts closing before getAndWatch resolves', async function (t) {
+test('throws if bee starts closing before getAndWatch resolves', async function (t) {
   const db = create()
   await db.put('aKey', 'here')
 
   const prom = db.getAndWatch('aKey')
   const closeProm = db.close()
-  // TODO: should throw the 'Bee closed' exception
-  // but instead throws a random-access-storage error
-  // --unskip when that is fixed
-  await prom
-  // await t.exception(prom, /Bee closed/)
+  await t.exception(prom, /Bee closed/)
 
   await closeProm
 })

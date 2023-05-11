@@ -971,7 +971,7 @@ class EntryWatcher extends ReadyResource {
         // There was a truncate event before the get resolved
         // So this handler will run again anyway
         return
-      } else if (e.code === 'SESSION_CLOSED') {
+      } else if (this.bee.closing) {
         this.close().catch(safetyCatch)
         return
       }

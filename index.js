@@ -293,12 +293,13 @@ class Hyperbee extends ReadyResource {
     this._view = !!opts._view
 
     this._onappendBound = this._view ? null : this._onappend.bind(this)
+    this._ontruncateBound = this._view ? null : this._ontruncate.bind(this)
     this._watchers = this._onappendBound ? [] : null
     this._batches = []
 
     if (this._watchers) {
       this.core.on('append', this._onappendBound)
-      this.core.on('truncate', () => this._onappendBound(true))
+      this.core.on('truncate', this._ontruncateBound)
     }
 
     if (this.prefix && opts._sub) {
@@ -403,9 +404,15 @@ class Hyperbee extends ReadyResource {
     return new EntryWatcher(this, key)
   }
 
-  _onappend (isTruncate = false) {
+  _onappend () {
     for (const watcher of this._watchers) {
-      watcher._onappend(isTruncate)
+      watcher._onappend()
+    }
+  }
+
+  _ontruncate () {
+    for (const watcher of this._watchers) {
+      watcher._ontruncate()
     }
   }
 
@@ -940,6 +947,10 @@ class EntryWatcher extends ReadyResource {
       this.emit('update')
     }
   }
+
+  async _ontruncate () {
+    await this._onappend()
+  }
 }
 
 class Watcher extends ReadyResource {
@@ -975,9 +986,11 @@ class Watcher extends ReadyResource {
     return this
   }
 
-  _onappend (isTruncate) {
-    if (isTruncate && !this.core.isAutobase) return
+  _ontruncate () {
+    if (this.core.isAutobase) this._onappend()
+  }
 
+  _onappend () {
     // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
     // the better solution is propably just to change non-sparse sessions to not report a fake length
     if (!this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return

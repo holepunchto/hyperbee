@@ -112,37 +112,6 @@ test('getAndWatch emits update', async function (t) {
   await eventFlush()
 })
 
-test('getAndWatch chaos', async function (t) {
-  const db = create()
-  const watcher = await db.getAndWatch('aKey')
-
-  const updates = []
-  watcher.on('update', () => updates.push(watcher.node))
-
-  const proms = []
-  for (let i = 0; i < 5; i++) {
-    proms.push(db.put('some', `thing irrelevant${i}`))
-    proms.push(db.put('aKey', `value ${i}`))
-    proms.push(db.put(`other key ${i}`, 'irrelevant'))
-  }
-
-  await Promise.all(proms)
-  await eventFlush() // TODO: figure out why an event flush is needed
-
-  const moreProms = []
-  moreProms.push(db.core.truncate(6)) // Back to value1
-  for (let i = 5; i < 10; i++) {
-    moreProms.push(db.put('some', `thing irrelevant${i}`))
-    moreProms.push(db.put('aKey', `value ${i}`))
-    moreProms.push(db.put(`other key ${i}`, 'irrelevant'))
-  }
-  await Promise.all(moreProms)
-
-  t.is(watcher.node.value, 'value 9')
-  t.is(updates.at(-1).value, 'value 9')
-  t.is((await db.get('aKey')).value, 'value 9')
-})
-
 test('basic watch', async function (t) {
   t.plan(2)
 

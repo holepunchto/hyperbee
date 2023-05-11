@@ -4,6 +4,7 @@ const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
+const debounce = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -924,6 +925,9 @@ class EntryWatcher extends ReadyResource {
 
     this.key = key
     this.node = null
+
+    this._forceUpdate = false
+    this._debouncedUpdate = debounce(this._processUpdate.bind(this))
   }
 
   async _open () {
@@ -939,11 +943,14 @@ class EntryWatcher extends ReadyResource {
   }
 
   async _onappend () {
-    await this._processUpdate()
+    await this._debouncedUpdate()
   }
 
-  async _processUpdate (force = false) {
+  async _processUpdate () {
     if (!this.opened) await this.ready()
+
+    const force = this._forceUpdate
+    this._forceUpdate = false
 
     let newNode
     try {
@@ -964,7 +971,8 @@ class EntryWatcher extends ReadyResource {
   }
 
   async _ontruncate () {
-    await this._processUpdate(true)
+    this._forceUpdate = true
+    await this._debouncedUpdate(true)
   }
 }
 

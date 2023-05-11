@@ -259,6 +259,16 @@ and `right` will be null, and vice versa.
 If the entries are causally equal (i.e. the have the same seq), they are not
 returned, only the diff.
 
+#### `const entryWatcher = await db.getAndWatch(key)`
+
+Returns a watcher which listens to changes on the given key.
+
+`entryWatcher.node` contains the current entry in the same format as the result of `bee.get(key)`,  and will be updated as it changes.
+
+You can listen to `entryWatcher.on('update')` to be notified when the value of node has changed.
+
+Call `await watcher.close()` to stop the watcher.
+
 #### `const watcher = db.watch([range])`
 
 Listens to changes that are on the optional `range`.

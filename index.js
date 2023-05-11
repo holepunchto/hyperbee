@@ -954,15 +954,6 @@ class EntryWatcher extends ReadyResource {
   }
 
   async _processUpdate () {
-    if (!this.opened) {
-      try {
-        await this.ready()
-      } catch (e) {
-        this.emit('error', e)
-        return
-      }
-    }
-
     const force = this._forceUpdate
     this._forceUpdate = false
 

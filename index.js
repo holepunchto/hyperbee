@@ -399,9 +399,12 @@ class Hyperbee extends ReadyResource {
     return new Watcher(this, range, opts)
   }
 
-  getAndWatch (key) {
+  async getAndWatch (key) {
     if (!this._watchers) throw new Error('Can only watch the main bee instance')
-    return new EntryWatcher(this, key)
+    const watcher = new EntryWatcher(this, key)
+    await watcher.ready()
+
+    return watcher
   }
 
   _onappend () {

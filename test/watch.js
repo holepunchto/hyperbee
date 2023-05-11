@@ -4,9 +4,8 @@ const Hyperbee = require('../index.js')
 
 test('basic getAndWatch append flow', async function (t) {
   const db = create()
-  const watcher = db.getAndWatch('aKey')
+  const watcher = await db.getAndWatch('aKey')
 
-  await watcher.ready()
   t.is(watcher.node, null)
 
   await db.put('other', 'key')
@@ -27,9 +26,17 @@ test('basic getAndWatch append flow', async function (t) {
   t.is(watcher.node.value, 'now here')
 })
 
+test('current value loaded when getAndWatch resolves', async function (t) {
+  const db = create()
+  await db.put('aKey', 'here')
+
+  const watcher = await db.getAndWatch('aKey')
+  t.is(watcher.node.value, 'here')
+})
+
 test('getAndWatch truncate flow', async function (t) {
   const db = create()
-  const watcher = db.getAndWatch('aKey')
+  const watcher = await db.getAndWatch('aKey')
 
   await db.put('aKey', 'here')
   await db.put('otherKey', 'other1Val')
@@ -58,7 +65,7 @@ test('getAndWatch truncate flow', async function (t) {
 
 test('getAndWatch truncate flow with deletes', async function (t) {
   const db = create()
-  const watcher = db.getAndWatch('aKey')
+  const watcher = await db.getAndWatch('aKey')
 
   await db.put('aKey', 'here')
   await db.put('otherKey', 'other1Val')
@@ -82,7 +89,7 @@ test('getAndWatch emits update', async function (t) {
   t.plan(2)
 
   const db = create()
-  const watcher = db.getAndWatch('aKey')
+  const watcher = await db.getAndWatch('aKey')
 
   let first = true
   watcher.on('update', () => {
@@ -107,7 +114,7 @@ test('getAndWatch emits update', async function (t) {
 
 test('getAndWatch chaos', async function (t) {
   const db = create()
-  const watcher = db.getAndWatch('aKey')
+  const watcher = await db.getAndWatch('aKey')
 
   const updates = []
   watcher.on('update', () => updates.push(watcher.node))

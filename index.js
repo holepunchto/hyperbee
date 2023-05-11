@@ -954,35 +954,37 @@ class EntryWatcher extends ReadyResource {
   }
 
   async _processUpdate () {
-    try {
-      if (!this.opened) await this.ready()
-
-      const force = this._forceUpdate
-      this._forceUpdate = false
-
-      let newNode
+    if (!this.opened) {
       try {
-        newNode = await this.bee.get(this.key)
+        await this.ready()
       } catch (e) {
-        if (e.code === 'SNAPSHOT_NOT_AVAILABLE') {
-          // There was a truncate event before the get resolved
-          // So this handler will run again anyway
-          return
-        }
         this.emit('error', e)
         return
       }
+    }
 
-      if (force || newNode?.seq !== this.node?.seq) {
-        this.node = newNode
-        this.emit('update')
-      }
+    const force = this._forceUpdate
+    this._forceUpdate = false
+
+    let newNode
+    try {
+      newNode = await this.bee.get(this.key)
     } catch (e) {
-      if (e.code === 'SESSION_CLOSED') {
+      if (e.code === 'SNAPSHOT_NOT_AVAILABLE') {
+        // There was a truncate event before the get resolved
+        // So this handler will run again anyway
+        return
+      } else if (e.code === 'SESSION_CLOSED') {
         this.close().catch(safetyCatch)
         return
       }
       this.emit('error', e)
+      return
+    }
+
+    if (force || newNode?.seq !== this.node?.seq) {
+      this.node = newNode
+      this.emit('update')
     }
   }
 }

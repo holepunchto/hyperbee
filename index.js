@@ -295,6 +295,8 @@ class Hyperbee extends ReadyResource {
     this._onappendBound = this._view ? null : this._onappend.bind(this)
     this._ontruncateBound = this._view ? null : this._ontruncate.bind(this)
     this._watchers = this._onappendBound ? [] : null
+    this._entryWatchers = this._onappendBound ? [] : null
+
     this._batches = []
 
     if (this._watchers) {
@@ -411,10 +413,18 @@ class Hyperbee extends ReadyResource {
     for (const watcher of this._watchers) {
       watcher._onappend()
     }
+
+    for (const watcher of this._entryWatchers) {
+      watcher._onappend()
+    }
   }
 
   _ontruncate () {
     for (const watcher of this._watchers) {
+      watcher._ontruncate()
+    }
+
+    for (const watcher of this._entryWatchers) {
       watcher._ontruncate()
     }
   }
@@ -909,7 +919,7 @@ class EntryWatcher extends ReadyResource {
   constructor (bee, key) {
     super()
 
-    this.index = bee._watchers.push(this) - 1
+    this.index = bee._entryWatchers.push(this) - 1
     this.bee = bee
 
     this.key = key
@@ -923,10 +933,10 @@ class EntryWatcher extends ReadyResource {
   }
 
   _close () {
-    const top = this.bee._watchers.pop()
+    const top = this.bee._entryWatchers.pop()
     if (top !== this) {
       top.index = this.index
-      this.bee._watchers[top.index] = top
+      this.bee._entryWatchers[top.index] = top
     }
   }
 

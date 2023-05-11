@@ -899,7 +899,7 @@ class EntryWatcher extends ReadyResource {
   constructor (bee, key) {
     super()
 
-    bee._watchers.add(this)
+    this.index = bee._watchers.push(this) - 1
     this.bee = bee
 
     this.key = key
@@ -913,7 +913,11 @@ class EntryWatcher extends ReadyResource {
   }
 
   _close () {
-    this.bee._watchers.delete(this)
+    const top = this.bee._watchers.pop()
+    if (top !== this) {
+      top.index = this.index
+      this.bee._watchers[top.index] = top
+    }
   }
 
   async _onappend () {

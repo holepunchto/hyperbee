@@ -1,6 +1,7 @@
 const test = require('brittle')
 const { create, createRange, createStoredCore, createStored, eventFlush } = require('./helpers')
 const Hyperbee = require('../index.js')
+const SubEncoder = require('sub-encoder')
 
 test('basic getAndWatch append flow', async function (t) {
   const db = create()
@@ -624,5 +625,50 @@ test('slow differ that gets destroyed should not throw', async function (t) {
       },
       destroy () {}
     }
+  }
+})
+
+test('watch with passed key/value encodings', async function (t) {
+  const db = create()
+  const enc = new SubEncoder()
+  const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
+
+  const watcher = db.watch(sub.range(), { keyEncoding: sub, valueEncoding: 'json' })
+  await watcher.ready()
+
+  await db.put('not in sub', 'ignored')
+  await db.put('in sub 1', { 'this is': 'yielded' }, { keyEncoding: sub, valueEncoding: 'json' })
+  await db.put('in sub 2', { 'this is': 'yielded' }, { keyEncoding: sub, valueEncoding: 'json' })
+
+  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+    const diffs = current.createDiffStream(previous, sub.range())
+    const entries = []
+    for await (const diff of diffs) entries.push(diff.left)
+
+    t.alike(entries.map(e => e.key), ['in sub 1', 'in sub 2'])
+    t.alike(entries.map(e => e.value), [{ 'this is': 'yielded' }, { 'this is': 'yielded' }])
+
+    break
+  }
+})
+
+test('watch uses the bee`s encodings by default', async function (t) {
+  const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
+
+  const watcher = db.watch()
+  await watcher.ready()
+
+  await db.put('entry1', { 'this is': 'entry1' })
+  await db.put('entry2', { 'this is': 'entry2' })
+
+  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+    const diffs = current.createDiffStream(previous)
+    const entries = []
+    for await (const diff of diffs) entries.push(diff.left)
+
+    t.alike(entries.map(e => e.key), ['entry1', 'entry2'])
+    t.alike(entries.map(e => e.value), [{ 'this is': 'entry1' }, { 'this is': 'entry2' }])
+
+    break
   }
 })

@@ -4,6 +4,7 @@ const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
+const debounce = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -293,12 +294,15 @@ class Hyperbee extends ReadyResource {
     this._view = !!opts._view
 
     this._onappendBound = this._view ? null : this._onappend.bind(this)
+    this._ontruncateBound = this._view ? null : this._ontruncate.bind(this)
     this._watchers = this._onappendBound ? [] : null
+    this._entryWatchers = this._onappendBound ? [] : null
+
     this._batches = []
 
     if (this._watchers) {
       this.core.on('append', this._onappendBound)
-      if (this.core.isAutobase) this.core.on('truncate', this._onappendBound)
+      this.core.on('truncate', this._ontruncateBound)
     }
 
     if (this.prefix && opts._sub) {
@@ -398,9 +402,37 @@ class Hyperbee extends ReadyResource {
     return new Watcher(this, range, opts)
   }
 
+  async getAndWatch (key) {
+    if (!this._watchers) throw new Error('Can only watch the main bee instance')
+
+    const watcher = new EntryWatcher(this, key)
+    await watcher._debouncedUpdate()
+
+    if (this.closing) {
+      await watcher.close()
+      throw new Error('Bee closed')
+    }
+
+    return watcher
+  }
+
   _onappend () {
     for (const watcher of this._watchers) {
       watcher._onappend()
+    }
+
+    for (const watcher of this._entryWatchers) {
+      watcher._onappend()
+    }
+  }
+
+  _ontruncate () {
+    for (const watcher of this._watchers) {
+      watcher._ontruncate()
+    }
+
+    for (const watcher of this._entryWatchers) {
+      watcher._ontruncate()
     }
   }
 
@@ -461,10 +493,16 @@ class Hyperbee extends ReadyResource {
   async _close () {
     if (this._watchers) {
       this.core.off('append', this._onappendBound)
-      if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
+      this.core.off('truncate', this._ontruncateBound)
 
       while (this._watchers.length) {
         await this._watchers[this._watchers.length - 1].close()
+      }
+    }
+
+    if (this._entryWatchers) {
+      while (this._entryWatchers.length) {
+        await this._entryWatchers[this._entryWatchers.length - 1].close()
       }
     }
 
@@ -890,6 +928,64 @@ class Batch {
   }
 }
 
+class EntryWatcher extends ReadyResource {
+  constructor (bee, key) {
+    super()
+
+    this.index = bee._entryWatchers.push(this) - 1
+    this.bee = bee
+
+    this.key = key
+    this.node = null
+
+    this._forceUpdate = false
+    this._debouncedUpdate = debounce(this._processUpdate.bind(this))
+  }
+
+  _close () {
+    const top = this.bee._entryWatchers.pop()
+    if (top !== this) {
+      top.index = this.index
+      this.bee._entryWatchers[top.index] = top
+    }
+  }
+
+  _onappend () {
+    this._debouncedUpdate()
+  }
+
+  _ontruncate () {
+    this._forceUpdate = true
+    this._debouncedUpdate()
+  }
+
+  async _processUpdate () {
+    const force = this._forceUpdate
+    this._forceUpdate = false
+
+    let newNode
+    try {
+      newNode = await this.bee.get(this.key)
+    } catch (e) {
+      if (e.code === 'SNAPSHOT_NOT_AVAILABLE') {
+        // There was a truncate event before the get resolved
+        // So this handler will run again anyway
+        return
+      } else if (this.bee.closing) {
+        this.close().catch(safetyCatch)
+        return
+      }
+      this.emit('error', e)
+      return
+    }
+
+    if (force || newNode?.seq !== this.node?.seq) {
+      this.node = newNode
+      this.emit('update')
+    }
+  }
+}
+
 class Watcher extends ReadyResource {
   constructor (bee, range, opts = {}) {
     super()
@@ -921,6 +1017,10 @@ class Watcher extends ReadyResource {
 
   [Symbol.asyncIterator] () {
     return this
+  }
+
+  _ontruncate () {
+    if (this.core.isAutobase) this._onappend()
   }
 
   _onappend () {

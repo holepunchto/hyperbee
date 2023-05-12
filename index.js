@@ -599,7 +599,7 @@ class Batch {
 
   _onwait (key) {
     this.options.onwait = null
-    this.tree.extension.get(this.rootSeq, key)
+    this.tree.extension.get(this.rootSeq + 1, key)
   }
 
   _getEncoding (opts) {

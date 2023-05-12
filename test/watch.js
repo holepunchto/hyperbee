@@ -1,6 +1,7 @@
 const test = require('brittle')
 const { create, createRange, createStoredCore, createStored, eventFlush } = require('./helpers')
 const Hyperbee = require('../index.js')
+const SubEncoder = require('sub-encoder')
 
 test('basic getAndWatch append flow', async function (t) {
   const db = create()
@@ -134,6 +135,35 @@ test('getAndWatch emits update', async function (t) {
   // After not
   await db.put('aKey', 'back')
   await eventFlush()
+})
+
+test('getAndWatch with passed key/value encodings', async function (t) {
+  const enc = new SubEncoder()
+  const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
+
+  const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+  const watcher = await db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
+  t.is(watcher.node, null)
+
+  await db.put('entry', 'not in sub')
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('entry', 'in sub', { keyEncoding: sub })
+  await eventFlush()
+  t.is(watcher.node.key, 'entry')
+  t.is(watcher.node.value, 'in sub')
+})
+
+test('getAndWatch uses the default encodings of the bee', async function (t) {
+  const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
+  const watcher = await db.getAndWatch('entry')
+  t.is(watcher.node, null)
+
+  await db.put('entry', { here: 'json' })
+  await eventFlush()
+  t.is(watcher.node.key, 'entry')
+  t.alike(watcher.node.value, { here: 'json' })
 })
 
 test('basic watch', async function (t) {

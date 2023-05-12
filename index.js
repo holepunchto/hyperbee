@@ -1009,6 +1009,7 @@ class Watcher extends ReadyResource {
     this.current = null
     this.previous = null
     this.stream = null
+    this.mapped = { current: null, previous: null }
 
     this._lock = mutexify()
     this._resolveOnChange = null
@@ -1076,6 +1077,7 @@ class Watcher extends ReadyResource {
         if (this.closing) return { value: undefined, done: true }
 
         if (this.previous) await this.previous.close()
+        if (this.mapped.previous && this.mapped.previous !== this.previous) await this.mapped.previous.close()
         this.previous = this.current.snapshot()
 
         if (this.current) await this.current.close()
@@ -1084,11 +1086,16 @@ class Watcher extends ReadyResource {
           valueEncoding: this.valueEncoding
         })
 
+        if (this.mapped.current && this.mapped.current !== this.current) await this.mapped.current.close()
+        this.current = this.bee.snapshot()
+
         this.stream = this._differ(this.current, this.previous, this.range)
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            return { done: false, value: [this.map(this.current), this.map(this.previous)] }
+            this.mapped.current = this.map(this.current)
+            this.mapped.previous = this.map(this.previous)
+            return { done: false, value: [this.mapped.current, this.mapped.previous] }
           }
         } finally {
           this.stream = null
@@ -1130,16 +1137,22 @@ class Watcher extends ReadyResource {
   _closeSnapshots () {
     const closing = []
 
-    if (this.previous) {
-      const previous = this.previous
+    const previous = this.previous
+    if (previous) {
       this.previous = null
       closing.push(previous.close())
     }
+    if (this.mapped.previous && this.mapped.previous !== previous) {
+      closing.push(this.mapped.previous.close())
+    }
 
-    if (this.current) {
-      const current = this.current
+    const current = this.current
+    if (current) {
       this.current = null
       closing.push(current.close())
+    }
+    if (this.mapped.current && this.mapped.current !== current) {
+      closing.push(this.mapped.current.close())
     }
 
     return Promise.all(closing)

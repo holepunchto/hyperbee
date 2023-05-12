@@ -402,10 +402,10 @@ class Hyperbee extends ReadyResource {
     return new Watcher(this, range, opts)
   }
 
-  async getAndWatch (key) {
+  async getAndWatch (key, opts) {
     if (!this._watchers) throw new Error('Can only watch the main bee instance')
 
-    const watcher = new EntryWatcher(this, key)
+    const watcher = new EntryWatcher(this, key, opts)
     await watcher._debouncedUpdate()
 
     if (this.closing) {
@@ -929,8 +929,11 @@ class Batch {
 }
 
 class EntryWatcher extends ReadyResource {
-  constructor (bee, key) {
+  constructor (bee, key, opts = {}) {
     super()
+
+    this.keyEncoding = opts.keyEncoding
+    this.valueEncoding = opts.valueEncoding
 
     this.index = bee._entryWatchers.push(this) - 1
     this.bee = bee
@@ -965,7 +968,10 @@ class EntryWatcher extends ReadyResource {
 
     let newNode
     try {
-      newNode = await this.bee.get(this.key)
+      newNode = await this.bee.get(this.key, {
+        keyEncoding: this.keyEncoding,
+        valueEncoding: this.valueEncoding
+      })
     } catch (e) {
       if (e.code === 'SNAPSHOT_NOT_AVAILABLE') {
         // There was a truncate event before the get resolved

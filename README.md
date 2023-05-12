@@ -275,6 +275,8 @@ Listens to changes that are on the optional `range`.
 
 `range` options are the same as `db.createReadStream` except for `reverse`.
 
+By default, the yielded snapshots will have the bee's key- and value encoding, but you can overwrite them by setting the `keyEncoding` and `valueEncoding` options.
+
 Usage example:
 ```js
 for await (const [current, previous] of watcher) {

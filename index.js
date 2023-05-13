@@ -1089,8 +1089,8 @@ class Watcher extends ReadyResource {
         if (this.mapped.current && this.mapped.current !== this.current) await this.mapped.current.close()
         this.current = this.bee.snapshot()
 
-        await this._closeSnapshot('previous', { recreate: this.current })
-        await this._closeSnapshot('current', { recreate: this.bee })
+        await this._closeSnapshot(this.previous, this.mapped.previous, { recreate: this.current })
+        await this._closeSnapshot(this.current, this.mapped.current, { recreate: this.bee })
 
         this.stream = this._differ(this.current, this.previous, this.range)
 
@@ -1137,26 +1137,27 @@ class Watcher extends ReadyResource {
     return this.close()
   }
 
-  async _closeSnapshot (snap, opts) {
-    const snapshot = this[snap]
+  async _closeSnapshot (snapshot, mapped, opts) {
+    const name = snapshot === this.current ? 'current' : 'previous'
 
     if (snapshot) {
-      this[snap] = null
+      this[name] = null
       await snapshot.close().catch(safetyCatch)
     }
 
-    if (this.mapped[snap] && this.mapped[snap] !== snapshot) {
-      await this.mapped[snap].close().catch(safetyCatch)
+    if (mapped && mapped !== snapshot) {
+      this.mapped[name] = null
+      await mapped.close().catch(safetyCatch)
     }
 
     if (opts && opts.recreate) {
-      this[snap] = opts.recreate.snapshot()
+      this[name] = opts.recreate.snapshot()
     }
   }
 
   async _closeSnapshots () {
-    await this._closeSnapshot('previous')
-    await this._closeSnapshot('current')
+    await this._closeSnapshot(this.previous, this.mapped.previous)
+    await this._closeSnapshot(this.current, this.mapped.current)
   }
 }
 

@@ -62,7 +62,7 @@ Make a new Hyperbee instance. `core` should be a [Hypercore](https://github.com/
 {
   keyEncoding: 'binary', // "binary" (default), "utf-8", "ascii", "json", or an abstract-encoding
   valueEncoding: 'binary' // Same options as keyEncoding like "json", etc
-  onlyIfChanged: true // put or delete a value only if it means a change in the db
+  onlyIfChanged: true // put a value only if it means a change in the db
 }
 ```
 

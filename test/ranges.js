@@ -23,3 +23,15 @@ test('basic peak', async function (t) {
     t.is(r, null)
   }
 })
+
+test('read all', async function (t) {
+  const db = await createRange(100)
+
+  let i = 0
+  for await (const data of db.createReadStream()) {
+    if (i !== Number(data.key)) break
+    i++
+  }
+
+  t.is(i, 100)
+})

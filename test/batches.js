@@ -33,6 +33,29 @@ test('batch peek', async function (t) {
   t.alike(await db.peek({ gte: '6' }), { seq: 2, key: '6', value: null })
 })
 
+test('many concurrent batch puts/peeks', async function (t) {
+  const db = create()
+  const b = db.batch()
+
+  const putPromises = []
+  const peekPromises = []
+
+  for (let i = 0; i < 9; i++) {
+    await b.put('' + i, '' + i)
+  }
+  for (let i = 9; i < 18; i++) {
+    putPromises.push(b.put('' + i, '' + i))
+  }
+  for (let i = 0; i < 18; i++) {
+    peekPromises.push(b.peek({ reverse: false }))
+  }
+
+  await Promise.all([
+    ...putPromises,
+    ...peekPromises
+  ])
+})
+
 test('batch get', async function (t) {
   const db = create()
   await db.put('5')
@@ -247,4 +270,17 @@ test('batch createRangeIterator supports custom key/value encodings', async func
     { seq: 1, key: { a: 1 }, value: { b: 2 } },
     { seq: 2, key: { a: 3 }, value: { b: 4 } }
   ])
+})
+
+test('batches close when instance closes', async function (t) {
+  t.plan(1)
+
+  const db = create()
+  const d = db.checkout(100)
+
+  d.get('hello').catch(function () {
+    t.ok('Request was cancelled')
+  })
+
+  await d.close()
 })

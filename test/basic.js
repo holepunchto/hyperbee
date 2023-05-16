@@ -415,7 +415,7 @@ test('read stream on double sub checkout', async function (t) {
 test('setting read-only flag to false disables header write', async function (t) {
   const db = create({ readonly: true })
   await db.ready()
-  t.is(db.feed.length, 0)
+  t.is(db.core.length, 0)
   t.ok(db.readonly)
 })
 
@@ -425,12 +425,12 @@ test('cannot append to read-only db', async function (t) {
   await t.exception(() => db.put('hello', 'world'))
 })
 
-test('feed is unwrapped in getter', async function (t) {
+test('core is unwrapped in getter', async function (t) {
   const Hypercore = require('hypercore')
-  const feed = new Hypercore(require('random-access-memory'))
-  const db = new Hyperbee(feed)
+  const core = new Hypercore(require('random-access-memory'))
+  const db = new Hyperbee(core)
   await db.ready()
-  t.ok(feed === db.feed)
+  t.ok(core === db.core)
 })
 
 test('get header out', async function (t) {
@@ -442,26 +442,26 @@ test('get header out', async function (t) {
 })
 
 test('isHyperbee throws for empty hypercore and wait false', async function (t) {
-  const feed = createCore()
-  await t.exception(Hyperbee.isHyperbee(feed, { wait: false }), 'Block 0 not available locally')
+  const core = createCore()
+  await t.exception(Hyperbee.isHyperbee(core, { wait: false }), 'Block 0 not available locally')
 })
 
 test('isHyperbee is false for non-empty hypercore', async function (t) {
-  const feed = createCore()
-  await feed.append('something')
-  t.is(await Hyperbee.isHyperbee(feed), false)
+  const core = createCore()
+  await core.append('something')
+  t.is(await Hyperbee.isHyperbee(core), false)
 })
 
 test('isHyperbee is false for hypercore with 1st entry hyperbee', async function (t) {
-  const feed = createCore()
-  await feed.append('hyperbee')
-  t.is(await Hyperbee.isHyperbee(feed), false)
+  const core = createCore()
+  await core.append('hyperbee')
+  t.is(await Hyperbee.isHyperbee(core), false)
 })
 
-test('isHyperbee is true for feed of actual hyperbee', async function (t) {
+test('isHyperbee is true for core of actual hyperbee', async function (t) {
   const db = create()
   await db.put('hi', 'ho') // Adds the header on the first put
-  t.ok(await Hyperbee.isHyperbee(db.feed))
+  t.ok(await Hyperbee.isHyperbee(db.core))
 })
 
 test('supports encodings in checkout', async function (t) {

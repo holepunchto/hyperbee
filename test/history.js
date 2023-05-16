@@ -138,7 +138,7 @@ test('live history', async function (t) {
     t.is(data.seq, 10)
     s.once('data', function (data) {
       t.is(data.seq, 11)
-      db.feed.close()
+      db.core.close()
     })
     s.on('error', function () {})
     db.put('foo')

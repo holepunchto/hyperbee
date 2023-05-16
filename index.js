@@ -4,6 +4,8 @@ const { Readable } = require('streamx')
 const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
+const ReadyResource = require('ready-resource')
+const debounce = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -271,11 +273,12 @@ class BatchEntry extends BlockEntry {
   }
 }
 
-class Hyperbee {
-  constructor (feed, opts = {}) {
+class Hyperbee extends ReadyResource {
+  constructor (core, opts = {}) {
+    super()
     // this.feed is now deprecated, and will be this.core going forward
-    this.feed = feed
-    this.core = feed
+    this.feed = core
+    this.core = core
 
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
@@ -290,28 +293,35 @@ class Hyperbee {
     this._unprefixedKeyEncoding = this.keyEncoding
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
-    this._ready = opts._ready || null
+    this._view = !!opts._view
 
-    this._watchers = new Set()
-    this._onappendBound = this._onappend.bind(this)
-    this.core.on('append', this._onappendBound)
-    if (this.core.isAutobase) this.core.on('truncate', this._onappendBound)
+    this._onappendBound = this._view ? null : this._onappend.bind(this)
+    this._ontruncateBound = this._view ? null : this._ontruncate.bind(this)
+    this._watchers = this._onappendBound ? [] : null
+    this._entryWatchers = this._onappendBound ? [] : null
+
+    this._batches = []
+
+    if (this._watchers) {
+      this.core.on('append', this._onappendBound)
+      this.core.on('truncate', this._ontruncateBound)
+    }
 
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
     }
   }
 
-  ready () {
-    return this.feed.ready()
+  _open () {
+    return this.core.ready()
   }
 
   get version () {
-    return Math.max(1, this._checkout || this.feed.length)
+    return Math.max(1, this._checkout || this.core.length)
   }
 
   update () {
-    return this.feed.update({ ifAvailable: true, hash: false })
+    return this.core.update({ ifAvailable: true, hash: false })
   }
 
   peek (opts) {
@@ -356,7 +366,7 @@ class Hyperbee {
   }
 
   createHistoryStream (opts) {
-    const session = (opts && opts.live) ? this.feed.session() : this._makeSnapshot()
+    const session = (opts && opts.live) ? this.core.session() : this._makeSnapshot()
     return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
   }
 
@@ -376,43 +386,73 @@ class Hyperbee {
   }
 
   put (key, value, opts) {
-    const b = new Batch(this, this.feed, null, true, opts)
+    const b = new Batch(this, this.core, null, true, opts)
     return b.put(key, value, opts)
   }
 
   batch (opts) {
-    return new Batch(this, this.feed, mutexify(), true, opts)
+    return new Batch(this, this.core, mutexify(), true, opts)
   }
 
   del (key, opts) {
-    const b = new Batch(this, this.feed, null, true, opts)
+    const b = new Batch(this, this.core, null, true, opts)
     return b.del(key, opts)
   }
 
   watch (range, opts) {
+    if (!this._watchers) throw new Error('Can only watch the main bee instance')
     return new Watcher(this, range, opts)
+  }
+
+  async getAndWatch (key, opts) {
+    if (!this._watchers) throw new Error('Can only watch the main bee instance')
+
+    const watcher = new EntryWatcher(this, key, opts)
+    await watcher._debouncedUpdate()
+
+    if (this.closing) {
+      await watcher.close()
+      throw new Error('Bee closed')
+    }
+
+    return watcher
   }
 
   _onappend () {
     for (const watcher of this._watchers) {
       watcher._onappend()
     }
+
+    for (const watcher of this._entryWatchers) {
+      watcher._onappend()
+    }
+  }
+
+  _ontruncate () {
+    for (const watcher of this._watchers) {
+      watcher._ontruncate()
+    }
+
+    for (const watcher of this._entryWatchers) {
+      watcher._ontruncate()
+    }
   }
 
   _makeSnapshot () {
     // TODO: better if we could encapsulate this in hypercore in the future
-    return this._checkout <= this.feed.length ? this.feed.snapshot() : this.feed.session()
+    return this._checkout <= this.core.length ? this.core.snapshot() : this.core.session()
   }
 
   checkout (version, opts = {}) {
     // same as above, just checkout isn't set yet...
-    const snap = version <= this.feed.length ? this.feed.snapshot() : this.feed.session()
+    const snap = version <= this.core.length ? this.core.snapshot() : this.core.session()
 
     return new Hyperbee(snap, {
-      _ready: this.ready(),
+      _view: true,
       _sub: false,
-      sep: this.sep,
       prefix: this.prefix,
+      sep: this.sep,
+      lock: this.lock,
       checkout: version,
       keyEncoding: opts.keyEncoding || this.keyEncoding,
       valueEncoding: opts.valueEncoding || this.valueEncoding,
@@ -433,8 +473,8 @@ class Hyperbee {
     const valueEncoding = codecs(opts.valueEncoding || this.valueEncoding)
     const keyEncoding = codecs(opts.keyEncoding || this._unprefixedKeyEncoding)
 
-    return new Hyperbee(this.feed, {
-      _ready: this.ready(),
+    return new Hyperbee(this.core, {
+      _view: true,
       _sub: true,
       prefix,
       sep: this.sep,
@@ -448,19 +488,31 @@ class Hyperbee {
   }
 
   async getHeader (opts) {
-    const blk = await this.feed.get(0, opts)
+    const blk = await this.core.get(0, opts)
     return blk && Header.decode(blk)
   }
 
-  async close () {
-    this.core.off('append', this._onappendBound)
-    if (this.core.isAutobase) this.core.off('truncate', this._onappendBound)
+  async _close () {
+    if (this._watchers) {
+      this.core.off('append', this._onappendBound)
+      this.core.off('truncate', this._ontruncateBound)
 
-    for (const watcher of this._watchers) {
-      await watcher.destroy()
+      while (this._watchers.length) {
+        await this._watchers[this._watchers.length - 1].close()
+      }
     }
 
-    return this.feed.close()
+    if (this._entryWatchers) {
+      while (this._entryWatchers.length) {
+        await this._entryWatchers[this._entryWatchers.length - 1].close()
+      }
+    }
+
+    while (this._batches.length) {
+      await this._batches[this._batches.length - 1].close()
+    }
+
+    return this.core.close()
   }
 
   static async isHyperbee (core, opts) {
@@ -479,11 +531,12 @@ class Hyperbee {
 }
 
 class Batch {
-  constructor (tree, feed, batchLock, cache, options = {}) {
+  constructor (tree, core, batchLock, cache, options = {}) {
     this.tree = tree
     // this.feed is now deprecated, and will be this.core going forward
-    this.feed = feed
-    this.core = feed
+    this.feed = core
+    this.core = core
+    this.index = tree._batches.push(this) - 1
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
     this.rootSeq = 0
@@ -494,7 +547,7 @@ class Batch {
     this.batchLock = batchLock
     this.onseq = this.options.onseq || noop
     this.appending = null
-    this.isSnapshot = this.feed !== this.tree.feed
+    this.isSnapshot = this.core !== this.tree.core
     this.shouldUpdate = this.options.update !== false
     this.encoding = {
       key: options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding,
@@ -512,20 +565,20 @@ class Batch {
   }
 
   get version () {
-    return Math.max(1, this.tree._checkout ? this.tree._checkout : this.feed.length + this.length)
+    return Math.max(1, this.tree._checkout ? this.tree._checkout : this.core.length + this.length)
   }
 
   async getRoot (ensureHeader) {
     await this.ready()
     if (ensureHeader) {
-      if (this.feed.length === 0 && this.feed.writable && !this.tree.readonly) {
-        await this.feed.append(Header.encode({
+      if (this.core.length === 0 && this.core.writable && !this.tree.readonly) {
+        await this.core.append(Header.encode({
           protocol: 'hyperbee',
           metadata: this.tree.metadata
         }))
       }
     }
-    if (this.tree._checkout === 0 && this.shouldUpdate) await this.feed.update()
+    if (this.tree._checkout === 0 && this.shouldUpdate) await this.core.update()
     if (this.version < 2) return null
     return (await this.getBlock(this.version - 1)).getTreeNode(0)
   }
@@ -539,7 +592,7 @@ class Batch {
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
-    const entry = await this.feed.get(seq, { ...this.options, valueEncoding: Node })
+    const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
     if (entry === null) throw new Error('Block not available locally')
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
@@ -548,7 +601,7 @@ class Batch {
 
   _onwait (key) {
     this.options.onwait = null
-    this.tree.extension.get(this.rootSeq, key)
+    this.tree.extension.get(this.rootSeq + 1, key)
   }
 
   _getEncoding (opts) {
@@ -646,7 +699,7 @@ class Batch {
     let node = root = await this.getRoot(true)
     if (!node) node = root = TreeNode.create(null)
 
-    const seq = newNode.seq = this.feed.length + this.length
+    const seq = newNode.seq = this.core.length + this.length
     const target = new Key(seq, key)
 
     while (node.children.length) {
@@ -727,7 +780,7 @@ class Batch {
     let node = await this.getRoot(true)
     if (!node) return this._unlockMaybe()
 
-    const seq = delNode.seq = this.feed.length + this.length
+    const seq = delNode.seq = this.core.length + this.length
 
     while (true) {
       stack.push(node)
@@ -761,14 +814,14 @@ class Batch {
   }
 
   async _closeSnapshot () {
-    if (this.isSnapshot) await this.feed.close()
+    if (this.isSnapshot) {
+      await this.core.close()
+      this._finalize()
+    }
   }
 
   async close () {
-    if (this.isSnapshot) {
-      await this.feed.close()
-      return
-    }
+    if (this.isSnapshot) return this._closeSnapshot()
 
     this.root = null
     this.blocks.clear()
@@ -786,7 +839,7 @@ class Batch {
     const batch = new Array(this.length)
 
     for (let i = 0; i < this.length; i++) {
-      const seq = this.feed.length + i
+      const seq = this.core.length + i
       const { pendingIndex, key, value } = this.blocks.get(seq)
 
       if (i < this.length - 1) {
@@ -835,6 +888,16 @@ class Batch {
     const locked = this.locked
     this.locked = null
     if (locked !== null) locked()
+    this._finalize()
+  }
+
+  _finalize () {
+    // technically finalize can be called more than once, so here we just check if we already have been removed
+    if (this.index >= this.tree._batches.length || this.tree._batches[this.index] !== this) return
+    const top = this.tree._batches.pop()
+    if (top === this) return
+    top.index = this.index
+    this.tree._batches[top.index] = top
   }
 
   _append (root, seq, key, value) {
@@ -860,22 +923,84 @@ class Batch {
 
   async _appendBatch (raw) {
     try {
-      await this.feed.append(raw)
+      await this.core.append(raw)
     } finally {
       this._unlock()
     }
   }
 }
 
-class Watcher {
-  constructor (bee, range, opts = {}) {
-    bee._watchers.add(this)
+class EntryWatcher extends ReadyResource {
+  constructor (bee, key, opts = {}) {
+    super()
 
+    this.keyEncoding = opts.keyEncoding
+    this.valueEncoding = opts.valueEncoding
+
+    this.index = bee._entryWatchers.push(this) - 1
+    this.bee = bee
+
+    this.key = key
+    this.node = null
+
+    this._forceUpdate = false
+    this._debouncedUpdate = debounce(this._processUpdate.bind(this))
+  }
+
+  _close () {
+    const top = this.bee._entryWatchers.pop()
+    if (top !== this) {
+      top.index = this.index
+      this.bee._entryWatchers[top.index] = top
+    }
+  }
+
+  _onappend () {
+    this._debouncedUpdate()
+  }
+
+  _ontruncate () {
+    this._forceUpdate = true
+    this._debouncedUpdate()
+  }
+
+  async _processUpdate () {
+    const force = this._forceUpdate
+    this._forceUpdate = false
+
+    let newNode
+    try {
+      newNode = await this.bee.get(this.key, {
+        keyEncoding: this.keyEncoding,
+        valueEncoding: this.valueEncoding
+      })
+    } catch (e) {
+      if (e.code === 'SNAPSHOT_NOT_AVAILABLE') {
+        // There was a truncate event before the get resolved
+        // So this handler will run again anyway
+        return
+      } else if (this.bee.closing) {
+        this.close().catch(safetyCatch)
+        return
+      }
+      this.emit('error', e)
+      return
+    }
+
+    if (force || newNode?.seq !== this.node?.seq) {
+      this.node = newNode
+      this.emit('update')
+    }
+  }
+}
+
+class Watcher extends ReadyResource {
+  constructor (bee, range, opts = {}) {
+    super()
+
+    this.index = bee._watchers.push(this) - 1
     this.bee = bee
     this.core = bee.core
-
-    this.opened = false
-    this.closed = false
 
     this.latestDiff = 0
     this.range = range
@@ -888,35 +1013,35 @@ class Watcher {
     this._lock = mutexify()
     this._resolveOnChange = null
 
-    this._closing = null
-    this._opening = this._ready()
-    this._opening.catch(safetyCatch)
+    this.ready().catch(safetyCatch)
 
     this._differ = opts.differ || defaultDiffer
   }
 
-  ready () {
-    return this._opening
-  }
-
-  async _ready () {
+  async _open () {
     await this.bee.ready()
     this.current = this.bee.snapshot() // Point from which to start watching
-    this.opened = true
   }
 
   [Symbol.asyncIterator] () {
     return this
   }
 
+  _ontruncate () {
+    if (this.core.isAutobase) this._onappend()
+  }
+
   _onappend () {
+    // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
+    // the better solution is propably just to change non-sparse sessions to not report a fake length
+    if (!this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()
   }
 
   async _waitForChanges () {
-    if (this.current.version < this.bee.version || this.closed) return
+    if (this.current.version < this.bee.version || this.closing) return
 
     await new Promise(resolve => {
       this._resolveOnChange = resolve
@@ -927,8 +1052,8 @@ class Watcher {
     try {
       return await this._next()
     } catch (err) {
-      if (this.closed) return { value: undefined, done: true }
-      await this.destroy()
+      if (this.closing) return { value: undefined, done: true }
+      await this.close()
       throw err
     }
   }
@@ -937,14 +1062,14 @@ class Watcher {
     const release = await this._lock()
 
     try {
-      if (this.closed) return { value: undefined, done: true }
+      if (this.closing) return { value: undefined, done: true }
 
-      if (!this.opened) await this._opening
+      if (!this.opened) await this.ready()
 
       while (true) {
         await this._waitForChanges()
 
-        if (this.closed) return { value: undefined, done: true }
+        if (this.closing) return { value: undefined, done: true }
 
         if (this.previous) await this.previous.close()
         this.previous = this.current.snapshot()
@@ -968,23 +1093,16 @@ class Watcher {
   }
 
   async return () {
-    await this.destroy()
+    await this.close()
     return { done: true }
   }
 
-  async destroy () {
-    if (this._closing) return this._closing
-    this._closing = this._destroy()
-    return this._closing
-  }
-
-  async _destroy () {
-    if (this.closed) return
-    this.closed = true
-
-    if (!this.opened) await this._opening.catch(safetyCatch)
-
-    this.bee._watchers.delete(this)
+  async _close () {
+    const top = this.bee._watchers.pop()
+    if (top !== this) {
+      top.index = this.index
+      this.bee._watchers[top.index] = top
+    }
 
     if (this.stream && !this.stream.destroying) {
       this.stream.destroy()
@@ -996,6 +1114,10 @@ class Watcher {
 
     const release = await this._lock()
     release()
+  }
+
+  destroy () {
+    return this.close()
   }
 
   _closeSnapshots () {

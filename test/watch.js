@@ -1,6 +1,170 @@
 const test = require('brittle')
 const { create, createRange, createStoredCore, createStored, eventFlush } = require('./helpers')
 const Hyperbee = require('../index.js')
+const SubEncoder = require('sub-encoder')
+
+test('basic getAndWatch append flow', async function (t) {
+  const db = create()
+  const watcher = await db.getAndWatch('aKey')
+
+  t.is(watcher.node, null)
+
+  await db.put('other', 'key')
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('aKey', 'here')
+  await eventFlush()
+  const node = watcher.node
+  t.is(node.value, 'here')
+
+  await db.put('aKey?', 'not here')
+  await eventFlush()
+  t.alike(watcher.node, node)
+
+  await db.put('aKey', 'now here')
+  await eventFlush()
+  t.is(watcher.node.value, 'now here')
+
+  await db.close()
+  t.is(watcher.closed, true)
+})
+
+test('current value loaded when getAndWatch resolves', async function (t) {
+  const db = create()
+  await db.put('aKey', 'here')
+
+  const watcher = await db.getAndWatch('aKey')
+  t.is(watcher.node.value, 'here')
+})
+
+test('throws if bee closing while calling getAndWatch', async function (t) {
+  const db = create()
+  await db.put('aKey', 'here')
+
+  const prom = db.close()
+  await t.exception(db.getAndWatch('aKey'), /Bee closed/)
+
+  await prom
+})
+
+test('throws if bee starts closing before getAndWatch resolves', async function (t) {
+  const db = create()
+  await db.put('aKey', 'here')
+
+  const prom = db.getAndWatch('aKey')
+  const closeProm = db.close()
+  await t.exception(prom, /Bee closed/)
+
+  await closeProm
+})
+
+test('getAndWatch truncate flow', async function (t) {
+  const db = create()
+  const watcher = await db.getAndWatch('aKey')
+
+  await db.put('aKey', 'here')
+  await db.put('otherKey', 'other1Val')
+  await db.put('otherKey2', 'otherVal2')
+  t.is(db.core.length, 4) // Sanity check
+
+  // Note: Truncate happens before the _onAppend handler was triggered
+  // So the onAppend handler will operate on an already-truncated core
+  await db.core.truncate(2)
+
+  await eventFlush()
+  t.is(watcher.node.value, 'here')
+
+  await db.core.truncate(1)
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('something', 'irrelevant')
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('aKey', 'is back')
+  await eventFlush()
+  t.is(watcher.node.value, 'is back')
+})
+
+test('getAndWatch truncate flow with deletes', async function (t) {
+  const db = create()
+  const watcher = await db.getAndWatch('aKey')
+
+  await db.put('aKey', 'here')
+  await db.put('otherKey', 'other1Val')
+  await db.put('otherKey2', 'otherVal2')
+  await db.del('aKey')
+  t.is(db.core.length, 5) // Sanity check
+
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.core.truncate(2)
+  await eventFlush()
+  t.is(watcher.node.value, 'here')
+
+  await db.core.truncate(1)
+  await eventFlush()
+  t.is(watcher.node, null)
+})
+
+test('getAndWatch emits update', async function (t) {
+  t.plan(2)
+
+  const db = create()
+  const watcher = await db.getAndWatch('aKey')
+
+  let first = true
+  watcher.on('update', () => {
+    if (first) {
+      t.is(watcher.node.value, 'here')
+      first = false
+    } else {
+      t.is(watcher.node, null)
+    }
+  })
+  await db.put('aKey', 'here')
+  await eventFlush()
+
+  await db.core.truncate(1)
+  // updates before closing go through
+  await watcher.close()
+
+  // After not
+  await db.put('aKey', 'back')
+  await eventFlush()
+})
+
+test('getAndWatch with passed key/value encodings', async function (t) {
+  const enc = new SubEncoder()
+  const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
+
+  const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+  const watcher = await db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
+  t.is(watcher.node, null)
+
+  await db.put('entry', 'not in sub')
+  await eventFlush()
+  t.is(watcher.node, null)
+
+  await db.put('entry', 'in sub', { keyEncoding: sub })
+  await eventFlush()
+  t.is(watcher.node.key, 'entry')
+  t.is(watcher.node.value, 'in sub')
+})
+
+test('getAndWatch uses the default encodings of the bee', async function (t) {
+  const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
+  const watcher = await db.getAndWatch('entry')
+  t.is(watcher.node, null)
+
+  await db.put('entry', { here: 'json' })
+  await eventFlush()
+  t.is(watcher.node.key, 'entry')
+  t.alike(watcher.node.value, { here: 'json' })
+})
 
 test('basic watch', async function (t) {
   t.plan(2)
@@ -484,7 +648,7 @@ test('slow differ that gets destroyed should not throw', async function (t) {
     return {
       async * [Symbol.asyncIterator] () {
         while (true) {
-          if (watcher.closed) throw new Error('Custom stream was destroyed')
+          if (watcher.closing) throw new Error('Custom stream was destroyed')
           await eventFlush()
         }
       },

@@ -1138,20 +1138,27 @@ class Watcher extends ReadyResource {
   }
 
   async _closeSnapshot (snapshot, mapped, opts) {
-    const name = snapshot === this.current ? 'current' : 'previous'
+    const isCurrent = snapshot === this.current
 
     if (snapshot) {
-      this[name] = null
+      if (isCurrent) this.current = null
+      else this.previous = null
+
       await snapshot.close().catch(safetyCatch)
     }
 
     if (mapped && mapped !== snapshot) {
-      this.mapped[name] = null
+      if (isCurrent) this.mapped.current = null
+      else this.mapped.previous = null
+
       await mapped.close().catch(safetyCatch)
     }
 
     if (opts && opts.recreate) {
-      this[name] = opts.recreate.snapshot()
+      const snap = opts.recreate.snapshot()
+
+      if (isCurrent) this.current = snap
+      else this.previous = snap
     }
   }
 

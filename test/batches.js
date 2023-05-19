@@ -284,3 +284,17 @@ test('batches close when instance closes', async function (t) {
 
   await d.close()
 })
+
+test('del from batch list', async function (t) {
+  const db = create()
+
+  for (let i = 0; i < 5000; i++) {
+    await db.put('/file-' + i, Math.random())
+  }
+
+  const b = db.batch()
+  for await (const entry of b.createReadStream()) {
+    await b.del(entry.key)
+  }
+  await b.flush()
+})

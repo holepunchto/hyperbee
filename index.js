@@ -932,8 +932,8 @@ class EntryWatcher extends ReadyResource {
   constructor (bee, key, opts = {}) {
     super()
 
-    this.keyEncoding = opts.keyEncoding
-    this.valueEncoding = opts.valueEncoding
+    this.keyEncoding = opts.keyEncoding || bee.keyEncoding
+    this.valueEncoding = opts.valueEncoding || bee.valueEncoding
 
     this.index = bee._entryWatchers.push(this) - 1
     this.bee = bee

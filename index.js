@@ -990,9 +990,8 @@ class Watcher extends ReadyResource {
   constructor (bee, range, opts = {}) {
     super()
 
-    this.keyEncoding = opts.keyEncoding
-    this.valueEncoding = opts.valueEncoding
-
+    this.keyEncoding = opts.keyEncoding || bee.keyEncoding
+    this.valueEncoding = opts.valueEncoding || bee.valueEncoding
     this.index = bee._watchers.push(this) - 1
     this.bee = bee
     this.core = bee.core

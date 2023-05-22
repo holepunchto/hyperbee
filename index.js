@@ -1258,6 +1258,7 @@ async function iteratorPeek (ite) {
 
 function encRange (e, opts) {
   if (!e) return opts
+  if (e.range) return e.range(opts)
   if (opts.gt !== undefined) opts.gt = enc(e, opts.gt)
   if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)

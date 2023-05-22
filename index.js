@@ -1258,12 +1258,23 @@ async function iteratorPeek (ite) {
 
 function encRange (e, opts) {
   if (!e) return opts
+
+  if (e.encodeRange) {
+    const r = e.encodeRange({ gt: opts.gt, gte: opts.gte, lt: opts.lt, lte: opts.lte })
+    opts.gt = r.gt
+    opts.gte = r.gte
+    opts.lt = r.lt
+    opts.lte = r.lte
+    return opts
+  }
+
   if (opts.gt !== undefined) opts.gt = enc(e, opts.gt)
   if (opts.gte !== undefined) opts.gte = enc(e, opts.gte)
   if (opts.lt !== undefined) opts.lt = enc(e, opts.lt)
   if (opts.lte !== undefined) opts.lte = enc(e, opts.lte)
   if (opts.sub && !opts.gt && !opts.gte) opts.gt = enc(e, SEP)
   if (opts.sub && !opts.lt && !opts.lte) opts.lt = bump(enc(e, EMPTY))
+
   return opts
 }
 

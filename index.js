@@ -996,6 +996,8 @@ class Watcher extends ReadyResource {
   constructor (bee, range, opts = {}) {
     super()
 
+    this.keyEncoding = opts.keyEncoding || bee.keyEncoding
+    this.valueEncoding = opts.valueEncoding || bee.valueEncoding
     this.index = bee._watchers.push(this) - 1
     this.bee = bee
     this.core = bee.core
@@ -1018,7 +1020,11 @@ class Watcher extends ReadyResource {
 
   async _open () {
     await this.bee.ready()
-    this.current = this.bee.snapshot() // Point from which to start watching
+    // Point from which to start watching
+    this.current = this.bee.snapshot({
+      keyEncoding: this.keyEncoding,
+      valueEncoding: this.valueEncoding
+    })
   }
 
   [Symbol.asyncIterator] () {
@@ -1073,7 +1079,10 @@ class Watcher extends ReadyResource {
         this.previous = this.current.snapshot()
 
         if (this.current) await this.current.close()
-        this.current = this.bee.snapshot()
+        this.current = this.bee.snapshot({
+          keyEncoding: this.keyEncoding,
+          valueEncoding: this.valueEncoding
+        })
 
         this.stream = this._differ(this.current, this.previous, this.range)
 

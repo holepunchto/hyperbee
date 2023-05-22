@@ -1008,8 +1008,9 @@ class Watcher extends ReadyResource {
 
     this.current = null
     this.previous = null
+    this.currentMapped = null
+    this.previousMapped = null
     this.stream = null
-    this.mapped = { current: null, previous: null }
 
     this._lock = mutexify()
     this._resolveOnChange = null
@@ -1021,6 +1022,7 @@ class Watcher extends ReadyResource {
 
   async _open () {
     await this.bee.ready()
+
     // Point from which to start watching
     this.current = this.bee.snapshot({
       keyEncoding: this.keyEncoding,
@@ -1040,6 +1042,7 @@ class Watcher extends ReadyResource {
     // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
     // the better solution is propably just to change non-sparse sessions to not report a fake length
     if (!this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
+
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()
@@ -1076,29 +1079,22 @@ class Watcher extends ReadyResource {
 
         if (this.closing) return { value: undefined, done: true }
 
-        if (this.previous) await this.previous.close()
-        if (this.mapped.previous && this.mapped.previous !== this.previous) await this.mapped.previous.close()
+        await this._closePrevious()
         this.previous = this.current.snapshot()
 
-        if (this.current) await this.current.close()
+        await this._closeCurrent()
         this.current = this.bee.snapshot({
           keyEncoding: this.keyEncoding,
           valueEncoding: this.valueEncoding
         })
 
-        if (this.mapped.current && this.mapped.current !== this.current) await this.mapped.current.close()
-        this.current = this.bee.snapshot()
-
-        await this._closeSnapshot(this.previous, this.mapped.previous, { recreate: this.current })
-        await this._closeSnapshot(this.current, this.mapped.current, { recreate: this.bee })
-
         this.stream = this._differ(this.current, this.previous, this.range)
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            this.mapped.current = this.map(this.current)
-            this.mapped.previous = this.map(this.previous)
-            return { done: false, value: [this.mapped.current, this.mapped.previous] }
+            this.currentMapped = this.map(this.current)
+            this.previousMapped = this.map(this.previous)
+            return { done: false, value: [this.currentMapped, this.previousMapped] }
           }
         } finally {
           this.stream = null
@@ -1127,7 +1123,8 @@ class Watcher extends ReadyResource {
 
     this._onappend() // Continue execution being closed
 
-    await this._closeSnapshots()
+    await this._closeCurrent().catch(safetyCatch)
+    await this._closePrevious().catch(safetyCatch)
 
     const release = await this._lock()
     release()
@@ -1137,34 +1134,16 @@ class Watcher extends ReadyResource {
     return this.close()
   }
 
-  async _closeSnapshot (snapshot, mapped, opts) {
-    const isCurrent = snapshot === this.current
-
-    if (snapshot) {
-      if (isCurrent) this.current = null
-      else this.previous = null
-
-      await snapshot.close().catch(safetyCatch)
-    }
-
-    if (mapped && mapped !== snapshot) {
-      if (isCurrent) this.mapped.current = null
-      else this.mapped.previous = null
-
-      await mapped.close().catch(safetyCatch)
-    }
-
-    if (opts && opts.recreate) {
-      const snap = opts.recreate.snapshot()
-
-      if (isCurrent) this.current = snap
-      else this.previous = snap
-    }
+  async _closeCurrent () {
+    if (this.currentMapped) await this.currentMapped.close()
+    if (this.current) await this.current.close()
+    this.current = this.currentMapped = null
   }
 
-  async _closeSnapshots () {
-    await this._closeSnapshot(this.previous, this.mapped.previous)
-    await this._closeSnapshot(this.current, this.mapped.current)
+  async _closePrevious () {
+    if (this.previousMapped) await this.previousMapped.close()
+    if (this.previous) await this.previous.close()
+    this.previous = this.previousMapped = null
   }
 }
 

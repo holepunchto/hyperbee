@@ -1008,6 +1008,8 @@ class Watcher extends ReadyResource {
 
     this.current = null
     this.previous = null
+    this.currentMapped = null
+    this.previousMapped = null
     this.stream = null
 
     this._lock = mutexify()
@@ -1020,6 +1022,7 @@ class Watcher extends ReadyResource {
 
   async _open () {
     await this.bee.ready()
+
     // Point from which to start watching
     this.current = this.bee.snapshot({
       keyEncoding: this.keyEncoding,
@@ -1039,6 +1042,7 @@ class Watcher extends ReadyResource {
     // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
     // the better solution is propably just to change non-sparse sessions to not report a fake length
     if (!this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
+
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()
@@ -1075,10 +1079,10 @@ class Watcher extends ReadyResource {
 
         if (this.closing) return { value: undefined, done: true }
 
-        if (this.previous) await this.previous.close()
+        await this._closePrevious()
         this.previous = this.current.snapshot()
 
-        if (this.current) await this.current.close()
+        await this._closeCurrent()
         this.current = this.bee.snapshot({
           keyEncoding: this.keyEncoding,
           valueEncoding: this.valueEncoding
@@ -1088,7 +1092,9 @@ class Watcher extends ReadyResource {
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            return { done: false, value: [this.map(this.current), this.map(this.previous)] }
+            this.currentMapped = this.map(this.current)
+            this.previousMapped = this.map(this.previous)
+            return { done: false, value: [this.currentMapped, this.previousMapped] }
           }
         } finally {
           this.stream = null
@@ -1117,7 +1123,8 @@ class Watcher extends ReadyResource {
 
     this._onappend() // Continue execution being closed
 
-    await this._closeSnapshots()
+    await this._closeCurrent().catch(safetyCatch)
+    await this._closePrevious().catch(safetyCatch)
 
     const release = await this._lock()
     release()
@@ -1127,22 +1134,16 @@ class Watcher extends ReadyResource {
     return this.close()
   }
 
-  _closeSnapshots () {
-    const closing = []
+  async _closeCurrent () {
+    if (this.currentMapped) await this.currentMapped.close()
+    if (this.current) await this.current.close()
+    this.current = this.currentMapped = null
+  }
 
-    if (this.previous) {
-      const previous = this.previous
-      this.previous = null
-      closing.push(previous.close())
-    }
-
-    if (this.current) {
-      const current = this.current
-      this.current = null
-      closing.push(current.close())
-    }
-
-    return Promise.all(closing)
+  async _closePrevious () {
+    if (this.previousMapped) await this.previousMapped.close()
+    if (this.previous) await this.previous.close()
+    this.previous = this.previousMapped = null
   }
 }
 

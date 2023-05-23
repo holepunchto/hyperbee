@@ -322,8 +322,8 @@ class Hyperbee extends ReadyResource {
     return this.core.update({ ifAvailable: true, hash: false })
   }
 
-  peek (opts) {
-    return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
+  peek (range, opts) {
+    return iteratorPeek(this.createRangeIterator(range, { ...opts, limit: 1 }))
   }
 
   createRangeIterator (opts = {}) {
@@ -359,7 +359,10 @@ class Hyperbee extends ReadyResource {
     return ite
   }
 
-  createReadStream (opts) {
+  createReadStream (range, opts) {
+    // backwards compat range arg
+    opts = opts ? { ...opts, ...range } : range
+
     return iteratorToStream(this.createRangeIterator(opts))
   }
 
@@ -368,8 +371,12 @@ class Hyperbee extends ReadyResource {
     return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
   }
 
-  createDiffStream (right, opts) {
+  createDiffStream (right, range, opts) {
     if (typeof right === 'number') right = this.checkout(Math.max(1, right))
+
+    // backwards compat range arg
+    opts = opts ? { ...opts, ...range } : range
+
     const snapshot = right.version > this.version ? right._makeSnapshot() : this._makeSnapshot()
 
     const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
@@ -610,8 +617,8 @@ class Batch {
     }
   }
 
-  peek (opts) {
-    return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
+  peek (range, opts) {
+    return iteratorPeek(this.createRangeIterator(range, { ...opts, limit: 1 }))
   }
 
   createRangeIterator (opts = {}) {
@@ -619,7 +626,9 @@ class Batch {
     return new RangeIterator(this, encoding, encRange(encoding.key, { ...opts, sub: this.tree._sub }))
   }
 
-  createReadStream (opts) {
+  createReadStream (range, opts) {
+    // backwards compat range arg
+    opts = opts ? { ...opts, ...range } : range
     return iteratorToStream(this.createRangeIterator(opts))
   }
 

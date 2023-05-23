@@ -194,25 +194,33 @@ Destroy a batch and releases any locks it has aquired on the db.
 
 Call this if you want to abort a batch without flushing it.
 
-#### `const stream = db.createReadStream([options])`
+#### `const stream = db.createReadStream([range], [options])`
 
 Make a read stream. Sort order is based on the binary value of the keys.
 
 All entries in the stream are similar to the ones returned from `db.get`.
 
-`options` include:
+`range` should specify the range you want to read and looks like this:
+
 ```js
 {
   gt: 'only return keys > than this',
   gte: 'only return keys >= than this',
   lt: 'only return keys < than this',
-  lte: 'only return keys <= than this',
+  lte: 'only return keys <= than this'
+}
+```
+
+`options` include:
+
+```js
+{
   reverse: false // Set to true to get them in reverse order,
   limit: -1 // Set to the max number of entries you want
 }
 ```
 
-#### `const { seq, key, value } = await db.peek([options])`
+#### `const { seq, key, value } = await db.peek([range], [options])`
 
 Similar to doing a read stream and returning the first value, but a bit faster than that.
 

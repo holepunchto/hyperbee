@@ -22,10 +22,12 @@ test('basic diff with passed snap', async function (t) {
   const nrSessions = db.core.sessions.length
   const diffStream = db.createDiffStream(snap)
   const entries = await collect(diffStream)
+
   t.is(entries.length, 1)
+  t.is(entries[0].right, null) // not yet present in snap
   t.is(snap.closed, false)
   t.is(db.closed, false)
-  t.is(nrSessions, db.core.sessions.length)
+  t.is(nrSessions, db.core.sessions.length) // no leaks
 })
 
 test('basic diff with older snap as base', async function (t) {
@@ -37,10 +39,31 @@ test('basic diff with older snap as base', async function (t) {
   const nrSessions = db.core.sessions.length
   const diffStream = snap.createDiffStream(db)
   const entries = await collect(diffStream)
+
   t.is(entries.length, 1)
+  t.is(entries[0].left, null) // added in db
   t.is(snap.closed, false)
   t.is(db.closed, false)
-  t.is(nrSessions, db.core.sessions.length)
+  t.is(nrSessions, db.core.sessions.length) // no leaks
+})
+
+test('basic diff with 2 snaps', async function (t) {
+  const db = await createRange(10)
+  const snap = db.snapshot()
+
+  await db.put('a', 'b')
+  const newerSnap = db.snapshot()
+  await db.put('more', 'stuff')
+
+  const nrSessions = db.core.sessions.length
+  const diffStream = snap.createDiffStream(newerSnap)
+  const entries = await collect(diffStream)
+
+  t.is(entries.length, 1)
+  t.is(entries[0].left, null) // added in newerSnap
+  t.is(snap.closed, false)
+  t.is(newerSnap.closed, false)
+  t.is(nrSessions, db.core.sessions.length) // no leaks
 })
 
 test('bigger diff', async function (t) {

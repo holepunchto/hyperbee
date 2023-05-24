@@ -19,10 +19,14 @@ module.exports = {
 function collect (stream) {
   return new Promise((resolve, reject) => {
     const entries = []
+    let ended = false
     stream.on('data', d => entries.push(d))
-    stream.on('end', () => resolve(entries))
     stream.on('error', err => reject(err))
-    stream.on('close', () => reject(new Error('Premature close')))
+    stream.on('end', () => { ended = true })
+    stream.on('close', () => {
+      if (ended) resolve(entries)
+      else reject(new Error('Premature close'))
+    })
   })
 }
 

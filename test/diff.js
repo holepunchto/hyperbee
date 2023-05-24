@@ -155,3 +155,22 @@ test('diff oob seek', async function (t) {
 
   await collect(db.createDiffStream(1, { gt: 'e', lt: 'f' }))
 })
+
+test('no session leak after diff stream closes', async function (t) {
+  const db = await createRange(5)
+  const v1 = db.version
+
+  await db.put('a', 'b')
+
+  const checkout = db.snapshot()
+
+  const nrSessions = db.core.sessions.length
+  const diffStream = db.createDiffStream(v1)
+  const diffStream2 = checkout.createDiffStream(v1)
+
+  const entries = await collect(diffStream)
+  await collect(diffStream2)
+
+  t.is(entries.length, 1) // Sanity check
+  t.is(nrSessions, db.core.sessions.length)
+})

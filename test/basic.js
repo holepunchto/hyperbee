@@ -413,6 +413,24 @@ test('read stream on double sub checkout', async function (t) {
   t.is(keys[1], 'sb')
 })
 
+test('no session leak after read stream closes', async function (t) {
+  const db = create()
+  await db.put('e1', 'entry1')
+  await db.put('e2', 'entry2')
+
+  const checkout = db.checkout(2)
+
+  const nrSessions = db.core.sessions.length
+  const stream = db.createReadStream()
+  const stream2 = checkout.createReadStream()
+
+  const entries = await collect(stream)
+  await collect(stream2)
+
+  t.is(entries.length, 2) // Sanity check
+  t.is(nrSessions, db.core.sessions.length)
+})
+
 test('setting read-only flag to false disables header write', async function (t) {
   const db = create({ readonly: true })
   await db.ready()

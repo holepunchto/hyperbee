@@ -322,11 +322,14 @@ class Hyperbee extends ReadyResource {
     return this.core.update({ ifAvailable: true, hash: false })
   }
 
-  peek (opts) {
-    return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
+  peek (range, opts) {
+    return iteratorPeek(this.createRangeIterator(range, { ...opts, limit: 1 }))
   }
 
-  createRangeIterator (opts = {}) {
+  createRangeIterator (range, opts = {}) {
+    // backwards compat range arg
+    opts = opts ? { ...opts, ...range } : range
+
     const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
     const keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
 
@@ -359,8 +362,8 @@ class Hyperbee extends ReadyResource {
     return ite
   }
 
-  createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
+  createReadStream (range, opts) {
+    return iteratorToStream(this.createRangeIterator(range, opts))
   }
 
   createHistoryStream (opts) {
@@ -368,8 +371,12 @@ class Hyperbee extends ReadyResource {
     return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
   }
 
-  createDiffStream (right, opts) {
+  createDiffStream (right, range, opts) {
     if (typeof right === 'number') right = this.checkout(Math.max(1, right), { reuseSession: true })
+
+    // backwards compat range arg
+    opts = opts ? { ...opts, ...range } : range
+
     const snapshot = right.version > this.version ? right._makeSnapshot() : this._makeSnapshot()
 
     const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
@@ -616,17 +623,20 @@ class Batch {
     }
   }
 
-  peek (opts) {
-    return iteratorPeek(this.createRangeIterator({ ...opts, limit: 1 }))
+  peek (range, opts) {
+    return iteratorPeek(this.createRangeIterator(range, { ...opts, limit: 1 }))
   }
 
-  createRangeIterator (opts = {}) {
+  createRangeIterator (range, opts = {}) {
+    // backwards compat range arg
+    opts = opts ? { ...opts, ...range } : range
+
     const encoding = this._getEncoding(opts)
     return new RangeIterator(this, encoding, encRange(encoding.key, { ...opts, sub: this.tree._sub }))
   }
 
-  createReadStream (opts) {
-    return iteratorToStream(this.createRangeIterator(opts))
+  createReadStream (range, opts) {
+    return iteratorToStream(this.createRangeIterator(range, opts))
   }
 
   async get (key, opts) {

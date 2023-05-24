@@ -369,7 +369,7 @@ class Hyperbee extends ReadyResource {
   }
 
   createDiffStream (right, opts) {
-    if (typeof right === 'number') right = this.checkout(Math.max(1, right))
+    if (typeof right === 'number') right = this.checkout(Math.max(1, right), { reuseSession: true })
     const snapshot = right.version > this.version ? right._makeSnapshot() : this._makeSnapshot()
 
     const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
@@ -443,7 +443,13 @@ class Hyperbee extends ReadyResource {
 
   checkout (version, opts = {}) {
     // same as above, just checkout isn't set yet...
-    const snap = version <= this.core.length ? this.core.snapshot() : this.core.session()
+
+    let snap = this
+    if (!opts.reuseSession) {
+      snap = version <= this.core.length
+        ? this.core.snapshot()
+        : this.core.session()
+    }
 
     return new Hyperbee(snap, {
       _view: true,

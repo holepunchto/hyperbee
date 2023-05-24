@@ -13,6 +13,36 @@ test('basic diff', async function (t) {
   t.is(entries.length, 1)
 })
 
+test('basic diff with passed snap', async function (t) {
+  const db = await createRange(10)
+  const snap = db.snapshot()
+
+  await db.put('a', 'b')
+
+  const nrSessions = db.core.sessions.length
+  const diffStream = db.createDiffStream(snap)
+  const entries = await collect(diffStream)
+  t.is(entries.length, 1)
+  t.is(snap.closed, false)
+  t.is(db.closed, false)
+  t.is(nrSessions, db.core.sessions.length)
+})
+
+test('basic diff with older snap as base', async function (t) {
+  const db = await createRange(10)
+  const snap = db.snapshot()
+
+  await db.put('a', 'b')
+
+  const nrSessions = db.core.sessions.length
+  const diffStream = snap.createDiffStream(db)
+  const entries = await collect(diffStream)
+  t.is(entries.length, 1)
+  t.is(snap.closed, false)
+  t.is(db.closed, false)
+  t.is(nrSessions, db.core.sessions.length)
+})
+
 test('bigger diff', async function (t) {
   const db = await createRange(10)
   const v1 = db.version

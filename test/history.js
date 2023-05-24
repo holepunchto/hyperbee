@@ -175,3 +175,19 @@ test('live history can be destroyed', async function (t) {
 
   return end
 })
+
+test('no session leak after history stream closes', async function (t) {
+  const db = await createRange(5)
+  const v1 = db.version
+
+  const snap = db.snapshot()
+  const nrSessions = db.core.sessions.length
+  const stream = db.createHistoryStream(v1)
+  const stream2 = snap.createHistoryStream(v1)
+
+  const entries = await collect(stream)
+  await collect(stream2)
+
+  t.is(entries.length, 5) // Sanity check
+  t.is(nrSessions, db.core.sessions.length)
+})

@@ -1026,11 +1026,19 @@ class Watcher extends ReadyResource {
     this.stream = null
 
     this._lock = mutexify()
+    this._flowing = false
     this._resolveOnChange = null
-
-    this.ready().catch(safetyCatch)
-
     this._differ = opts.differ || defaultDiffer
+
+    this.on('newListener', autoFlowOnUpdate)
+    this.ready().catch(safetyCatch)
+  }
+
+  async _consume () {
+    if (this._flowing) return
+    try {
+      for await (const _ of this) {} // eslint-disable-line
+    } catch {}
   }
 
   async _open () {
@@ -1044,6 +1052,7 @@ class Watcher extends ReadyResource {
   }
 
   [Symbol.asyncIterator] () {
+    this._flowing = true
     return this
   }
 
@@ -1107,6 +1116,7 @@ class Watcher extends ReadyResource {
           for await (const data of this.stream) { // eslint-disable-line
             this.currentMapped = this.map(this.current)
             this.previousMapped = this.map(this.previous)
+            this.emit('update')
             return { done: false, value: [this.currentMapped, this.previousMapped] }
           }
         } finally {
@@ -1158,6 +1168,10 @@ class Watcher extends ReadyResource {
     if (this.previous) await this.previous.close()
     this.previous = this.previousMapped = null
   }
+}
+
+function autoFlowOnUpdate (name) {
+  if (name === 'update') this._consume()
 }
 
 function defaultWatchMap (snapshot) {

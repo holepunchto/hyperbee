@@ -318,6 +318,34 @@ class Hyperbee extends ReadyResource {
     return Math.max(1, this._checkout || this.core.length)
   }
 
+  get id () {
+    return this.core.id
+  }
+
+  get key () {
+    return this.core.key
+  }
+
+  get discoveryKey () {
+    return this.core.discoveryKey
+  }
+
+  get writable () {
+    return this.core.writable
+  }
+
+  get readable () {
+    return this.core.readable
+  }
+
+  findingPeers () {
+    return this.core.findingPeers()
+  }
+
+  replicate (isInitiator, opts) {
+    return this.core.replicate(isInitiator, opts)
+  }
+
   update () {
     return this.core.update({ ifAvailable: true, hash: false })
   }

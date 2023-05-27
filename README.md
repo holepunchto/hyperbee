@@ -85,6 +85,28 @@ The underlying Hypercore backing this bee.
 
 Number that indicates how many modifications were made, useful as a version identifier.
 
+#### `db.id`
+
+String containing the id (z-base-32 of the public key) identifying this bee.
+
+#### `db.key`
+
+Buffer containing the public key identifying this bee.
+
+#### `db.discoveryKey`
+
+Buffer containing a key derived from `db.key`.
+
+This discovery key does not allow you to verify the data, it's only to announce or look for peers that are sharing the same bee, without leaking the bee key.
+
+#### `db.writable`
+
+Boolean indicating if we can put or delete data in this bee.
+
+#### `db.readable`
+
+Boolean indicating if we can read from this bee. After closing the bee this will be `false`.
+
 #### `await db.put(key, [value], [options])`
 
 Insert a new key. Value can be optional.
@@ -161,6 +183,25 @@ function cas (prev) {
   return prev.value === 'can-be-deleted'
 }
 ```
+
+#### `const done = db.findingPeers()`
+
+Indicate to Hyperbee that you're finding peers in the background, requests will be on hold until this is done.
+
+Call `done()` when your current discovery iteration is done, i.e. after `swarm.flush()` finishes.
+
+#### `const stream = db.replicate(isInitiatorOrStream)`
+
+Usage example:
+```js
+const swarm = new Hyperswarm()
+const done = db.findingPeers()
+swarm.on('connection', (socket) => db.replicate(socket))
+swarm.join(db.discoveryKey)
+swarm.flush().then(done, done)
+```
+
+See more about how replicate works at [core.replicate][core-replicate-docs].
 
 #### `const batch = db.batch()`
 
@@ -357,3 +398,5 @@ Returns `true` if the core contains a Hyperbee, `false` otherwise.
 This requests the first block on the core, so it can throw depending on the options.
 
 `options` are the same as the `core.get` method.
+
+[core-replicate-docs]: https://github.com/holepunchto/hypercore#const-stream--corereplicateisinitiatororreplicationstream

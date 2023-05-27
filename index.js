@@ -346,8 +346,8 @@ class Hyperbee extends ReadyResource {
     return this.core.replicate(isInitiator, opts)
   }
 
-  update () {
-    return this.core.update({ ifAvailable: true, hash: false })
+  update (opts) {
+    return this.core.update(opts)
   }
 
   peek (range, opts) {

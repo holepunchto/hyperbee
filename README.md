@@ -203,6 +203,26 @@ swarm.flush().then(done, done)
 
 See more about how replicate works at [core.replicate][core-replicate-docs].
 
+#### `const updated = await db.update([options])`
+
+Waits for initial proof of the new bee version until all `findingPeers` calls has finished.
+
+``` js
+const updated = await db.update()
+
+console.log('db was updated?', updated, 'version is', db.version)
+```
+
+`options` include:
+
+``` js
+{
+  wait: false
+}
+```
+
+Use `db.findingPeers()` or `{ wait: true }` to make `await db.update()` blocking.
+
 #### `const batch = db.batch()`
 
 Make a new atomic batch that is either fully processed or not processed at all.

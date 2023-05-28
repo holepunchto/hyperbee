@@ -36,7 +36,7 @@
     "url": "https://github.com/holepunchto/hyperbee.git"
   },
   "author": "Mathias Buus (@mafintosh)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/holepunchto/hyperbee/issues"
   },

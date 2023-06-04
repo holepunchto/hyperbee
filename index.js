@@ -1015,8 +1015,8 @@ class Watcher extends Readable {
     this.index = bee._watchers.push(this) - 1
     this.bee = bee
     this.core = bee.core
+    this.opened = null
 
-    this.latestDiff = 0
     this.range = range
     this.map = opts.map || null
     this.unmap = opts.unmap || null
@@ -1025,11 +1025,12 @@ class Watcher extends Readable {
     this.previous = null
     this.mapped = null
     this.stream = null
-    this.opened = null
 
     this._resolveOnChange = null
     this._differ = opts.differ || defaultDiffer
     this._teardown = null
+    this._checkout = opts.checkout || (opts.eager ? 1 : 0)
+
     this.opened = this._setupInitialSnapshot()
 
     this.on('newListener', autoFlowOnUpdate)
@@ -1037,10 +1038,15 @@ class Watcher extends Readable {
 
   async _setupInitialSnapshot () {
     if (!this.bee.opened) await this.bee.ready()
-    this.current = this.bee.snapshot({
+
+    const opts = {
       keyEncoding: this.keyEncoding,
       valueEncoding: this.valueEncoding
-    })
+    }
+
+    this.current = this._checkout > 0
+      ? this.bee.checkout(this._checkout, opts)
+      : this.bee.snapshot(opts)
   }
 
   async _open (cb) {

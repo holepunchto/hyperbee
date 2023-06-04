@@ -363,12 +363,14 @@ class Hyperbee extends ReadyResource {
   }
 
   createReadStream (range, opts) {
-    return iteratorToStream(this.createRangeIterator(range, opts))
+    const signal = (opts && opts.signal) || null
+    return iteratorToStream(this.createRangeIterator(range, opts), signal)
   }
 
   createHistoryStream (opts) {
     const session = (opts && opts.live) ? this.core.session() : this._makeSnapshot()
-    return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts))
+    const signal = (opts && opts.signal) || null
+    return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts), signal)
   }
 
   createDiffStream (right, range, opts) {
@@ -378,11 +380,12 @@ class Hyperbee extends ReadyResource {
     opts = opts ? { ...opts, ...range } : range
 
     const snapshot = right.version > this.version ? right._makeSnapshot() : this._makeSnapshot()
+    const signal = (opts && opts.signal) || null
 
     const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
     if (keyEncoding) opts = encRange(keyEncoding, { ...opts, sub: this._sub })
 
-    return iteratorToStream(new DiffIterator(new Batch(this, snapshot, null, false, opts), new Batch(right, snapshot, null, false, opts), opts))
+    return iteratorToStream(new DiffIterator(new Batch(this, snapshot, null, false, opts), new Batch(right, snapshot, null, false, opts), opts), signal)
   }
 
   get (key, opts) {
@@ -633,7 +636,8 @@ class Batch {
   }
 
   createReadStream (range, opts) {
-    return iteratorToStream(this.createRangeIterator(range, opts))
+    const signal = (opts && opts.signal) || null
+    return iteratorToStream(this.createRangeIterator(range, opts), signal)
   }
 
   async get (key, opts) {
@@ -1244,11 +1248,12 @@ async function rebalance (stack) {
   return root
 }
 
-function iteratorToStream (ite) {
+function iteratorToStream (ite, signal) {
   let done
   let closing
 
   const rs = new Readable({
+    signal,
     open (cb) {
       done = cb
       ite.open().then(fin, fin)

@@ -505,8 +505,8 @@ class Hyperbee extends ReadyResource {
       this.core.off('append', this._onappendBound)
       this.core.off('truncate', this._ontruncateBound)
 
-      while (this._watchers.length) {
-        await this._watchers[this._watchers.length - 1].close()
+      for (let i = this._watchers.length - 1; i >= 0; i--) {
+        this._watchers[i].destroy()
       }
     }
 
@@ -1005,9 +1005,9 @@ class EntryWatcher extends ReadyResource {
   }
 }
 
-class Watcher extends ReadyResource {
+class Watcher extends Readable {
   constructor (bee, range, opts = {}) {
-    super()
+    super({ signal: opts.signal })
 
     this.keyEncoding = opts.keyEncoding || bee.keyEncoding
     this.valueEncoding = opts.valueEncoding || bee.valueEncoding
@@ -1017,43 +1017,90 @@ class Watcher extends ReadyResource {
 
     this.latestDiff = 0
     this.range = range
-    this.map = opts.map || defaultWatchMap
+    this.map = opts.map || null
+    this.unmap = opts.unmap || null
 
     this.current = null
     this.previous = null
-    this.currentMapped = null
-    this.previousMapped = null
+    this.mapped = null
     this.stream = null
+    this.opened = null
 
-    this._lock = mutexify()
-    this._flowing = false
     this._resolveOnChange = null
     this._differ = opts.differ || defaultDiffer
+    this._teardown = null
+    this.opened = this._setupInitialSnapshot()
 
     this.on('newListener', autoFlowOnUpdate)
-    this.ready().catch(safetyCatch)
   }
 
-  async _consume () {
-    if (this._flowing) return
-    try {
-      for await (const _ of this) {} // eslint-disable-line
-    } catch {}
-  }
-
-  async _open () {
-    await this.bee.ready()
-
-    // Point from which to start watching
+  async _setupInitialSnapshot () {
+    if (!this.bee.opened) await this.bee.ready()
     this.current = this.bee.snapshot({
       keyEncoding: this.keyEncoding,
       valueEncoding: this.valueEncoding
     })
   }
 
-  [Symbol.asyncIterator] () {
-    this._flowing = true
-    return this
+  async _open (cb) {
+    try {
+      await this.opened
+    } catch (err) {
+      return cb(err)
+    }
+
+    cb(null)
+  }
+
+  async _read (cb) {
+    let data = null
+
+    try {
+      data = await this._nextDiff()
+    } catch (err) {
+      return cb(err)
+    }
+
+    if (data) this.push(data)
+    cb(null)
+  }
+
+  _predestroy () {
+    const top = this.bee._watchers.pop()
+    if (top !== this) {
+      top.index = this.index
+      this.bee._watchers[top.index] = top
+    }
+
+    if (this.stream && !this.stream.destroying) {
+      this.stream.destroy()
+    }
+
+    this._onappend() // Continue execution being closed
+
+    if (this.unmap) {
+      this._teardown = this._unmapMaybe()
+    } else {
+      this._teardown = Promise.all([this._closeCurrent(), this._closePrevious()])
+    }
+
+    this._teardown.catch(safetyCatch)
+  }
+
+  async _destroy (cb) {
+    // in case this stream is closing due to non explicit destroy
+    // just trigger it not so have the state setup
+    if (this._teardown === null) this._predestroy()
+
+    try {
+      await this._teardown
+      await this._closePrevious()
+      await this._closeCurrent()
+    } catch (err) {
+      return cb(err)
+    }
+
+    cb(null)
   }
 
   _ontruncate () {
@@ -1071,111 +1118,76 @@ class Watcher extends ReadyResource {
   }
 
   async _waitForChanges () {
-    if (this.current.version < this.bee.version || this.closing) return
+    if (this.current.version < this.bee.version || this.destroying) return
 
     await new Promise(resolve => {
       this._resolveOnChange = resolve
     })
   }
 
-  async next () {
-    try {
-      return await this._next()
-    } catch (err) {
-      if (this.closing) return { value: undefined, done: true }
-      await this.close()
-      throw err
+  async _unmapMaybe () {
+    if (this.mapped && this.unmap) {
+      const data = this.mapped
+      this.mapped = null
+      await this.unmap(data)
     }
   }
 
-  async _next () {
-    const release = await this._lock()
+  async _nextDiff () {
+    while (true) {
+      await this._waitForChanges()
+      if (this.destroying) return null
 
-    try {
-      if (this.closing) return { value: undefined, done: true }
+      await this._unmapMaybe()
 
-      if (!this.opened) await this.ready()
+      await this._closePrevious()
+      this.previous = this.current.snapshot()
 
-      while (true) {
-        await this._waitForChanges()
+      await this._closeCurrent()
+      this.current = this.bee.snapshot({
+        keyEncoding: this.keyEncoding,
+        valueEncoding: this.valueEncoding
+      })
 
-        if (this.closing) return { value: undefined, done: true }
+      this.stream = this._differ(this.current, this.previous, this.range)
 
-        await this._closePrevious()
-        this.previous = this.current.snapshot()
-
-        await this._closeCurrent()
-        this.current = this.bee.snapshot({
-          keyEncoding: this.keyEncoding,
-          valueEncoding: this.valueEncoding
-        })
-
-        this.stream = this._differ(this.current, this.previous, this.range)
-
-        try {
-          for await (const data of this.stream) { // eslint-disable-line
-            this.currentMapped = this.map(this.current)
-            this.previousMapped = this.map(this.previous)
+      try {
+        for await (const data of this.stream) { // eslint-disable-line
+          if (!this.map) {
             this.emit('update')
-            return { done: false, value: [this.currentMapped, this.previousMapped] }
+            return [this.current, this.previous]
           }
-        } finally {
-          this.stream = null
+
+          this.mapped = await this.map(this.current, this.previous)
+          if (this.destroying) {
+            await this._unmapMaybe()
+            return null
+          }
+
+          this.emit('update') // legacy
+          return this.mapped
         }
+      } finally {
+        this.stream = null
       }
-    } finally {
-      release()
     }
-  }
-
-  async return () {
-    await this.close()
-    return { done: true }
-  }
-
-  async _close () {
-    const top = this.bee._watchers.pop()
-    if (top !== this) {
-      top.index = this.index
-      this.bee._watchers[top.index] = top
-    }
-
-    if (this.stream && !this.stream.destroying) {
-      this.stream.destroy()
-    }
-
-    this._onappend() // Continue execution being closed
-
-    await this._closeCurrent().catch(safetyCatch)
-    await this._closePrevious().catch(safetyCatch)
-
-    const release = await this._lock()
-    release()
-  }
-
-  destroy () {
-    return this.close()
   }
 
   async _closeCurrent () {
-    if (this.currentMapped) await this.currentMapped.close()
-    if (this.current) await this.current.close()
-    this.current = this.currentMapped = null
+    const snap = this.current
+    if (snap) await snap.close()
+    if (snap === this.current) this.current = null
   }
 
   async _closePrevious () {
-    if (this.previousMapped) await this.previousMapped.close()
-    if (this.previous) await this.previous.close()
-    this.previous = this.previousMapped = null
+    const snap = this.previous
+    if (snap) await snap.close()
+    if (snap === this.previous) this.previous = null
   }
 }
 
 function autoFlowOnUpdate (name) {
-  if (name === 'update') this._consume()
-}
-
-function defaultWatchMap (snapshot) {
-  return snapshot
+  if (name === 'update') this.resume()
 }
 
 async function leafSize (node, goLeft) {

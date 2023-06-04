@@ -5,63 +5,86 @@ const SubEncoder = require('sub-encoder')
 
 test('basic getAndWatch append flow', async function (t) {
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
 
-  t.is(watcher.node, null)
+  watcher.resume()
+
+  t.is(watcher.current, null)
 
   await db.put('other', 'key')
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('aKey', 'here')
   await eventFlush()
-  const node = watcher.node
-  t.is(node.value, 'here')
+  const current = watcher.current
+  t.is(current.value, 'here')
 
   await db.put('aKey?', 'not here')
   await eventFlush()
-  t.alike(watcher.node, node)
+  t.alike(watcher.current, current)
 
   await db.put('aKey', 'now here')
   await eventFlush()
-  t.is(watcher.node.value, 'now here')
+  t.is(watcher.current.value, 'now here')
 
   await db.close()
-  t.is(watcher.closed, true)
+  t.is(watcher.destroying, true)
 })
 
 test('current value loaded when getAndWatch resolves', async function (t) {
   const db = create()
   await db.put('aKey', 'here')
 
-  const watcher = await db.getAndWatch('aKey')
-  t.is(watcher.node.value, 'here')
+  const watcher = db.getAndWatch('aKey', { map: (node) => node.value })
+  t.alike(await readOnce(watcher), ['here', null])
 })
 
-test('throws if bee closing while calling getAndWatch', async function (t) {
+test('terminates if bee closing while calling getAndWatch', async function (t) {
+  t.plan(2)
+
   const db = create()
   await db.put('aKey', 'here')
 
   const prom = db.close()
-  await t.exception(db.getAndWatch('aKey'), /Bee closed/)
+  const stream = db.getAndWatch('aKey')
+
+  stream.resume()
+
+  stream.on('error', function () {
+    t.pass('errored')
+  })
+
+  stream.on('close', function () {
+    t.pass('closed')
+  })
 
   await prom
 })
 
-test('throws if bee starts closing before getAndWatch resolves', async function (t) {
+test('terminates if bee starts closing before getAndWatch resolves', async function (t) {
+  t.plan(1)
+
   const db = create()
   await db.put('aKey', 'here')
 
-  const prom = db.getAndWatch('aKey')
+  const stream = db.getAndWatch('aKey')
   const closeProm = db.close()
-  await t.exception(prom, /Bee closed/)
+
+  stream.resume()
+
+  stream.on('close', function () {
+    t.pass('closed')
+  })
 
   await closeProm
 })
 
 test('getAndWatch truncate flow', async function (t) {
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
+
+  watcher.resume()
 
   await db.put('aKey', 'here')
   await db.put('otherKey', 'other1Val')
@@ -73,24 +96,26 @@ test('getAndWatch truncate flow', async function (t) {
   await db.core.truncate(2)
 
   await eventFlush()
-  t.is(watcher.node.value, 'here')
+  t.is(watcher.current.value, 'here')
 
   await db.core.truncate(1)
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('something', 'irrelevant')
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('aKey', 'is back')
   await eventFlush()
-  t.is(watcher.node.value, 'is back')
+  t.is(watcher.current.value, 'is back')
 })
 
 test('getAndWatch truncate flow with deletes', async function (t) {
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
+
+  watcher.resume()
 
   await db.put('aKey', 'here')
   await db.put('otherKey', 'other1Val')
@@ -99,30 +124,30 @@ test('getAndWatch truncate flow with deletes', async function (t) {
   t.is(db.core.length, 5) // Sanity check
 
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.core.truncate(2)
   await eventFlush()
-  t.is(watcher.node.value, 'here')
+  t.is(watcher.current.value, 'here')
 
   await db.core.truncate(1)
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 })
 
-test('getAndWatch emits update', async function (t) {
+test('getAndWatch emits data', async function (t) {
   t.plan(2)
 
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
 
   let first = true
-  watcher.on('update', () => {
+  watcher.on('data', ([current, previous]) => {
     if (first) {
-      t.is(watcher.node.value, 'here')
+      t.is(current.value, 'here')
       first = false
     } else {
-      t.is(watcher.node, null)
+      t.is(current, null)
     }
   })
   await db.put('aKey', 'here')
@@ -130,7 +155,7 @@ test('getAndWatch emits update', async function (t) {
 
   await db.core.truncate(1)
   // updates before closing go through
-  await watcher.close()
+  watcher.destroy()
 
   // After not
   await db.put('aKey', 'back')
@@ -142,22 +167,26 @@ test('getAndWatch with passed key/value encodings', async function (t) {
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
   const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
-  const watcher = await db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
+  const watcher = db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
+
+  watcher.resume()
   t.is(watcher.node, null)
 
   await db.put('entry', 'not in sub')
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('entry', 'in sub', { keyEncoding: sub })
   await eventFlush()
-  t.is(watcher.node.key, 'entry')
-  t.is(watcher.node.value, 'in sub')
+  t.is(watcher.current.key, 'entry')
+  t.is(watcher.current.value, 'in sub')
 })
 
 test('getAndWatch uses the default encodings of the bee', async function (t) {
   const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
-  const watcher = await db.getAndWatch('entry')
+  const watcher = db.getAndWatch('entry')
+
+  watcher.resume()
   t.is(watcher.node, null)
 
   await db.put('entry', { here: 'json' })

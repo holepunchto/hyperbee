@@ -9,6 +9,7 @@ const debounce = require('debounceify')
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
+const { RangeWatchStream, KeyWatchStream } = require('./lib/watch-stream')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 
@@ -406,39 +407,22 @@ class Hyperbee extends ReadyResource {
 
   watch (range, opts) {
     if (!this._watchers) throw new Error('Can only watch the main bee instance')
-    return new Watcher(this, range, opts)
+    return new RangeWatchStream(this, range, opts)
   }
 
-  async getAndWatch (key, opts) {
+  getAndWatch (key, opts) {
     if (!this._watchers) throw new Error('Can only watch the main bee instance')
-
-    const watcher = new EntryWatcher(this, key, opts)
-    await watcher._debouncedUpdate()
-
-    if (this.closing) {
-      await watcher.close()
-      throw new Error('Bee closed')
-    }
-
-    return watcher
+    return new KeyWatchStream(this, key, opts)
   }
 
   _onappend () {
     for (const watcher of this._watchers) {
       watcher._onappend()
     }
-
-    for (const watcher of this._entryWatchers) {
-      watcher._onappend()
-    }
   }
 
   _ontruncate () {
     for (const watcher of this._watchers) {
-      watcher._ontruncate()
-    }
-
-    for (const watcher of this._entryWatchers) {
       watcher._ontruncate()
     }
   }
@@ -448,12 +432,16 @@ class Hyperbee extends ReadyResource {
     return this._checkout <= this.core.length ? this.core.snapshot() : this.core.session()
   }
 
+  session (opts) {
+    return this.checkout(0, opts)
+  }
+
   checkout (version, opts = {}) {
     // same as above, just checkout isn't set yet...
 
     const snap = opts.reuseSession
       ? this
-      : version <= this.core.length ? this.core.snapshot() : this.core.session()
+      : (version > 0 && version <= this.core.length) ? this.core.snapshot() : this.core.session()
 
     return new Hyperbee(snap, {
       _view: true,
@@ -507,12 +495,6 @@ class Hyperbee extends ReadyResource {
 
       for (let i = this._watchers.length - 1; i >= 0; i--) {
         this._watchers[i].destroy()
-      }
-    }
-
-    if (this._entryWatchers) {
-      while (this._entryWatchers.length) {
-        await this._entryWatchers[this._entryWatchers.length - 1].close()
       }
     }
 
@@ -941,262 +923,6 @@ class Batch {
   }
 }
 
-class EntryWatcher extends ReadyResource {
-  constructor (bee, key, opts = {}) {
-    super()
-
-    this.keyEncoding = opts.keyEncoding || bee.keyEncoding
-    this.valueEncoding = opts.valueEncoding || bee.valueEncoding
-
-    this.index = bee._entryWatchers.push(this) - 1
-    this.bee = bee
-
-    this.key = key
-    this.node = null
-
-    this._forceUpdate = false
-    this._debouncedUpdate = debounce(this._processUpdate.bind(this))
-  }
-
-  _close () {
-    const top = this.bee._entryWatchers.pop()
-    if (top !== this) {
-      top.index = this.index
-      this.bee._entryWatchers[top.index] = top
-    }
-  }
-
-  _onappend () {
-    this._debouncedUpdate()
-  }
-
-  _ontruncate () {
-    this._forceUpdate = true
-    this._debouncedUpdate()
-  }
-
-  async _processUpdate () {
-    const force = this._forceUpdate
-    this._forceUpdate = false
-
-    let newNode
-    try {
-      newNode = await this.bee.get(this.key, {
-        keyEncoding: this.keyEncoding,
-        valueEncoding: this.valueEncoding
-      })
-    } catch (e) {
-      if (e.code === 'SNAPSHOT_NOT_AVAILABLE') {
-        // There was a truncate event before the get resolved
-        // So this handler will run again anyway
-        return
-      } else if (this.bee.closing) {
-        this.close().catch(safetyCatch)
-        return
-      }
-      this.emit('error', e)
-      return
-    }
-
-    if (force || newNode?.seq !== this.node?.seq) {
-      this.node = newNode
-      this.emit('update')
-    }
-  }
-}
-
-class Watcher extends Readable {
-  constructor (bee, range, opts = {}) {
-    // no need to buffer future watches, setting hwm to 1 fixes that
-    super({ highWaterMark: 1, signal: opts.signal })
-
-    this.keyEncoding = opts.keyEncoding || bee.keyEncoding
-    this.valueEncoding = opts.valueEncoding || bee.valueEncoding
-    this.index = bee._watchers.push(this) - 1
-    this.bee = bee
-    this.core = bee.core
-    this.opened = null
-
-    this.range = range
-    this.map = opts.map || null
-    this.unmap = opts.unmap || null
-
-    this.current = null
-    this.previous = null
-    this.mapped = null
-    this.stream = null
-
-    this._resolveOnChange = null
-    this._differ = opts.differ || defaultDiffer
-    this._teardown = null
-    this._checkout = opts.checkout || (opts.eager ? 1 : 0)
-
-    this.opened = this._setupInitialSnapshot()
-
-    this.on('newListener', autoFlowOnUpdate)
-  }
-
-  async _setupInitialSnapshot () {
-    if (!this.bee.opened) await this.bee.ready()
-
-    const opts = {
-      keyEncoding: this.keyEncoding,
-      valueEncoding: this.valueEncoding
-    }
-
-    this.current = this._checkout > 0
-      ? this.bee.checkout(this._checkout, opts)
-      : this.bee.snapshot(opts)
-  }
-
-  async _open (cb) {
-    try {
-      await this.opened
-    } catch (err) {
-      return cb(err)
-    }
-
-    cb(null)
-  }
-
-  async _read (cb) {
-    let data = null
-
-    try {
-      data = await this._nextDiff()
-    } catch (err) {
-      return cb(err)
-    }
-
-    if (data) this.push(data)
-    cb(null)
-  }
-
-  _predestroy () {
-    const top = this.bee._watchers.pop()
-    if (top !== this) {
-      top.index = this.index
-      this.bee._watchers[top.index] = top
-    }
-
-    if (this.stream && !this.stream.destroying) {
-      this.stream.destroy()
-    }
-
-    this._onappend() // Continue execution being closed
-
-    if (this.unmap) {
-      this._teardown = this._unmapMaybe()
-    } else {
-      this._teardown = Promise.all([this._closeCurrent(), this._closePrevious()])
-    }
-
-    this._teardown.catch(safetyCatch)
-  }
-
-  async _destroy (cb) {
-    // in case this stream is closing due to non explicit destroy
-    // just trigger it not so have the state setup
-    if (this._teardown === null) this._predestroy()
-
-    try {
-      await this._teardown
-      await this._closePrevious()
-      await this._closeCurrent()
-    } catch (err) {
-      return cb(err)
-    }
-
-    cb(null)
-  }
-
-  _ontruncate () {
-    if (this.core.isAutobase) this._onappend()
-  }
-
-  _onappend () {
-    // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
-    // the better solution is propably just to change non-sparse sessions to not report a fake length
-    if (!this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
-
-    const resolve = this._resolveOnChange
-    this._resolveOnChange = null
-    if (resolve) resolve()
-  }
-
-  async _waitForChanges () {
-    if (this.current.version < this.bee.version || this.destroying) return
-
-    await new Promise(resolve => {
-      this._resolveOnChange = resolve
-    })
-  }
-
-  async _unmapMaybe () {
-    if (this.mapped && this.unmap) {
-      const data = this.mapped
-      this.mapped = null
-      await this.unmap(data)
-    }
-  }
-
-  async _nextDiff () {
-    while (true) {
-      await this._waitForChanges()
-      if (this.destroying) return null
-
-      await this._unmapMaybe()
-
-      await this._closePrevious()
-      this.previous = this.current.snapshot()
-
-      await this._closeCurrent()
-      this.current = this.bee.snapshot({
-        keyEncoding: this.keyEncoding,
-        valueEncoding: this.valueEncoding
-      })
-
-      this.stream = this._differ(this.current, this.previous, this.range)
-
-      try {
-        for await (const data of this.stream) { // eslint-disable-line
-          if (!this.map) {
-            this.emit('update')
-            return [this.current, this.previous]
-          }
-
-          this.mapped = await this.map(this.current, this.previous)
-          if (this.destroying) {
-            await this._unmapMaybe()
-            return null
-          }
-
-          this.emit('update') // legacy
-          return this.mapped
-        }
-      } finally {
-        this.stream = null
-      }
-    }
-  }
-
-  async _closeCurrent () {
-    const snap = this.current
-    if (snap) await snap.close()
-    if (snap === this.current) this.current = null
-  }
-
-  async _closePrevious () {
-    const snap = this.previous
-    if (snap) await snap.close()
-    if (snap === this.previous) this.previous = null
-  }
-}
-
-function autoFlowOnUpdate (name) {
-  if (name === 'update') this.resume()
-}
-
 async function leafSize (node, goLeft) {
   while (node.children.length) node = await node.getChildNode(goLeft ? 0 : node.children.length - 1)
   return node.keys.length
@@ -1357,10 +1083,6 @@ function prefixEncoding (prefix, keyEncoding) {
       return keyEncoding ? keyEncoding.decode(sliced) : sliced
     }
   }
-}
-
-function defaultDiffer (currentSnap, previousSnap, opts) {
-  return currentSnap.createDiffStream(previousSnap.version, opts)
 }
 
 function noop () {}

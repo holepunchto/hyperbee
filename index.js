@@ -1007,7 +1007,8 @@ class EntryWatcher extends ReadyResource {
 
 class Watcher extends Readable {
   constructor (bee, range, opts = {}) {
-    super({ signal: opts.signal })
+    // no need to buffer future watches, setting hwm to 1 fixes that
+    super({ highWaterMark: 1, signal: opts.signal })
 
     this.keyEncoding = opts.keyEncoding || bee.keyEncoding
     this.valueEncoding = opts.valueEncoding || bee.valueEncoding

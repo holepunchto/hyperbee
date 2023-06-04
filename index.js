@@ -4,7 +4,6 @@ const mutexify = require('mutexify/promise')
 const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
-const debounce = require('debounceify')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')

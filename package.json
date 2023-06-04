@@ -11,7 +11,6 @@
   "dependencies": {
     "b4a": "^1.6.0",
     "codecs": "^3.0.0",
-    "debounceify": "^1.0.0",
     "mutexify": "^1.4.0",
     "protocol-buffers-encodings": "^1.2.0",
     "ready-resource": "^1.0.0",

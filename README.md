@@ -279,9 +279,9 @@ You can listen to `entryWatcher.on('update')` to be notified when the value of n
 
 Call `await watcher.close()` to stop the watcher.
 
-#### `const watcher = db.watch([range])`
+#### `const stream = db.watch([range])`
 
-Listens to changes that are on the optional `range`.
+Watch for changes that are on the optional `range`.
 
 `range` options are the same as `db.createReadStream` except for `reverse`.
 
@@ -301,13 +301,9 @@ Don't close those snapshots yourself because they're used internally, let them b
 
 Watchers on subs and checkouts are not supported. Instead, use the range option to limit scope.
 
-`await watcher.ready()`
+`await watcher.opened`
 
-Waits until the watcher is loaded and detecting changes.
-
-`await watcher.close()`
-
-Stops the watcher. You could also stop it by using `break` in the loop.
+Waits until the watcher is loaded and detecting changes, if you explicitly need that.
 
 #### `const snapshot = db.checkout(version)`
 

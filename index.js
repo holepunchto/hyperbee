@@ -431,11 +431,7 @@ class Hyperbee extends ReadyResource {
     return this._checkout <= this.core.length ? this.core.snapshot() : this.core.session()
   }
 
-  session (opts) {
-    return this.checkout(0, opts)
-  }
-
-  checkout (version, opts = {}) {
+  _makeBeeSession (version, opts = {}) {
     // same as above, just checkout isn't set yet...
 
     const snap = opts.reuseSession
@@ -453,6 +449,14 @@ class Hyperbee extends ReadyResource {
       valueEncoding: opts.valueEncoding || this.valueEncoding,
       extension: this.extension !== null ? this.extension : false
     })
+  }
+
+  session (opts) {
+    return this._makeBeeSession(0, opts)
+  }
+
+  checkout (version, opts) {
+    return this._makeBeeSession(version === 0 ? 1 : version, opts)
   }
 
   snapshot (opts) {

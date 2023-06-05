@@ -5,63 +5,86 @@ const SubEncoder = require('sub-encoder')
 
 test('basic getAndWatch append flow', async function (t) {
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
 
-  t.is(watcher.node, null)
+  watcher.resume()
+
+  t.is(watcher.current, null)
 
   await db.put('other', 'key')
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('aKey', 'here')
   await eventFlush()
-  const node = watcher.node
-  t.is(node.value, 'here')
+  const current = watcher.current
+  t.is(current.value, 'here')
 
   await db.put('aKey?', 'not here')
   await eventFlush()
-  t.alike(watcher.node, node)
+  t.alike(watcher.current, current)
 
   await db.put('aKey', 'now here')
   await eventFlush()
-  t.is(watcher.node.value, 'now here')
+  t.is(watcher.current.value, 'now here')
 
   await db.close()
-  t.is(watcher.closed, true)
+  t.is(watcher.destroying, true)
 })
 
 test('current value loaded when getAndWatch resolves', async function (t) {
   const db = create()
   await db.put('aKey', 'here')
 
-  const watcher = await db.getAndWatch('aKey')
-  t.is(watcher.node.value, 'here')
+  const watcher = db.getAndWatch('aKey', { map: (node) => node.value })
+  t.alike(await readOnce(watcher), ['here', null])
 })
 
-test('throws if bee closing while calling getAndWatch', async function (t) {
+test('terminates if bee closing while calling getAndWatch', async function (t) {
+  t.plan(2)
+
   const db = create()
   await db.put('aKey', 'here')
 
   const prom = db.close()
-  await t.exception(db.getAndWatch('aKey'), /Bee closed/)
+  const stream = db.getAndWatch('aKey')
+
+  stream.resume()
+
+  stream.on('error', function () {
+    t.pass('errored')
+  })
+
+  stream.on('close', function () {
+    t.pass('closed')
+  })
 
   await prom
 })
 
-test('throws if bee starts closing before getAndWatch resolves', async function (t) {
+test('terminates if bee starts closing before getAndWatch resolves', async function (t) {
+  t.plan(1)
+
   const db = create()
   await db.put('aKey', 'here')
 
-  const prom = db.getAndWatch('aKey')
+  const stream = db.getAndWatch('aKey')
   const closeProm = db.close()
-  await t.exception(prom, /Bee closed/)
+
+  stream.resume()
+
+  stream.on('close', function () {
+    t.pass('closed')
+  })
 
   await closeProm
 })
 
 test('getAndWatch truncate flow', async function (t) {
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
+
+  watcher.resume()
 
   await db.put('aKey', 'here')
   await db.put('otherKey', 'other1Val')
@@ -73,24 +96,26 @@ test('getAndWatch truncate flow', async function (t) {
   await db.core.truncate(2)
 
   await eventFlush()
-  t.is(watcher.node.value, 'here')
+  t.is(watcher.current.value, 'here')
 
   await db.core.truncate(1)
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('something', 'irrelevant')
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('aKey', 'is back')
   await eventFlush()
-  t.is(watcher.node.value, 'is back')
+  t.is(watcher.current.value, 'is back')
 })
 
 test('getAndWatch truncate flow with deletes', async function (t) {
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
+
+  watcher.resume()
 
   await db.put('aKey', 'here')
   await db.put('otherKey', 'other1Val')
@@ -99,30 +124,30 @@ test('getAndWatch truncate flow with deletes', async function (t) {
   t.is(db.core.length, 5) // Sanity check
 
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.core.truncate(2)
   await eventFlush()
-  t.is(watcher.node.value, 'here')
+  t.is(watcher.current.value, 'here')
 
   await db.core.truncate(1)
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 })
 
-test('getAndWatch emits update', async function (t) {
+test('getAndWatch emits data', async function (t) {
   t.plan(2)
 
   const db = create()
-  const watcher = await db.getAndWatch('aKey')
+  const watcher = db.getAndWatch('aKey')
 
   let first = true
-  watcher.on('update', () => {
+  watcher.on('data', ([current, previous]) => {
     if (first) {
-      t.is(watcher.node.value, 'here')
+      t.is(current.value, 'here')
       first = false
     } else {
-      t.is(watcher.node, null)
+      t.is(current, null)
     }
   })
   await db.put('aKey', 'here')
@@ -130,7 +155,7 @@ test('getAndWatch emits update', async function (t) {
 
   await db.core.truncate(1)
   // updates before closing go through
-  await watcher.close()
+  watcher.destroy()
 
   // After not
   await db.put('aKey', 'back')
@@ -142,22 +167,26 @@ test('getAndWatch with passed key/value encodings', async function (t) {
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
   const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
-  const watcher = await db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
+  const watcher = db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
+
+  watcher.resume()
   t.is(watcher.node, null)
 
   await db.put('entry', 'not in sub')
   await eventFlush()
-  t.is(watcher.node, null)
+  t.is(watcher.current, null)
 
   await db.put('entry', 'in sub', { keyEncoding: sub })
   await eventFlush()
-  t.is(watcher.node.key, 'entry')
-  t.is(watcher.node.value, 'in sub')
+  t.is(watcher.current.key, 'entry')
+  t.is(watcher.current.value, 'in sub')
 })
 
 test('getAndWatch uses the default encodings of the bee', async function (t) {
   const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
-  const watcher = await db.getAndWatch('entry')
+  const watcher = db.getAndWatch('entry')
+
+  watcher.resume()
   t.is(watcher.node, null)
 
   await db.put('entry', { here: 'json' })
@@ -170,10 +199,9 @@ test('basic watch', async function (t) {
   t.plan(2)
 
   const db = create()
+
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
-
-  await watcher.ready()
 
   eventFlush().then(async () => {
     await db.put('/a.txt')
@@ -186,92 +214,23 @@ test('basic watch', async function (t) {
   }
 })
 
-test('basic watch next', async function (t) {
-  t.plan(3)
-
-  const db = create()
-  const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
-
-  db.put('/a') // Run on background
-
-  const { done, value: [current, previous] } = await watcher.next()
-
-  t.is(done, false)
-  t.is(current.version, 2)
-  t.is(previous.version, 1)
-})
-
-test('watch multiple next() on parallel - value', async function (t) {
-  t.plan(9)
-
-  const db = create()
-  const watcher = db.watch()
-  t.teardown(() => watcher.destroy())
-
-  const a = watcher.next()
-  const b = watcher.next()
-  const c = watcher.next()
-
-  db.put('/a') // Run on background
-
-  {
-    const { done, value: [current, previous] } = await a
-
-    t.is(done, false)
-    t.is(current.version, 2)
-    t.is(previous.version, 1)
-  }
-
-  db.put('/b') // Run on background
-
-  {
-    const { done, value: [current, previous] } = await b
-
-    t.is(done, false)
-    t.is(current.version, 3)
-    t.is(previous.version, 2)
-  }
-
-  db.put('/c') // Run on background
-
-  {
-    const { done, value: [current, previous] } = await c
-
-    t.is(done, false)
-    t.is(current.version, 4)
-    t.is(previous.version, 3)
-  }
-})
-
-test('watch multiple next() on parallel - done', async function (t) {
+test('basic watch read', async function (t) {
   t.plan(2)
 
   const db = create()
   const watcher = db.watch()
+  t.teardown(() => watcher.destroy())
 
-  const a = watcher.next()
-  const b = watcher.next()
+  db.put('/a') // Run on background
 
-  await watcher.destroy()
+  const [current, previous] = await readOnce(watcher)
 
-  t.alike(await a, { done: true, value: undefined })
-  t.alike(await b, { done: true, value: undefined })
-})
-
-test('watch next() after is destroyed', async function (t) {
-  t.plan(1)
-
-  const db = create()
-  const watcher = db.watch()
-
-  await watcher.destroy()
-
-  t.alike(await watcher.next(), { done: true, value: undefined })
+  t.is(current.version, 2)
+  t.is(previous.version, 1)
 })
 
 test('watch waits for new change', async function (t) {
-  t.plan(3)
+  t.plan(2)
 
   const db = create()
   await db.put('/a') // Ignore first append (header)
@@ -283,15 +242,14 @@ test('watch waits for new change', async function (t) {
     await db.put('/b') // Run on background
   })
 
-  const { done, value: [current, previous] } = await watcher.next()
+  const [current, previous] = await readOnce(watcher)
 
-  t.is(done, false)
   t.is(current.version, 3)
   t.is(previous.version, 2)
 })
 
 test('watch does not lose changes if next() was not called yet', async function (t) {
-  t.plan(3)
+  t.plan(2)
 
   const db = create()
   await db.put('/a') // Ignore first append (header)
@@ -305,9 +263,8 @@ test('watch does not lose changes if next() was not called yet', async function 
   await db.put('/c')
   await eventFlush()
 
-  const { done, value: [current, previous] } = await watcher.next()
+  const [current, previous] = await readOnce(watcher)
 
-  t.is(done, false)
   t.is(current.version, 4)
   t.is(previous.version, 2)
 })
@@ -323,7 +280,7 @@ test('destroy watch while waiting for a new change', async function (t) {
     await watcher.destroy()
   })
 
-  t.alike(await watcher.next(), { done: true, value: undefined })
+  t.alike(await readOnce(watcher), null)
 })
 
 test('basic watch on range', async function (t) {
@@ -335,10 +292,10 @@ test('basic watch on range', async function (t) {
   t.teardown(() => watcher.destroy())
 
   // + could be simpler but could be a helper for other tests
-  let next = watcher.next()
+  let next = readOnce(watcher)
   let onchange = null
   next.then(data => {
-    next = watcher.next()
+    next = readOnce(watcher)
     onchange(data)
   })
 
@@ -391,13 +348,11 @@ test('watch ready step should not trigger changes if already had entries', async
 
   const watcher = db.watch()
 
-  watcher.next().then(({ done }) => {
-    if (done) {
-      t.pass()
-      return
-    }
-
+  watcher.on('data', function () {
     t.fail('should not trigger changes')
+  })
+  watcher.on('close', function () {
+    t.pass()
   })
 
   await db.ready()
@@ -422,8 +377,7 @@ test('watch without bee.ready() should trigger the correct version changes', asy
   t.is(db.version, 1)
 
   const watcher = db.watch()
-  watcher.next().then(({ value }) => {
-    const [current, previous] = value
+  watcher.once('data', function ([current, previous]) {
     t.is(current.version, 4)
     t.is(previous.version, 3)
   })
@@ -435,58 +389,52 @@ test('watch without bee.ready() should trigger the correct version changes', asy
 })
 
 test('destroy watch (without stream)', async function (t) {
-  t.plan(3)
+  t.plan(1)
 
   const db = create()
 
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
-  watcher.next().then(({ done }) => {
-    if (done) {
-      t.pass()
-      return
-    }
-
+  watcher.on('data', function () {
     t.fail('should not trigger changes')
   })
 
-  t.absent(watcher.closed)
-  await watcher.destroy()
-  t.ok(watcher.closed)
+  watcher.on('close', function () {
+    t.pass()
+  })
+
+  watcher.destroy()
 
   await db.put('/a')
   await eventFlush()
 })
 
 test('destroy watch (with stream)', async function (t) {
-  t.plan(2)
-
   const db = create()
 
   const watcher = db.watch()
 
-  watcher.next().then(async ({ done }) => {
-    if (done) t.fail('should not have been closed')
-
-    t.absent(watcher.closed)
-    await watcher.destroy()
-    t.ok(watcher.closed)
+  let closed = false
+  watcher.on('close', function () {
+    closed = true
   })
 
   await db.put('/a')
+  t.absent(closed)
 })
 
 test('closing bee should destroy watcher', async function (t) {
-  t.plan(2)
+  t.plan(1)
 
   const db = create()
 
   const watcher = db.watch()
+  watcher.on('close', function () {
+    t.pass('watcher closed')
+  })
 
-  t.absent(watcher.closed)
   await db.close()
-  t.ok(watcher.closed)
 })
 
 test('destroy should not trigger stream error', async function (t) {
@@ -499,19 +447,16 @@ test('destroy should not trigger stream error', async function (t) {
 
   const watcher = db.watch()
 
-  watcher.next().then(({ done }) => {
-    if (done) {
-      t.pass()
-      return
-    }
-
+  watcher.on('data', function () {
     t.fail('should not trigger changes')
-  }).catch(err => {
-    t.fail('should not have given error: ' + err)
   })
 
-  db.core.once('append', async function () {
-    await watcher.destroy()
+  watcher.on('close', function (closed) {
+    t.pass()
+  })
+
+  db.core.once('append', function () {
+    watcher.destroy()
   })
 
   await db.put('/b')
@@ -535,9 +480,11 @@ test('close core in the middle of diffing', async function (t) {
 
   const watcher = db.watch()
 
-  watcher.next().then(() => {
-    t.fail('should not trigger changes')
-  }).catch(err => {
+  watcher.on('data', function () {
+    t.fail('should not have any data')
+  })
+
+  watcher.on('error', function (err) {
     t.is(err.code, 'SESSION_CLOSED')
     t.is(watcher.current, null)
     t.is(watcher.previous, null)
@@ -559,9 +506,7 @@ test('create lots of watchers', async function (t) {
 
     watchers.push(watcher)
 
-    watcher.next().then(({ value }) => {
-      const [current, previous] = value
-
+    watcher.once('data', ([current, previous]) => {
       if (!(current.version === 2 && previous.version === 1)) {
         t.fail('wrong versions')
       }
@@ -584,8 +529,8 @@ test('create and destroy lots of watchers', async function (t) {
 
     const watcher = db.watch()
 
-    watcher.next().then(({ done }) => {
-      if (!done) changed = true
+    watcher.once('data', () => {
+      changed = true
     })
 
     await db.put('/a')
@@ -611,13 +556,13 @@ test('can specify own differ', async function (t) {
   })
 
   let defaultChanged = false
-  defaultWatcher.next().then(({ done }) => {
-    if (!done) defaultChanged = true
+  defaultWatcher.once('data', () => {
+    defaultChanged = true
   })
 
   let allChanged = false
-  ignoreAllWatcher.next().then(({ done }) => {
-    if (!done) allChanged = true
+  ignoreAllWatcher.once('data', () => {
+    allChanged = true
   })
 
   await db.put('e2', 'entry2')
@@ -639,7 +584,7 @@ test('slow differ that gets destroyed should not throw', async function (t) {
   await eventFlush()
 
   const flush = eventFlush().then(() => watcher.destroy())
-  await watcher.next()
+  await readOnce(watcher)
   await flush
 
   t.pass()
@@ -648,7 +593,7 @@ test('slow differ that gets destroyed should not throw', async function (t) {
     return {
       async * [Symbol.asyncIterator] () {
         while (true) {
-          if (watcher.closing) throw new Error('Custom stream was destroyed')
+          if (watcher.destroying) throw new Error('Custom stream was destroyed')
           await eventFlush()
         }
       },
@@ -663,7 +608,7 @@ test('watch with passed key/value encodings', async function (t) {
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
   const watcher = db.watch(sub.range(), { keyEncoding: sub, valueEncoding: 'json' })
-  await watcher.ready()
+  await watcher.opened
 
   await db.put('not in sub', 'ignored')
   await db.put('in sub 1', { 'this is': 'yielded' }, { keyEncoding: sub, valueEncoding: 'json' })
@@ -685,7 +630,7 @@ test('watch uses the bee`s encodings by default', async function (t) {
   const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
 
   const watcher = db.watch()
-  await watcher.ready()
+  await watcher.opened
 
   await db.put('entry1', { 'this is': 'entry1' })
   await db.put('entry2', { 'this is': 'entry2' })
@@ -701,3 +646,20 @@ test('watch uses the bee`s encodings by default', async function (t) {
     break
   }
 })
+
+function readOnce (stream) {
+  return new Promise((resolve) => {
+    const data = stream.read()
+    if (data) return resolve(data)
+
+    stream.on('close', onclose)
+    stream.once('readable', function () {
+      stream.removeListener('close', onclose)
+      resolve(stream.read())
+    })
+
+    function onclose () {
+      resolve(null)
+    }
+  })
+}

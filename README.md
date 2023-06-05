@@ -267,21 +267,9 @@ and `right` will be null, and vice versa.
 If the entries are causally equal (i.e. the have the same seq), they are not
 returned, only the diff.
 
-#### `const entryWatcher = await db.getAndWatch(key, [options])`
+#### `const stream = db.watch([range], [options])`
 
-Returns a watcher which listens to changes on the given key.
-
-`entryWatcher.node` contains the current entry in the same format as the result of `bee.get(key)`,  and will be updated as it changes.
-
-By default, the node will have the bee's key- and value encoding, but you can overwrite it by setting the `keyEncoding` and `valueEncoding` options.
-
-You can listen to `entryWatcher.on('update')` to be notified when the value of node has changed.
-
-Call `await watcher.close()` to stop the watcher.
-
-#### `const watcher = db.watch([range])`
-
-Listens to changes that are on the optional `range`.
+Watch for changes that are on the optional `range`.
 
 `range` options are the same as `db.createReadStream` except for `reverse`.
 
@@ -301,13 +289,16 @@ Don't close those snapshots yourself because they're used internally, let them b
 
 Watchers on subs and checkouts are not supported. Instead, use the range option to limit scope.
 
-`await watcher.ready()`
+`await watcher.opened`
 
-Waits until the watcher is loaded and detecting changes.
+Waits until the watcher is loaded and detecting changes, if you explicitly need that.
 
-`await watcher.close()`
+#### `const stream = db.getAndWatch(key, [options])`
 
-Stops the watcher. You could also stop it by using `break` in the loop.
+Similar to above, except it only watches for a single key.
+
+Yields `[currentNode, previousNode]` objects when watch updates. If a node has been deleted,
+it will be null in the array.
 
 #### `const snapshot = db.checkout(version)`
 

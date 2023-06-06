@@ -1033,6 +1033,7 @@ class Watcher extends ReadyResource {
     this._flowing = false
     this._resolveOnChange = null
     this._differ = opts.differ || defaultDiffer
+    this._eager = !!opts.eager
 
     this.on('newListener', autoFlowOnUpdate)
     this.ready().catch(safetyCatch)
@@ -1048,11 +1049,13 @@ class Watcher extends ReadyResource {
   async _open () {
     await this.bee.ready()
 
-    // Point from which to start watching
-    this.current = this.bee.snapshot({
+    const opts = {
       keyEncoding: this.keyEncoding,
       valueEncoding: this.valueEncoding
-    })
+    }
+
+    // Point from which to start watching
+    this.current = this._eager ? this.bee.checkout(1, opts) : this.bee.snapshot(opts)
   }
 
   [Symbol.asyncIterator] () {

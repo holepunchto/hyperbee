@@ -1020,6 +1020,7 @@ class Watcher extends ReadyResource {
     this.core = bee.core
 
     this.latestDiff = 0
+    this._lowestVOfIter = null
     this.range = range
     this.map = opts.map || defaultWatchMap
 
@@ -1056,6 +1057,7 @@ class Watcher extends ReadyResource {
 
     // Point from which to start watching
     this.current = this._eager ? this.bee.checkout(1, opts) : this.bee.snapshot(opts)
+    this._lowestVOfIter = this.current.version
   }
 
   [Symbol.asyncIterator] () {
@@ -1064,7 +1066,11 @@ class Watcher extends ReadyResource {
   }
 
   _ontruncate () {
-    if (this.core.isAutobase) this._onappend()
+    // TODO: check if it's guaranteed to not have incremented by now
+    // Because that would break the assumption that this is the lowest
+    // version to have existed during this iteration
+    this._lowestVOfIter = Math.min(this.bee.version, this._lowestVOfIter)
+    // if (this.core.isAutobase) this._onappend()
   }
 
   _onappend () {
@@ -1118,7 +1124,7 @@ class Watcher extends ReadyResource {
         })
 
         const shouldYield = await shouldWatcherYield(
-          this.current, this.previous, undefined, this._differ, this.range
+          this.current, this.previous, this._lowestVOfIter, this.range
         )
         if (shouldYield) {
           this.currentMapped = this.map(this.current)
@@ -1126,6 +1132,7 @@ class Watcher extends ReadyResource {
           this.emit('update')
           return { done: false, value: [this.currentMapped, this.previousMapped] }
         }
+        this._lowestVOfIter = this.current.version
       }
     } finally {
       release()
@@ -1349,8 +1356,13 @@ function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap.version, opts)
 }
 
-async function shouldWatcherYield (current, previous, lowestVOfIter, differ, range) {
-  const stream = differ(current, previous, range)
+async function shouldWatcherYield (current, previous, lowestVOfIter, range) {
+  const currentMinV = Math.min(current.version, previous.version)
+  if (currentMinV !== lowestVOfIter) {
+    return true // TODO: test which triggers this
+  }
+
+  const stream = defaultDiffer(current, previous, range)
 
   for await (const data of stream) { // eslint-disable-line
     return true

@@ -1117,17 +1117,14 @@ class Watcher extends ReadyResource {
           valueEncoding: this.valueEncoding
         })
 
-        this.stream = this._differ(this.current, this.previous, this.range)
-
-        try {
-          for await (const data of this.stream) { // eslint-disable-line
-            this.currentMapped = this.map(this.current)
-            this.previousMapped = this.map(this.previous)
-            this.emit('update')
-            return { done: false, value: [this.currentMapped, this.previousMapped] }
-          }
-        } finally {
-          this.stream = null
+        const shouldYield = await shouldWatcherYield(
+          this.current, this.previous, undefined, this._differ, this.range
+        )
+        if (shouldYield) {
+          this.currentMapped = this.map(this.current)
+          this.previousMapped = this.map(this.previous)
+          this.emit('update')
+          return { done: false, value: [this.currentMapped, this.previousMapped] }
         }
       }
     } finally {
@@ -1350,6 +1347,16 @@ function prefixEncoding (prefix, keyEncoding) {
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap.version, opts)
+}
+
+async function shouldWatcherYield (current, previous, lowestVOfIter, differ, range) {
+  const stream = differ(current, previous, range)
+
+  for await (const data of stream) { // eslint-disable-line
+    return true
+  }
+
+  return false
 }
 
 function noop () {}

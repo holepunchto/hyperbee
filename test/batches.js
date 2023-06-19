@@ -5,9 +5,15 @@ test('basic batch', async function (t) {
   const db = create()
 
   const b = db.batch()
+  t.absent(b.closing)
+  t.is(b.closed, false)
+
   await b.put('a', '1')
   await b.put('b', '2')
+
   await b.flush()
+  t.ok(b.closing)
+  t.is(b.closed, true)
 
   const all = await collect(db.createReadStream())
 

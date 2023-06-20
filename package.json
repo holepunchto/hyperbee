@@ -16,6 +16,7 @@
     "protocol-buffers-encodings": "^1.2.0",
     "ready-resource": "^1.0.0",
     "safety-catch": "^1.0.2",
+    "same-data": "^1.0.0",
     "streamx": "^2.12.4"
   },
   "devDependencies": {

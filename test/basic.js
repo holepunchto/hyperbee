@@ -1,7 +1,6 @@
 const test = require('brittle')
 const b4a = require('b4a')
 const { create, collect, createCore } = require('./helpers')
-
 const Hyperbee = require('..')
 
 test('out of bounds iterator', async function (t) {
@@ -503,4 +502,40 @@ test('supports encodings in snapshot', async function (t) {
 
   t.alike(await snap1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
   t.alike(await snap2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
+})
+
+test('onlyIfChanged put', async function (t) {
+  {
+    const db = create({ onlyIfChanged: true })
+    await db.ready()
+    await db.put('key', 'value')
+    t.is(db.feed.length, 2)
+    await db.put('key', 'value')
+    t.is(db.feed.length, 2)
+  }
+  {
+    const db = create({ onlyIfChanged: true, valueEncoding: 'binary' })
+    await db.ready()
+    await db.put('key', Buffer.from('buffer'))
+    t.is(db.feed.length, 2)
+    await db.put('key', Buffer.from('buffer'))
+    t.is(db.feed.length, 2)
+  }
+  {
+    const db = create({ onlyIfChanged: true, valueEncoding: 'json' })
+    await db.ready()
+    await db.put('key', { a: 1 })
+    t.is(db.feed.length, 2)
+    await db.put('key', { a: 1 })
+    t.is(db.feed.length, 2)
+  }
+})
+
+test('onlyIfChanged put after del', async function (t) {
+  const db = create({ onlyIfChanged: true })
+  await db.ready()
+  await db.put('key', 'value')
+  await db.del('key')
+  await db.put('key', 'value')
+  t.is(db.feed.length, 4)
 })

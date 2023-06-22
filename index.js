@@ -449,15 +449,16 @@ class Hyperbee extends ReadyResource {
 
   _makeSnapshot () {
     // TODO: better if we could encapsulate this in hypercore in the future
-    return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session()
+    return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
   }
 
   checkout (version, opts = {}) {
-    // same as above, just checkout isn't set yet...
+    if (version < 1) version = 1
 
+    // same as above, just checkout isn't set yet...
     const snap = opts.reuseSession
       ? this.core
-      : (version <= this.core.length || version <= 1) ? this.core.snapshot() : this.core.session()
+      : (version <= this.core.length || version <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
 
     return new Hyperbee(snap, {
       _view: true,

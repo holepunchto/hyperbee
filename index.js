@@ -1123,14 +1123,15 @@ class Watcher extends ReadyResource {
           valueEncoding: this.valueEncoding
         })
 
+        if (this.current.core.fork !== this.previous.core.fork) {
+          return this._yield()
+        }
+
         this.stream = this._differ(this.current, this.previous, this.range)
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            this.currentMapped = this.map(this.current)
-            this.previousMapped = this.map(this.previous)
-            this.emit('update')
-            return { done: false, value: [this.currentMapped, this.previousMapped] }
+            return this._yield()
           }
         } finally {
           this.stream = null
@@ -1139,6 +1140,13 @@ class Watcher extends ReadyResource {
     } finally {
       release()
     }
+  }
+
+  _yield () {
+    this.currentMapped = this.map(this.current)
+    this.previousMapped = this.map(this.previous)
+    this.emit('update')
+    return { done: false, value: [this.currentMapped, this.previousMapped] }
   }
 
   async return () {

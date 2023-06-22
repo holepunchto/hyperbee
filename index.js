@@ -292,6 +292,7 @@ class Hyperbee extends ReadyResource {
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
     this._view = !!opts._view
+    this._updated = false
 
     this._onappendBound = this._view ? null : this._onappend.bind(this)
     this._ontruncateBound = this._view ? null : this._ontruncate.bind(this)
@@ -448,7 +449,7 @@ class Hyperbee extends ReadyResource {
 
   _makeSnapshot () {
     // TODO: better if we could encapsulate this in hypercore in the future
-    return this._checkout <= this.core.length ? this.core.snapshot() : this.core.session()
+    return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session()
   }
 
   checkout (version, opts = {}) {
@@ -456,7 +457,7 @@ class Hyperbee extends ReadyResource {
 
     const snap = opts.reuseSession
       ? this.core
-      : version <= this.core.length ? this.core.snapshot() : this.core.session()
+      : (version <= this.core.length || version <= 1) ? this.core.snapshot() : this.core.session()
 
     return new Hyperbee(snap, {
       _view: true,
@@ -472,7 +473,7 @@ class Hyperbee extends ReadyResource {
   }
 
   snapshot (opts) {
-    return this.checkout(this.version, opts)
+    return this.checkout(Math.max(1, this.version), opts)
   }
 
   sub (prefix, opts = {}) {
@@ -560,6 +561,7 @@ class Batch {
     this.appending = null
     this.isSnapshot = this.core !== this.tree.core
     this.shouldUpdate = this.options.update !== false
+    this.updating = null
     this.encoding = {
       key: options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding,
       value: options.valueEncoding ? codecs(options.valueEncoding) : tree.valueEncoding
@@ -589,7 +591,10 @@ class Batch {
         }))
       }
     }
-    if (this.tree._checkout === 0 && this.shouldUpdate) await this.core.update()
+    if (this.tree._checkout === 0 && this.shouldUpdate) {
+      if (this.updating === null) this.updating = this.core.update()
+      await this.updating
+    }
     if (this.version < 2) return null
     return (await this.getBlock(this.version - 1)).getTreeNode(0)
   }
@@ -1349,7 +1354,7 @@ function prefixEncoding (prefix, keyEncoding) {
 }
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
-  return currentSnap.createDiffStream(previousSnap.version, opts)
+  return currentSnap.createDiffStream(previousSnap, opts)
 }
 
 function noop () {}

@@ -168,13 +168,9 @@ Make a new atomic batch that is either fully processed or not processed at all.
 
 If you have several inserts and deletions then a batch can be much faster.
 
-Batch is snapshotted at creation. Outside writes are not taken into account when reading.
-
 #### `await batch.lock()`
 
-Force acquire the single write lock of the Hyperbee.
-
-Otherwise, it's auto-acquired when you do the first `put` or `del` in a batch.
+Acquire the single write lock of the Hyperbee.
 
 #### `await batch.put(key, [value], [options])`
 

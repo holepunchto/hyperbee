@@ -186,11 +186,11 @@ Delete a key into the batch.
 
 #### `await batch.flush()`
 
-Commit the batch to the database.
+Commit the batch to the database, and releases any locks it has acquired.
 
-#### `batch.destroy()`
+#### `await batch.close()`
 
-Destroy a batch and releases any locks it has aquired on the db.
+Destroy a batch, and releases any locks it has acquired on the db.
 
 Call this if you want to abort a batch without flushing it.
 

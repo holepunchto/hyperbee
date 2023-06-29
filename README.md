@@ -168,6 +168,16 @@ Make a new atomic batch that is either fully processed or not processed at all.
 
 If you have several inserts and deletions then a batch can be much faster.
 
+Batch is snapshotted at creation. Outside writes are not taken into account when reading.
+
+#### `await batch.lock()`
+
+Force acquire the single write lock of the Hyperbee.
+
+Otherwise, it's auto-acquired when you do the first `put` or `del` in a batch.
+
+If lock was somehow acquired, `flush` or `close` the batch so outside writes can be processed.
+
 #### `await batch.put(key, [value], [options])`
 
 Insert a key into a batch.
@@ -186,11 +196,11 @@ Delete a key into the batch.
 
 #### `await batch.flush()`
 
-Commit the batch to the database.
+Commit the batch to the database, and releases any locks it has acquired.
 
-#### `batch.destroy()`
+#### `await batch.close()`
 
-Destroy a batch and releases any locks it has aquired on the db.
+Close a batch, and releases any locks it has acquired on the db.
 
 Call this if you want to abort a batch without flushing it.
 

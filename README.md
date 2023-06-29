@@ -176,8 +176,6 @@ Force acquire the single write lock of the Hyperbee.
 
 Otherwise, it's auto-acquired when you do the first `put` or `del` in a batch.
 
-If lock was somehow acquired, `flush` or `close` the batch so outside writes can be processed.
-
 #### `await batch.put(key, [value], [options])`
 
 Insert a key into a batch.

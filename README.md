@@ -168,10 +168,6 @@ Make a new atomic batch that is either fully processed or not processed at all.
 
 If you have several inserts and deletions then a batch can be much faster.
 
-#### `await batch.lock()`
-
-Acquire the single write lock of the Hyperbee.
-
 #### `await batch.put(key, [value], [options])`
 
 Insert a key into a batch.

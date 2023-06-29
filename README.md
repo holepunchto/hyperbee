@@ -190,7 +190,7 @@ Commit the batch to the database, and releases any locks it has acquired.
 
 #### `await batch.close()`
 
-Close a batch, and releases any locks it has acquired on the db.
+Destroy a batch, and releases any locks it has acquired on the db.
 
 Call this if you want to abort a batch without flushing it.
 

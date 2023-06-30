@@ -19,6 +19,8 @@ const MAX_CHILDREN = MIN_KEYS * 2 + 1
 const SEP = b4a.alloc(1)
 const EMPTY = b4a.alloc(0)
 
+const resolved = Promise.resolve()
+
 class Key {
   constructor (seq, value) {
     this.seq = seq
@@ -1293,11 +1295,11 @@ function iteratorToStream (ite, signal) {
   return rs
 
   function fin (err) {
-    process.nextTick(done, err)
+    resolved.then(() => done(err))
   }
 
   function push (val) {
-    process.nextTick(pushNT, val)
+    resolved.then(() => pushNT(val))
   }
 
   function pushNT (val) {

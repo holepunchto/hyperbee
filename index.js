@@ -5,7 +5,6 @@ const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
-const queueTick = require('queue-tick')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -1294,14 +1293,10 @@ function iteratorToStream (ite, signal) {
   return rs
 
   function fin (err) {
-    queueTick(() => done(err))
+    done(err)
   }
 
   function push (val) {
-    queueTick(() => pushNT(val))
-  }
-
-  function pushNT (val) {
     rs.push(val)
     done(null)
   }

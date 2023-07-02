@@ -1293,14 +1293,10 @@ function iteratorToStream (ite, signal) {
   return rs
 
   function fin (err) {
-    process.nextTick(done, err)
+    done(err)
   }
 
   function push (val) {
-    process.nextTick(pushNT, val)
-  }
-
-  function pushNT (val) {
     rs.push(val)
     done(null)
   }

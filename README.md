@@ -184,45 +184,6 @@ function cas (prev) {
 }
 ```
 
-#### `const done = db.findingPeers()`
-
-Indicate to Hyperbee that you're finding peers in the background, requests will be on hold until this is done.
-
-Call `done()` when your current discovery iteration is done, i.e. after `swarm.flush()` finishes.
-
-#### `const stream = db.replicate(isInitiatorOrStream)`
-
-Usage example:
-```js
-const swarm = new Hyperswarm()
-const done = db.findingPeers()
-swarm.on('connection', (socket) => db.replicate(socket))
-swarm.join(db.discoveryKey)
-swarm.flush().then(done, done)
-```
-
-See more about how replicate works at [core.replicate][core-replicate-docs].
-
-#### `const updated = await db.update([options])`
-
-Waits for initial proof of the new bee version until all `findingPeers` calls has finished.
-
-``` js
-const updated = await db.update()
-
-console.log('db was updated?', updated, 'version is', db.version)
-```
-
-`options` include:
-
-``` js
-{
-  wait: false
-}
-```
-
-Use `db.findingPeers()` or `{ wait: true }` to make `await db.update()` blocking.
-
 #### `const batch = db.batch()`
 
 Make a new atomic batch that is either fully processed or not processed at all.
@@ -418,5 +379,3 @@ Returns `true` if the core contains a Hyperbee, `false` otherwise.
 This requests the first block on the core, so it can throw depending on the options.
 
 `options` are the same as the `core.get` method.
-
-[core-replicate-docs]: https://github.com/holepunchto/hypercore#const-stream--corereplicateisinitiatororreplicationstream

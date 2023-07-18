@@ -7,7 +7,6 @@ const Hyperbee = require('..')
 test('basic properties', async function (t) {
   const db = create()
 
-  t.is(typeof db.findingPeers, 'function')
   t.is(typeof db.replicate, 'function')
 
   t.is(db.id, null)

@@ -338,10 +338,6 @@ class Hyperbee extends ReadyResource {
     return this.core.readable
   }
 
-  findingPeers () {
-    return this.core.findingPeers()
-  }
-
   replicate (isInitiator, opts) {
     return this.core.replicate(isInitiator, opts)
   }

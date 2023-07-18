@@ -184,6 +184,10 @@ function cas (prev) {
 }
 ```
 
+#### `const stream = db.replicate(isInitiatorOrStream)`
+
+See more about how replicate works at [core.replicate][core-replicate-docs].
+
 #### `const batch = db.batch()`
 
 Make a new atomic batch that is either fully processed or not processed at all.
@@ -379,3 +383,5 @@ Returns `true` if the core contains a Hyperbee, `false` otherwise.
 This requests the first block on the core, so it can throw depending on the options.
 
 `options` are the same as the `core.get` method.
+
+[core-replicate-docs]: https://github.com/holepunchto/hypercore#const-stream--corereplicateisinitiatororreplicationstream

@@ -4,6 +4,31 @@ const { create, collect, createCore } = require('./helpers')
 
 const Hyperbee = require('..')
 
+test('basic properties', async function (t) {
+  const db = create()
+
+  t.is(typeof db.replicate, 'function')
+
+  t.is(db.id, null)
+  t.is(db.key, null)
+  t.is(db.discoveryKey, null)
+
+  t.is(db.writable, false)
+  t.is(db.readable, true)
+
+  await db.ready()
+
+  t.is(db.writable, true)
+
+  t.is(db.id.length, 52)
+  t.is(db.key.byteLength, 32)
+  t.is(db.discoveryKey.byteLength, 32)
+
+  t.is(db.id, db.core.id)
+  t.is(db.key, db.core.key)
+  t.is(db.discoveryKey, db.core.discoveryKey)
+})
+
 test('out of bounds iterator', async function (t) {
   const db = create()
 

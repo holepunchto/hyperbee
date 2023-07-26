@@ -11,7 +11,7 @@ const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
-const { BLOCK_NOT_AVAILABLE } = require('hypercore/errors')
+const { BLOCK_NOT_AVAILABLE } = require('hypercore-errors')
 
 const T = 5
 const MIN_KEYS = T - 1

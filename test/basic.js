@@ -487,7 +487,7 @@ test('get header out', async function (t) {
 
 test('isHyperbee throws for empty hypercore and wait false', async function (t) {
   const core = createCore()
-  await t.exception(Hyperbee.isHyperbee(core, { wait: false }), 'Block 0 not available locally')
+  await t.exception(Hyperbee.isHyperbee(core, { wait: false }), 'Block is not available')
 })
 
 test('isHyperbee is false for non-empty hypercore', async function (t) {

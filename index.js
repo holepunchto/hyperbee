@@ -11,6 +11,7 @@ const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
+const { BLOCK_NOT_AVAILABLE } = require('./lib/errors')
 
 const T = 5
 const MIN_KEYS = T - 1
@@ -556,7 +557,7 @@ class Hyperbee extends ReadyResource {
     await core.ready()
 
     const blk0 = await core.get(0, opts)
-    if (blk0 === null) throw new Error('Block 0 not available locally')
+    if (blk0 === null) throw BLOCK_NOT_AVAILABLE()
 
     try {
       return Header.decode(blk0).protocol === 'hyperbee'
@@ -634,7 +635,7 @@ class Batch {
     if (b) return b
     this.onseq(seq)
     const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
-    if (entry === null) throw new Error('Block not available locally')
+    if (entry === null) throw BLOCK_NOT_AVAILABLE()
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
     return b

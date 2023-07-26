@@ -293,7 +293,6 @@ class Hyperbee extends ReadyResource {
     this._sub = !!this.prefix
     this._checkout = opts.checkout || 0
     this._view = !!opts._view
-    this._updated = false
 
     this._onappendBound = this._view ? null : this._onappend.bind(this)
     this._ontruncateBound = this._view ? null : this._ontruncate.bind(this)

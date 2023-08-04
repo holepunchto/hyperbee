@@ -676,16 +676,11 @@ class Batch {
   }
 
   async getBySeq (seq, opts) {
-    if (seq === 0) return this.tree.getHeader(opts)
-
     const encoding = this._getEncoding(opts)
 
     try {
       const block = (await this.getBlock(seq)).final(encoding)
       return { key: block.key, value: block.value }
-    } catch (err) {
-      if (err.code === 'SNAPSHOT_NOT_AVAILABLE') return null
-      throw err
     } finally {
       await this._closeSnapshot()
     }

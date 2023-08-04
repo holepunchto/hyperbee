@@ -532,13 +532,10 @@ test('supports encodings in snapshot', async function (t) {
 
 test('get by seq', async function (t) {
   const db = create()
+
   await db.put('/a', '1')
   await db.put('/b', '2')
 
-  t.alike(await db.getBySeq(0), { protocol: 'hyperbee', metadata: null })
-
   t.alike(await db.getBySeq(1), { key: '/a', value: '1' })
   t.alike(await db.getBySeq(2), { key: '/b', value: '2' })
-
-  t.is(await db.getBySeq(3), null)
 })

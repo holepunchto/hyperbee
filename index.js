@@ -119,11 +119,9 @@ class TreeNode {
       else s = mid + 1
     }
 
-    if (this.keys.length === 0) {
-      if (cas && !(await cas(null, node))) {
-        this.changed = false
-        return true
-      }
+    if (cas && !(await cas(null, node))) {
+      this.changed = false
+      return true
     }
 
     const i = c < 0 ? e : s

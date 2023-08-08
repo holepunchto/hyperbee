@@ -105,7 +105,10 @@ class TreeNode {
     let c
 
     if (e === 0) {
-      if (cas && !(await cas(null, node))) return true
+      if (cas && !(await cas(null, node))) {
+        this.changed = false
+        return true
+      }
     }
 
     while (s < e) {

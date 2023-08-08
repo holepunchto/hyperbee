@@ -38,7 +38,7 @@ test('cas is called when prev does not exists', async function (t) {
   t.alike(await db.get('/a'), { seq: 2, key: '/a', value: '2' })
 })
 
-test.solo('cas is respected when prev does not exists', async function (t) {
+test('cas is respected when prev does not exists', async function (t) {
   t.plan(6)
 
   const db = create()

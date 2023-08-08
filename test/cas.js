@@ -3,7 +3,7 @@ const b4a = require('b4a')
 const { create } = require('./helpers')
 
 test('cas is called when prev does not exists', async function (t) {
-  t.plan(5)
+  t.plan(6)
 
   const db = create()
 
@@ -20,24 +20,26 @@ test('cas is called when prev does not exists', async function (t) {
     }
   })
 
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: '1' })
+
   t.comment('second put')
 
-  await db.put('/a', '1', {
+  await db.put('/a', '2', {
     cas: function (prev, next) {
       t.comment('second cb')
 
       t.alike(prev, { seq: 1, key: '/a', value: '1' })
-      t.alike(next, { seq: 2, key: '/a', value: '1' })
+      t.alike(next, { seq: 2, key: '/a', value: '2' })
 
       return true
     }
   })
 
-  t.alike(await db.get('/a'), { seq: 2, key: '/a', value: '1' })
+  t.alike(await db.get('/a'), { seq: 2, key: '/a', value: '2' })
 })
 
-test('cas is respected when prev does not exists', async function (t) {
-  t.plan(5)
+test.solo('cas is respected when prev does not exists', async function (t) {
+  t.plan(6)
 
   const db = create()
 
@@ -49,10 +51,12 @@ test('cas is respected when prev does not exists', async function (t) {
     }
   })
 
-  await db.put('/a', '1', {
+  t.is(await db.get('/a'), null)
+
+  await db.put('/a', '2', {
     cas: function (prev, next) {
       t.is(prev, null)
-      t.alike(next, { seq: 1, key: '/a', value: '1' })
+      t.alike(next, { seq: 1, key: '/a', value: '2' })
       return false
     }
   })

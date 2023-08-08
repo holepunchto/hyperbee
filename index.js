@@ -774,6 +774,8 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
+    if (!node.block && cas && !(await cas(null, newNode))) return this._unlockMaybe()
+
     let needsSplit = !(await node.insertKey(target, null, newNode, encoding, cas))
     if (!node.changed) return this._unlockMaybe()
 

@@ -104,13 +104,6 @@ class TreeNode {
     let e = this.keys.length
     let c
 
-    if (e === 0) {
-      if (cas && !(await cas(null, node))) {
-        this.changed = false
-        return true
-      }
-    }
-
     while (s < e) {
       const mid = (s + e) >> 1
       c = b4a.compare(key.value, await this.getKey(mid))
@@ -124,6 +117,13 @@ class TreeNode {
 
       if (c < 0) e = mid
       else s = mid + 1
+    }
+
+    if (this.keys.length === 0) {
+      if (cas && !(await cas(null, node))) {
+        this.changed = false
+        return true
+      }
     }
 
     const i = c < 0 ? e : s

@@ -104,6 +104,10 @@ class TreeNode {
     let e = this.keys.length
     let c
 
+    if (e === 0) {
+      if (cas && !(await cas(null, node))) return true
+    }
+
     while (s < e) {
       const mid = (s + e) >> 1
       c = b4a.compare(key.value, await this.getKey(mid))
@@ -773,8 +777,6 @@ class Batch {
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
     }
-
-    if (!node.block && cas && !(await cas(null, newNode))) return this._unlockMaybe()
 
     let needsSplit = !(await node.insertKey(target, null, newNode, encoding, cas))
     if (!node.changed) return this._unlockMaybe()

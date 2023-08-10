@@ -418,6 +418,11 @@ class Hyperbee extends ReadyResource {
     return b.get(key)
   }
 
+  getBySeq (seq, opts) {
+    const b = new Batch(this, this._makeSnapshot(), null, true, opts)
+    return b.getBySeq(seq)
+  }
+
   put (key, value, opts) {
     const b = new Batch(this, this.core, null, true, opts)
     return b.put(key, value, opts)
@@ -668,6 +673,17 @@ class Batch {
   createReadStream (range, opts) {
     const signal = (opts && opts.signal) || null
     return iteratorToStream(this.createRangeIterator(range, opts), signal)
+  }
+
+  async getBySeq (seq, opts) {
+    const encoding = this._getEncoding(opts)
+
+    try {
+      const block = (await this.getBlock(seq)).final(encoding)
+      return { key: block.key, value: block.value }
+    } finally {
+      await this._closeSnapshot()
+    }
   }
 
   async get (key, opts) {

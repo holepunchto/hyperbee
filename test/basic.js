@@ -529,3 +529,13 @@ test('supports encodings in snapshot', async function (t) {
   t.alike(await snap1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
   t.alike(await snap2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
 })
+
+test('get by seq', async function (t) {
+  const db = create()
+
+  await db.put('/a', '1')
+  await db.put('/b', '2')
+
+  t.alike(await db.getBySeq(1), { key: '/a', value: '1' })
+  t.alike(await db.getBySeq(2), { key: '/b', value: '2' })
+})

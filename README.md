@@ -184,6 +184,12 @@ function cas (prev) {
 }
 ```
 
+#### `const { key, value } = await db.getBySeq(seq, [options])`
+
+Get the key and value from a block number.
+
+`seq` is the Hypercore index. Returns `null` if block doesn't exists.
+
 #### `const stream = db.replicate(isInitiatorOrStream)`
 
 See more about how replicate works at [core.replicate][core-replicate-docs].

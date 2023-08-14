@@ -116,14 +116,16 @@ If you're inserting a series of data atomically or want more performance then ch
 `options` includes:
 ```js
 {
-  cas (prev, next) { return true }
+  cas (prev, next) { return next }
 }
 ```
 
 ##### Compare And Swap (cas)
 `cas` option is a function comparator to control whether the `put` succeeds.
 
-By returning `true` it will insert the value, otherwise it won't.
+By returning `next` it will insert the value, otherwise it won't.
+
+It's allowed to change `next.value` only.
 
 It receives two args: `prev` is the current node entry, and `next` is the potential new node.
 
@@ -140,7 +142,7 @@ console.log(await db.get('number')) // => { seq: 2, key: 'number', value: '456' 
 
 function cas (prev, next) {
   // You can use same-data or same-object lib, depending on the value complexity
-  return prev.value !== next.value
+  return prev.value !== next.value ? next : prev
 }
 ```
 
@@ -157,7 +159,7 @@ Delete a key.
 `options` include:
 ```js
 {
-  cas (prev, next) { return true }
+  cas (prev, next) { return next }
 }
 ```
 
@@ -180,7 +182,7 @@ await db.del('number', { cas })
 console.log(await db.get('number')) // => null
 
 function cas (prev) {
-  return prev.value === 'can-be-deleted'
+  return prev.value === 'can-be-deleted' ? next : prev
 }
 ```
 

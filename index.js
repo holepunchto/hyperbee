@@ -109,7 +109,10 @@ class TreeNode {
       c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
-        if (cas && !(await cas((await this.getKeyNode(mid)).final(encoding), node))) return true
+        const older = (await this.getKeyNode(mid)).final(encoding)
+        const swap = cas ? (await cas(older, node)) : null
+        if (cas && (!swap || swap === older)) return true
+
         this.changed = true
         this.keys[mid] = key
         return true
@@ -764,7 +767,9 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), newNode))) return this._unlockMaybe()
+          const older = (await node.getKeyNode(mid)).final(encoding)
+          const swap = cas ? (await cas(older, newNode)) : null
+          if (cas && (!swap || swap === older)) return this._unlockMaybe()
 
           node.setKey(mid, target)
           return this._append(root, seq, key, enc(encoding.value, newNode.value))

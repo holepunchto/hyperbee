@@ -741,7 +741,6 @@ class Batch {
       value
     }
     key = enc(encoding.key, key)
-    value = enc(encoding.value, value)
 
     const stack = []
 
@@ -768,7 +767,7 @@ class Batch {
           if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), newNode))) return this._unlockMaybe()
 
           node.setKey(mid, target)
-          return this._append(root, seq, key, value)
+          return this._append(root, seq, key, enc(encoding.value, newNode.value))
         }
 
         if (c < 0) e = mid
@@ -798,7 +797,7 @@ class Batch {
       }
     }
 
-    return this._append(root, seq, key, value)
+    return this._append(root, seq, key, enc(encoding.value, newNode.value))
   }
 
   async del (key, opts) {

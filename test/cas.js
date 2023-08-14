@@ -76,6 +76,32 @@ test('cas - swap but keep older one', async function (t) {
   t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 0 })
 })
 
+test('cas - swap deletion', async function (t) {
+  const db = create({ valueEncoding: 'json' })
+
+  await db.put('/a', 0)
+
+  await db.del('/a', {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 1, key: '/a', value: 0 })
+      t.alike(next, { seq: 2, key: '/a', value: null })
+      return prev
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 0 })
+
+  await db.del('/a', {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 1, key: '/a', value: 0 })
+      t.alike(next, { seq: 2, key: '/a', value: null })
+      return next
+    }
+  })
+
+  t.alike(await db.get('/a'), null)
+})
+
 test('cas is called when prev does not exists', async function (t) {
   t.plan(6)
 

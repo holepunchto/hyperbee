@@ -848,7 +848,10 @@ class Batch {
         c = b4a.compare(key, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), delNode))) return this._unlockMaybe()
+          const older = (await node.getKeyNode(mid)).final(encoding)
+          const swap = cas ? (await cas(older, delNode)) : null
+          if (cas && (!swap || swap === older)) return this._unlockMaybe()
+
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)
           // we mark these as changed late, so we don't rewrite them if it is a 404

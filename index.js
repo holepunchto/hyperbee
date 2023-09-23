@@ -109,9 +109,11 @@ class TreeNode {
       c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
-        const older = (await this.getKeyNode(mid)).final(encoding)
-        const swap = cas ? (await cas(older, node)) : null
-        if (cas && (!swap || swap === older)) return true
+        if (cas) {
+          const older = (await this.getKeyNode(mid)).final(encoding)
+          const swap = await cas(older, node)
+          if (!swap || swap === older) return true
+        }
 
         this.changed = true
         this.keys[mid] = key
@@ -767,12 +769,16 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          const older = (await node.getKeyNode(mid)).final(encoding)
-          const swap = cas ? (await cas(older, newNode)) : null
-          if (cas && (!swap || swap === older)) return this._unlockMaybe()
+          if (cas) {
+            const older = (await node.getKeyNode(mid)).final(encoding)
+            const swap = await cas(older, newNode)
+            if (!swap || swap === older) return this._unlockMaybe()
+          }
 
           node.setKey(mid, target)
-          return this._append(root, seq, key, enc(encoding.value, newNode.value))
+
+          const valueEncoded = enc(encoding.value, newNode.value)
+          return this._append(root, seq, key, valueEncoded)
         }
 
         if (c < 0) e = mid
@@ -802,7 +808,8 @@ class Batch {
       }
     }
 
-    return this._append(root, seq, key, enc(encoding.value, newNode.value))
+    const valueEncoded = enc(encoding.value, newNode.value)
+    return this._append(root, seq, key, valueEncoded)
   }
 
   async del (key, opts) {
@@ -848,9 +855,11 @@ class Batch {
         c = b4a.compare(key, await node.getKey(mid))
 
         if (c === 0) {
-          const older = (await node.getKeyNode(mid)).final(encoding)
-          const swap = cas ? (await cas(older, delNode)) : null
-          if (cas && (!swap || swap === older)) return this._unlockMaybe()
+          if (cas) {
+            const older = (await node.getKeyNode(mid)).final(encoding)
+            const swap = await cas(older, delNode)
+            if (!swap || swap === older) return this._unlockMaybe()
+          }
 
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)

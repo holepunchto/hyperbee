@@ -233,6 +233,10 @@ class BlockEntry {
     this.value = entry.value
   }
 
+  isTarget (key) {
+    return b4a.equals(this.key, key)
+  }
+
   isDeletion () {
     if (this.value !== null) return false
 
@@ -266,6 +270,10 @@ class BatchEntry extends BlockEntry {
   constructor (seq, tree, key, value, index) {
     super(seq, tree, { key, value, index: null })
     this.pendingIndex = index
+  }
+
+  isTarget (key) {
+    return false
   }
 
   getTreeNode (offset) {
@@ -703,10 +711,15 @@ class Batch {
       this.options.onwait = this._onwait.bind(this, key)
     }
 
-    let node = await this.getRoot(false)
-    if (!node) return null
+    const root = await this.getRoot(false)
+    if (!root) return null
+    let node = root
 
     while (true) {
+      if (node.block.isTarget(key)) {
+        return (node === root && node.block.isDeletion()) ? null : node.block.final(encoding)
+      }
+
       let s = 0
       let e = node.keys.length
       let c

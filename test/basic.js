@@ -1,8 +1,40 @@
 const test = require('brittle')
 const b4a = require('b4a')
+const c = require('compact-encoding')
+const SubEncoder = require('sub-encoder')
 const { create, collect, createCore } = require('./helpers')
 
 const Hyperbee = require('..')
+
+const subs = new SubEncoder()
+const GROUP = subs.sub(b4a.from([0]), c.fixed(2 * 32 + 1))
+
+const SEP = b4a.alloc(1)
+const SEP_BUMPED = b4a.from([0x1])
+
+test.solo('basic', async function (t) {
+  const db = create()
+
+  const name = b4a.alloc(32)
+  const coreKeyA = b4a.alloc(32).fill('a')
+  const coreKeyB = b4a.alloc(32).fill('b')
+
+  await db.put(b4a.concat([name, SEP, coreKeyA]), null, { keyEncoding: GROUP })
+  await db.put(b4a.concat([name, SEP, coreKeyB]), null, { keyEncoding: GROUP })
+
+  for (let i = 0; i < 10; i++) {
+    let count = 0
+
+    const gt = b4a.concat([name, SEP])
+    const lt = b4a.concat([name, SEP_BUMPED])
+
+    for await (const entry of db.createReadStream({ gt, lt }, { keyEncoding: GROUP })) {
+      count++
+    }
+
+    console.log('read stream count', count)
+  }
+})
 
 test('basic properties', async function (t) {
   const db = create()

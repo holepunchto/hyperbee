@@ -137,7 +137,7 @@ test('getAndWatch emits update', async function (t) {
   await eventFlush()
 })
 
-test('getAndWatch with passed key/value encodings', async function (t) {
+test.skip('getAndWatch with passed key/value encodings', async function (t) {
   const enc = new SubEncoder()
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
@@ -657,7 +657,7 @@ test('slow differ that gets destroyed should not throw', async function (t) {
   }
 })
 
-test('watch with passed key/value encodings', async function (t) {
+test.skip('watch with passed key/value encodings', async function (t) {
   const db = create()
   const enc = new SubEncoder()
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })

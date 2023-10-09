@@ -28,7 +28,7 @@ test.solo('basic', async function (t) {
     const gt = b4a.concat([name, SEP])
     const lt = b4a.concat([name, SEP_BUMPED])
 
-    for await (const entry of db.createReadStream({ gt, lt }, { keyEncoding: GROUP })) {
+    for await (const entry of db.createReadStream({ gt, lt }, { keyEncoding: GROUP })) { // eslint-disable-line no-unused-vars
       count++
     }
 

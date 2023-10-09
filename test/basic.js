@@ -33,6 +33,7 @@ test.solo('basic', async function (t) {
     }
 
     console.log('read stream count', count)
+    t.is(count, 2)
   }
 })
 

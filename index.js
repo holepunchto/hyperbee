@@ -711,13 +711,12 @@ class Batch {
       this.options.onwait = this._onwait.bind(this, key)
     }
 
-    const root = await this.getRoot(false)
-    if (!root) return null
-    let node = root
+    let node = await this.getRoot(false)
+    if (!node) return null
 
     while (true) {
       if (node.block.isTarget(key)) {
-        return (node === root && node.block.isDeletion()) ? null : node.block.final(encoding)
+        return node.block.isDeletion() ? null : node.block.final(encoding)
       }
 
       let s = 0

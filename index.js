@@ -216,6 +216,14 @@ class TreeNode {
     return offset
   }
 
+  updateChildren (seq, block) {
+    for (const child of this.children) {
+      if (!child.value || child.seq !== seq) continue
+      child.value.block = block
+      child.value.updateChildren(seq, block)
+    }
+  }
+
   static create (block) {
     const node = new TreeNode(block, [], [], 0)
     node.changed = true
@@ -980,10 +988,12 @@ class Batch {
 
     if (!this.autoFlush) {
       const block = new BatchEntry(seq, this, key, value, index)
-      if (!root.block) root.block = block
+      root.block = block
       this.root = root
       this.length++
       this.blocks.set(seq, block)
+
+      root.updateChildren(seq, block)
       return
     }
 

@@ -284,3 +284,72 @@ test('batches close when instance closes', async function (t) {
 
   await d.close()
 })
+
+test('batches simple support read after write', async function (t) {
+  const db = create()
+
+  await db.put('test', '#0')
+
+  const batch = db.batch()
+
+  await batch.put('test', 'a')
+  const node = await batch.get('test')
+
+  t.is(node.value, 'a')
+})
+
+test('batches simple support read after write with multiple writes', async function (t) {
+  const db = create()
+
+  await db.put('test-0', '#0')
+  await db.put('test-1', '#1')
+  await db.put('test-2', '#1')
+
+  const batch = db.batch()
+
+  await batch.put('test-0', 'a')
+  t.is((await batch.get('test-0')).value, 'a')
+
+  await batch.put('test-1', 'b')
+  t.is((await batch.get('test-1')).value, 'b')
+
+  await batch.put('test-2', 'c')
+  t.is((await batch.get('test-2')).value, 'c')
+})
+
+test('batches support lots of read after write', async function (t) {
+  const db = create()
+
+  for (let i = 0; i < 1000; i++) {
+    await db.put('#' + i, '#' + i)
+  }
+
+  const batch = db.batch()
+
+  for (let i = 0; i < 1000; i++) {
+    await batch.put('#' + i, '*#' + i)
+
+    if ((await batch.get('#' + i)).value !== '*#' + i) {
+      t.fail('inconsistent batch read at #' + i)
+      return
+    }
+  }
+
+  for (let i = 0; i < 1000; i++) {
+    if ((await batch.get('#' + i)).value !== '*#' + i) {
+      t.fail('inconsistent batch read at #' + i + ' after all puts')
+      return
+    }
+  }
+
+  const all = new Set()
+  for await (const data of batch.createReadStream()) {
+    if (data.value !== '*' + data.key) {
+      t.fail('inconsistent stream key at ' + data.key)
+      return
+    }
+    all.add(data.value)
+  }
+
+  t.is(all.size, 1000)
+})

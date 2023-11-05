@@ -306,6 +306,7 @@ class Hyperbee extends ReadyResource {
     this._ontruncateBound = this._view ? null : this._ontruncate.bind(this)
     this._watchers = this._onappendBound ? [] : null
     this._entryWatchers = this._onappendBound ? [] : null
+    this._sessions = opts.sessions !== false
 
     this._batches = []
 
@@ -485,6 +486,7 @@ class Hyperbee extends ReadyResource {
   }
 
   _makeSnapshot () {
+    if (this._sessions === false) return this.core
     // TODO: better if we could encapsulate this in hypercore in the future
     return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
   }
@@ -493,7 +495,7 @@ class Hyperbee extends ReadyResource {
     if (version < 1) version = 1
 
     // same as above, just checkout isn't set yet...
-    const snap = opts.reuseSession
+    const snap = (opts.reuseSession || this._sessions === false)
       ? this.core
       : (version <= this.core.length || version <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
 
@@ -897,7 +899,7 @@ class Batch {
     if (this.isSnapshot) return this._closeSnapshot()
 
     this.root = null
-    this.blocks.clear()
+    if (this.blocks) this.blocks.clear()
     this.length = 0
     this._unlock()
   }

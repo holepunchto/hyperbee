@@ -97,6 +97,27 @@ class TreeNode {
     this.keys = keys
     this.children = children
     this.changed = false
+
+    this.preload()
+  }
+
+  preload () {
+    const core = this.block.tree.core
+    const missing = []
+    for (let i = 0; i < this.keys.length; i++) {
+      const k = this.keys[i]
+      if (k.value) continue
+      if (core.bitfield.get(k.seq)) continue
+      missing.push(k.seq)
+    }
+    for (let i = 0; i < this.children.length; i++) {
+      const c = this.children[i]
+      if (c.value) continue
+      if (core.bitfield.get(c.seq)) continue
+      missing.push(c.seq)
+    }
+
+    if (missing.length) core.download({ blocks: missing })
   }
 
   async insertKey (key, child, node, encoding, cas) {

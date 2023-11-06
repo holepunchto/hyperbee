@@ -102,18 +102,22 @@ class TreeNode {
   }
 
   preload () {
-    const core = this.block.tree.core
+    if (this.block === null) return
+
+    const core = getBackingCore(this.block.tree.core)
+    const bitfield = core.core.bitfield
+
     const missing = []
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
-      if (core.bitfield.get(k.seq)) continue
+      if (k.seq >= core.length || bitfield.get(k.seq)) continue
       missing.push(k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
-      if (core.bitfield.get(c.seq)) continue
+      if (c.seq >= core.length || bitfield.get(c.seq)) continue
       missing.push(c.seq)
     }
 
@@ -1435,6 +1439,12 @@ function prefixEncoding (prefix, keyEncoding) {
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
+}
+
+function getBackingCore (core) {
+  if (core._source) return core._source.originalCore
+  if (core.flush) return core.session
+  return core
 }
 
 function noop () {}

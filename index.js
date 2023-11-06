@@ -97,6 +97,31 @@ class TreeNode {
     this.keys = keys
     this.children = children
     this.changed = false
+
+    this.preload()
+  }
+
+  preload () {
+    if (this.block === null) return
+
+    const core = getBackingCore(this.block.tree.core)
+    const bitfield = core.core.bitfield
+
+    const missing = []
+    for (let i = 0; i < this.keys.length; i++) {
+      const k = this.keys[i]
+      if (k.value) continue
+      if (k.seq >= core.length || bitfield.get(k.seq)) continue
+      missing.push(k.seq)
+    }
+    for (let i = 0; i < this.children.length; i++) {
+      const c = this.children[i]
+      if (c.value) continue
+      if (c.seq >= core.length || bitfield.get(c.seq)) continue
+      missing.push(c.seq)
+    }
+
+    if (missing.length) core.download({ blocks: missing })
   }
 
   async insertKey (key, child, node, encoding, cas) {
@@ -1414,6 +1439,12 @@ function prefixEncoding (prefix, keyEncoding) {
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
+}
+
+function getBackingCore (core) {
+  if (core._source) return core._source.originalCore
+  if (core.flush) return core.session
+  return core
 }
 
 function noop () {}

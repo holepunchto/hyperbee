@@ -134,7 +134,15 @@ class TreeNode {
       c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
-        if (cas && !(await cas((await this.getKeyNode(mid)).final(encoding), node))) return true
+        const putSameValue = this.block.tree.tree.putSameValue
+        if (cas || !putSameValue) {
+          const prev = await this.getKeyNode(mid)
+          if (cas && !(await cas(prev.final(encoding), node))) return true
+          if (!putSameValue && prev) {
+            const nextValue = enc(encoding.value, node.value)
+            if (b4a.equals(prev.value, nextValue)) return true
+          }
+        }
         this.changed = true
         this.keys[mid] = key
         return true
@@ -320,6 +328,7 @@ class Hyperbee extends ReadyResource {
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
     this.readonly = !!opts.readonly
+    this.putSameValue = opts.putSameValue !== false
     this.prefix = opts.prefix || null
 
     this._unprefixedKeyEncoding = this.keyEncoding
@@ -815,7 +824,11 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), newNode))) return this._unlockMaybe()
+          if (cas || !this.tree.putSameValue) {
+            const prev = await node.getKeyNode(mid)
+            if (cas && !(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
+            if (!this.tree.putSameValue && prev && b4a.equals(prev.value, value)) return this._unlockMaybe()
+          }
 
           node.setKey(mid, target)
           return this._append(root, seq, key, value)

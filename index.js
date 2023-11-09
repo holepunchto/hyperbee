@@ -134,14 +134,12 @@ class TreeNode {
       c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
-        const putSameValue = this.block.tree.tree.putSameValue
-        if (cas || !putSameValue) {
+        if (cas) {
           const prev = await this.getKeyNode(mid)
           if (cas && !(await cas(prev.final(encoding), node))) return true
-          if (!putSameValue && prev) {
-            const nextValue = enc(encoding.value, node.value)
-            if (b4a.equals(prev.value, nextValue)) return true
-          }
+        } else if (!this.block.tree.tree.putSameValue) {
+          const prev = await this.getKeyNode(mid)
+          if (prev && b4a.equals(prev.value, enc(encoding.value, node.value))) return true
         }
         this.changed = true
         this.keys[mid] = key
@@ -824,12 +822,13 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas || !this.tree.putSameValue) {
+          if (cas) {
             const prev = await node.getKeyNode(mid)
             if (cas && !(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
-            if (!this.tree.putSameValue && prev && b4a.equals(prev.value, value)) return this._unlockMaybe()
+          } else if (!this.tree.putSameValue) {
+            const prev = await node.getKeyNode(mid)
+            if (prev && b4a.equals(prev.value, value)) return this._unlockMaybe()
           }
-
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
         }

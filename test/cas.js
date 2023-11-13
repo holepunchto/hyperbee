@@ -2,6 +2,168 @@ const test = require('brittle')
 const b4a = require('b4a')
 const { create } = require('./helpers')
 
+test('cas - swap with a new value', async function (t) {
+  const db = create({ valueEncoding: 'json' })
+
+  await db.put('/a', 0, {
+    cas: function (prev, next) {
+      t.is(prev, null)
+      t.alike(next, { seq: 1, key: '/a', value: 0 })
+      return next
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 0 })
+
+  await db.put('/a', 99, {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 1, key: '/a', value: 0 })
+      t.alike(next, { seq: 2, key: '/a', value: 99 })
+      next.value = prev.value + 1 // Overwrites so it's not 99 anymore
+      return next
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 2, key: '/a', value: 1 })
+
+  await db.put('/a', 99, {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 2, key: '/a', value: 1 })
+      t.alike(next, { seq: 3, key: '/a', value: 99 })
+      next.value = prev.value + 1
+      return next
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 3, key: '/a', value: 2 })
+})
+
+test('cas - should not swap', async function (t) {
+  t.plan(4)
+
+  const db = create({ valueEncoding: 'json' })
+
+  await db.put('/a', 1)
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 1 })
+
+  await db.put('/a', 2, {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 1, key: '/a', value: 1 })
+      t.alike(next, { seq: 2, key: '/a', value: 2 })
+      return null
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 1 })
+})
+
+test('cas - swap but keep older one', async function (t) {
+  const db = create({ valueEncoding: 'json' })
+
+  await db.put('/a', 0)
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 0 })
+
+  await db.put('/a', 99, {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 1, key: '/a', value: 0 })
+      t.alike(next, { seq: 2, key: '/a', value: 99 })
+      return prev
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 0 })
+})
+
+test('cas - swap deletion', async function (t) {
+  const db = create({ valueEncoding: 'json' })
+
+  await db.put('/a', 0)
+
+  await db.del('/a', {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 1, key: '/a', value: 0 })
+      t.alike(next, { seq: 2, key: '/a', value: null })
+      return prev
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: 0 })
+
+  await db.del('/a', {
+    cas: function (prev, next) {
+      t.alike(prev, { seq: 1, key: '/a', value: 0 })
+      t.alike(next, { seq: 2, key: '/a', value: null })
+      return next
+    }
+  })
+
+  t.alike(await db.get('/a'), null)
+})
+
+test('cas is called when prev does not exists', async function (t) {
+  t.plan(6)
+
+  const db = create()
+
+  t.comment('first put')
+
+  await db.put('/a', '1', {
+    cas: function (prev, next) {
+      t.comment('first cb')
+
+      t.is(prev, null)
+      t.alike(next, { seq: 1, key: '/a', value: '1' })
+
+      return true
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 1, key: '/a', value: '1' })
+
+  t.comment('second put')
+
+  await db.put('/a', '2', {
+    cas: function (prev, next) {
+      t.comment('second cb')
+
+      t.alike(prev, { seq: 1, key: '/a', value: '1' })
+      t.alike(next, { seq: 2, key: '/a', value: '2' })
+
+      return true
+    }
+  })
+
+  t.alike(await db.get('/a'), { seq: 2, key: '/a', value: '2' })
+})
+
+test('cas is respected when prev does not exists', async function (t) {
+  t.plan(6)
+
+  const db = create()
+
+  await db.put('/a', '1', {
+    cas: function (prev, next) {
+      t.is(prev, null)
+      t.alike(next, { seq: 1, key: '/a', value: '1' })
+      return false
+    }
+  })
+
+  t.is(await db.get('/a'), null)
+
+  await db.put('/a', '2', {
+    cas: function (prev, next) {
+      t.is(prev, null)
+      t.alike(next, { seq: 1, key: '/a', value: '2' })
+      return false
+    }
+  })
+
+  t.is(await db.get('/a'), null)
+})
+
 test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'

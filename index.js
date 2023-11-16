@@ -124,7 +124,7 @@ class TreeNode {
     if (missing.length) core.download({ blocks: missing })
   }
 
-  async insertKey (key, child, node, encoding, cas) {
+  async insertKey (key, value, child, node, encoding, cas) {
     let s = 0
     let e = this.keys.length
     let c
@@ -134,7 +134,14 @@ class TreeNode {
       c = b4a.compare(key.value, await this.getKey(mid))
 
       if (c === 0) {
-        if (cas && !(await cas((await this.getKeyNode(mid)).final(encoding), node))) return true
+        if (cas) {
+          const prev = await this.getKeyNode(mid)
+          if (!(await cas(prev.final(encoding), node))) return true
+        }
+        if (!this.block.tree.tree.alwaysDuplicate) {
+          const prev = await this.getKeyNode(mid)
+          if (sameValue(prev.value, value)) return true
+        }
         this.changed = true
         this.keys[mid] = key
         return true
@@ -321,6 +328,9 @@ class Hyperbee extends ReadyResource {
     this.sep = opts.sep || SEP
     this.readonly = !!opts.readonly
     this.prefix = opts.prefix || null
+
+    // In a future version, this should be false by default
+    this.alwaysDuplicate = opts.alwaysDuplicate !== false
 
     this._unprefixedKeyEncoding = this.keyEncoding
     this._sub = !!this.prefix
@@ -815,8 +825,14 @@ class Batch {
         c = b4a.compare(target.value, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), newNode))) return this._unlockMaybe()
-
+          if (cas) {
+            const prev = await node.getKeyNode(mid)
+            if (!(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
+          }
+          if (!this.tree.alwaysDuplicate) {
+            const prev = await node.getKeyNode(mid)
+            if (sameValue(prev.value, value)) return this._unlockMaybe()
+          }
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
         }
@@ -829,7 +845,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(target, null, newNode, encoding, cas))
+    let needsSplit = !(await node.insertKey(target, value, null, newNode, encoding, cas))
     if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
@@ -837,7 +853,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, null, encoding, null))
+        needsSplit = !(await parent.insertKey(median, value, right, null, encoding, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)
@@ -894,7 +910,10 @@ class Batch {
         c = b4a.compare(key, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), delNode))) return this._unlockMaybe()
+          if (cas) {
+            const prev = await node.getKeyNode(mid)
+            if (!(await cas(prev.final(encoding), delNode))) return this._unlockMaybe()
+          }
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)
           // we mark these as changed late, so we don't rewrite them if it is a 404
@@ -1445,6 +1464,10 @@ function getBackingCore (core) {
   if (core._source) return core._source.originalCore
   if (core.flush) return core.session
   return core
+}
+
+function sameValue (a, b) {
+  return a === b || (a !== null && b !== null && b4a.equals(a, b))
 }
 
 function noop () {}

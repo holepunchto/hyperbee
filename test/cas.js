@@ -508,3 +508,50 @@ test('flushing an empty batch after a "failed" cas op releases lock (allows prog
     b.destroy()
   }
 })
+
+test('alwaysDuplicate - should not insert the same kv-pair twice', async function (t) {
+  const db1 = create()
+  const db2 = create({ alwaysDuplicate: false })
+
+  await db1.put('/a', '1')
+  await db2.put('/a', '1')
+
+  const version = db1.version
+
+  await db1.put('/a', '1')
+  await db2.put('/a', '1')
+  await db1.put('/a', '1')
+  await db2.put('/a', '1')
+
+  t.is(db1.version, version + 2)
+  t.is(db2.version, version)
+
+  await db1.put('/a', '2')
+  await db2.put('/a', '2')
+
+  const n1 = await db1.get('/a')
+  const n2 = await db2.get('/a')
+  t.is(n1.value, '2')
+  t.is(n2.value, '2')
+  t.is(db1.version, version + 3)
+  t.is(db2.version, version + 1)
+})
+
+test('alwaysDuplicate - works on batch puts', async function (t) {
+  const db1 = create()
+  const db2 = create({ alwaysDuplicate: false })
+
+  const b1 = db1.batch()
+  const b2 = db2.batch()
+
+  await b1.put('/a', '1')
+  await b2.put('/a', '1')
+  await b1.put('/a', '1')
+  await b2.put('/a', '1')
+
+  await b1.flush()
+  await b2.flush()
+
+  t.is(db1.version, 3)
+  t.is(db2.version, 2)
+})

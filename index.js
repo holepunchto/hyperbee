@@ -327,8 +327,10 @@ class Hyperbee extends ReadyResource {
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
     this.readonly = !!opts.readonly
-    this.alwaysDuplicate = opts.alwaysDuplicate !== false
     this.prefix = opts.prefix || null
+
+    // In a future version, this should be false by default
+    this.alwaysDuplicate = opts.alwaysDuplicate !== false
 
     this._unprefixedKeyEncoding = this.keyEncoding
     this._sub = !!this.prefix

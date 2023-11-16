@@ -827,11 +827,11 @@ class Batch {
         if (c === 0) {
           if (cas) {
             const prev = await node.getKeyNode(mid)
-            if (cas && !(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
+            if (!(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
           }
           if (!this.tree.alwaysDuplicate) {
-            const prevNode = await node.getKeyNode(mid)
-            if (sameValue(prevNode && prevNode.value, value)) return this._unlockMaybe()
+            const prev = await node.getKeyNode(mid)
+            if (sameValue(prev.value, value)) return this._unlockMaybe()
           }
           node.setKey(mid, target)
           return this._append(root, seq, key, value)

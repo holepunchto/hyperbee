@@ -140,7 +140,7 @@ class TreeNode {
         }
         if (!this.block.tree.tree.alwaysDuplicate) {
           const prevNode = await this.getKeyNode(mid)
-          if (sameValue(prevNode, value)) return true
+          if (sameValue(prevNode && prevNode.value, value)) return true
         }
         this.changed = true
         this.keys[mid] = key
@@ -831,7 +831,7 @@ class Batch {
           }
           if (!this.tree.alwaysDuplicate) {
             const prevNode = await node.getKeyNode(mid)
-            if (sameValue(prevNode, value)) return this._unlockMaybe()
+            if (sameValue(prevNode && prevNode.value, value)) return this._unlockMaybe()
           }
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
@@ -1466,10 +1466,8 @@ function getBackingCore (core) {
   return core
 }
 
-function sameValue (prevNode, value) {
-  if (!prevNode) return false
-  if ((prevNode.value === null) && (value === null)) return true
-  return prevNode.value && value && b4a.equals(prevNode.value, value)
+function sameValue (a, b) {
+  return a === b || (a !== null && b !== null && b4a.equals(a, b))
 }
 
 function noop () {}

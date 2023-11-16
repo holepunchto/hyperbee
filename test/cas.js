@@ -525,6 +525,12 @@ test('alwaysDuplicate - should not insert the same kv-pair twice', async functio
 
   t.is(db1.version, version + 2)
   t.is(db2.version, version)
+
+  await db1.put('/a', '2')
+  await db2.put('/a', '2')
+
+  t.is(db1.version, version + 3)
+  t.is(db2.version, version + 1)
 })
 
 test('alwaysDuplicate - works on batch puts', async function (t) {

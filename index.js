@@ -914,10 +914,6 @@ class Batch {
             const prev = await node.getKeyNode(mid)
             if (!(await cas(prev.final(encoding), delNode))) return this._unlockMaybe()
           }
-          if (!this.tree.alwaysDuplicate) {
-            const prev = await node.getKeyNode(mid)
-            if (!prev) return this._unlockMaybe()
-          }
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)
           // we mark these as changed late, so we don't rewrite them if it is a 404

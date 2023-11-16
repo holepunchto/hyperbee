@@ -139,8 +139,8 @@ class TreeNode {
           if (cas && !(await cas(prev.final(encoding), node))) return true
         }
         if (!this.block.tree.tree.alwaysDuplicate) {
-          const prevNode = await this.getKeyNode(mid)
-          if (sameValue(prevNode.value, value)) return true
+          const prev = await this.getKeyNode(mid)
+          if (sameValue(prev.value, value)) return true
         }
         this.changed = true
         this.keys[mid] = key

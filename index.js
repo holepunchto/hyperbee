@@ -137,7 +137,8 @@ class TreeNode {
         if (cas) {
           const prev = await this.getKeyNode(mid)
           if (cas && !(await cas(prev.final(encoding), node))) return true
-        } else if (!this.block.tree.tree.putSameValue) {
+        }
+        if (!this.block.tree.tree.alwaysDuplicate) {
           const prev = await this.getKeyNode(mid)
           if (prev && b4a.equals(prev.value, enc(encoding.value, node.value))) return true
         }
@@ -326,7 +327,7 @@ class Hyperbee extends ReadyResource {
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
     this.readonly = !!opts.readonly
-    this.putSameValue = opts.putSameValue !== false
+    this.alwaysDuplicate = opts.alwaysDuplicate !== false
     this.prefix = opts.prefix || null
 
     this._unprefixedKeyEncoding = this.keyEncoding
@@ -825,7 +826,8 @@ class Batch {
           if (cas) {
             const prev = await node.getKeyNode(mid)
             if (cas && !(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
-          } else if (!this.tree.putSameValue) {
+          }
+          if (!this.tree.alwaysDuplicate) {
             const prev = await node.getKeyNode(mid)
             if (prev && b4a.equals(prev.value, value)) return this._unlockMaybe()
           }
@@ -906,7 +908,14 @@ class Batch {
         c = b4a.compare(key, await node.getKey(mid))
 
         if (c === 0) {
-          if (cas && !(await cas((await node.getKeyNode(mid)).final(encoding), delNode))) return this._unlockMaybe()
+          if (cas) {
+            const prev = await node.getKeyNode(mid)
+            if (!(await cas(prev.final(encoding), delNode))) return this._unlockMaybe()
+          }
+          if (!this.tree.alwaysDuplicate) {
+            const prev = await node.getKeyNode(mid)
+            if (!prev) return this._unlockMaybe()
+          }
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)
           // we mark these as changed late, so we don't rewrite them if it is a 404

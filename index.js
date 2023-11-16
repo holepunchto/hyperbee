@@ -140,7 +140,7 @@ class TreeNode {
         }
         if (!this.block.tree.tree.alwaysDuplicate) {
           const prevNode = await this.getKeyNode(mid)
-          if (sameValue(prevNode && prevNode.value, value)) return true
+          if (sameValue(prevNode.value, value)) return true
         }
         this.changed = true
         this.keys[mid] = key

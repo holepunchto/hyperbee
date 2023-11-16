@@ -124,7 +124,7 @@ class TreeNode {
     if (missing.length) core.download({ blocks: missing })
   }
 
-  async insertKey (key, child, node, encoding, cas) {
+  async insertKey (key, value, child, node, encoding, cas) {
     let s = 0
     let e = this.keys.length
     let c
@@ -139,8 +139,8 @@ class TreeNode {
           if (cas && !(await cas(prev.final(encoding), node))) return true
         }
         if (!this.block.tree.tree.alwaysDuplicate) {
-          const prev = await this.getKeyNode(mid)
-          if (prev && b4a.equals(prev.value, enc(encoding.value, node.value))) return true
+          const prevNode = await this.getKeyNode(mid)
+          if (sameValue(prevNode, value)) return true
         }
         this.changed = true
         this.keys[mid] = key
@@ -830,8 +830,8 @@ class Batch {
             if (cas && !(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
           }
           if (!this.tree.alwaysDuplicate) {
-            const prev = await node.getKeyNode(mid)
-            if (prev && b4a.equals(prev.value, value)) return this._unlockMaybe()
+            const prevNode = await node.getKeyNode(mid)
+            if (sameValue(prevNode, value)) return this._unlockMaybe()
           }
           node.setKey(mid, target)
           return this._append(root, seq, key, value)
@@ -845,7 +845,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(target, null, newNode, encoding, cas))
+    let needsSplit = !(await node.insertKey(target, value, null, newNode, encoding, cas))
     if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
@@ -853,7 +853,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(median, right, null, encoding, null))
+        needsSplit = !(await parent.insertKey(median, value, right, null, encoding, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)
@@ -1464,6 +1464,12 @@ function getBackingCore (core) {
   if (core._source) return core._source.originalCore
   if (core.flush) return core.session
   return core
+}
+
+function sameValue (prevNode, value) {
+  if (!prevNode) return false
+  if ((prevNode.value === null) && (value === null)) return true
+  return prevNode.value && value && b4a.equals(prevNode.value, value)
 }
 
 function noop () {}

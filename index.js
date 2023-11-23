@@ -1138,6 +1138,7 @@ class Watcher extends ReadyResource {
     this._resolveOnChange = null
     this._differ = opts.differ || defaultDiffer
     this._eager = !!opts.eager
+    this._updateOnce = !!opts.updateOnce
 
     this.on('newListener', autoFlowOnUpdate)
     this.ready().catch(safetyCatch)
@@ -1209,6 +1210,11 @@ class Watcher extends ReadyResource {
 
       while (true) {
         await this._waitForChanges()
+
+        if (this._updateOnce) {
+          this._updateOnce = true
+          await this.bee.update({ wait: true })
+        }
 
         if (this.closing) return { value: undefined, done: true }
 

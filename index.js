@@ -949,7 +949,7 @@ class Batch {
   }
 
   destroy () { // compat, remove later
-    this.close().catch(noop)
+    this.close().catch(safetyCatch)
   }
 
   toBlocks () {
@@ -1391,7 +1391,7 @@ function iteratorToStream (ite, signal) {
     },
     predestroy () {
       closing = ite.close()
-      closing.catch(noop)
+      closing.catch(safetyCatch)
     },
     destroy (cb) {
       done = cb

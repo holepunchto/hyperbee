@@ -467,6 +467,11 @@ class Hyperbee extends ReadyResource {
     return b.getBySeq(seq)
   }
 
+  select (key, opts) {
+    const b = new Batch(this, this._makeSnapshot(), null, true, opts)
+    return b.select(key)
+  }
+
   put (key, value, opts) {
     const b = new Batch(this, this.core, null, true, opts)
     return b.put(key, value, opts)
@@ -739,6 +744,11 @@ class Batch {
     } finally {
       await this._closeSnapshot()
     }
+  }
+
+  async select (key, opts) {
+    const entry = await this.get(key, opts)
+    return entry?.value
   }
 
   async _get (key, encoding) {

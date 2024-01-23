@@ -32,6 +32,7 @@ await batch.flush() // Execute the batch
 
 // Query the core
 const entry = await db.get('key') // => null or { key, value }
+const value = await db.select('key') // => null or value
 
 // Read all entries
 for await (const entry of db.createReadStream()) {
@@ -190,6 +191,10 @@ Get the key and value from a block number.
 
 `seq` is the Hypercore index. Returns `null` if block doesn't exists.
 
+#### `const value = await db.select(key, [options])`
+
+Get just the value from a key. Returns `null` if block doesn't exists.
+
 #### `const stream = db.replicate(isInitiatorOrStream)`
 
 See more about how replicate works at [core.replicate][core-replicate-docs].
@@ -209,6 +214,10 @@ Insert a key into a batch.
 #### `const { seq, key, value } = await batch.get(key)`
 
 Get a key, value out of a batch.
+
+#### `const value = await batch.select(key, [options])`
+
+Get just the value from a key out of a batch.
 
 #### `await batch.del(key, [options])`
 

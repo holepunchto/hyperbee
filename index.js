@@ -748,7 +748,7 @@ class Batch {
 
   async select (key, opts) {
     const entry = await this.get(key, opts)
-    return entry?.value
+    return entry ? entry.value : null
   }
 
   async _get (key, encoding) {

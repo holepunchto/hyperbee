@@ -476,6 +476,23 @@ class Hyperbee extends ReadyResource {
     return new Batch(this, this.core, mutexify(), true, opts)
   }
 
+  async transaction (cb) {
+    const batch = this.batch()
+    let output = null
+
+    try {
+      await batch.lock()
+      output = await cb(batch)
+    } catch (err) {
+      await batch.close()
+      throw err
+    }
+
+    await batch.flush()
+
+    return output
+  }
+
   del (key, opts) {
     const b = new Batch(this, this.core, null, true, opts)
     return b.del(key, opts)

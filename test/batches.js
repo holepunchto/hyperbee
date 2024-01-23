@@ -284,3 +284,31 @@ test('batches close when instance closes', async function (t) {
 
   await d.close()
 })
+
+test('transaction', async function (t) {
+  const db = create()
+
+  const id = await db.transaction(async function (b) {
+    await b.put('/users/1')
+    return 123
+  })
+
+  t.is(id, 123)
+  t.ok(await db.get('/users/1'))
+})
+
+test('transaction does not commit if any error', async function (t) {
+  const db = create()
+
+  try {
+    await db.transaction(async function (b) {
+      await b.put('/users/1')
+      throw new Error('Failed')
+    })
+    t.fail('Should have failed')
+  } catch (err) {
+    t.is(err.message, 'Failed')
+  }
+
+  t.absent(await db.get('/users/1'))
+})

@@ -226,6 +226,10 @@ Destroy a batch, and releases any locks it has acquired on the db.
 
 Call this if you want to abort a batch without flushing it.
 
+#### `const output = await db.transaction((batch) => {})`
+
+Makes a new locked batch, gives a callback for operations, and flushes or closes if any error.
+
 #### `const stream = db.createReadStream([range], [options])`
 
 Make a read stream. Sort order is based on the binary value of the keys.

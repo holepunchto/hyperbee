@@ -611,7 +611,6 @@ class Hyperbee extends ReadyResource {
     try {
       return Header.decode(blk0).protocol === 'hyperbee'
     } catch (err) { // undecodable
-      safetyCatch(err)
       return false
     }
   }

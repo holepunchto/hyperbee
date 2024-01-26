@@ -25,7 +25,7 @@
     "protocol-buffers": "^4.2.0",
     "random-access-memory": "^6.0.0",
     "standard": "^17.0.0",
-    "sub-encoder": "^1.0.6",
+    "sub-encoder": "^2.1.1",
     "tree-to-string": "^1.1.1"
   },
   "scripts": {

@@ -284,3 +284,36 @@ test('batches close when instance closes', async function (t) {
 
   await d.close()
 })
+
+test('concurrent batchs', async function (t) {
+  const db = create({ valueEncoding: 'json' })
+  await db.put('/items', [1])
+
+  const add = async (value) => {
+    const batch = db.batch()
+    await batch.lock()
+
+    const entry = await batch.get('/items')
+    await batch.put('/items', [...entry.value, value])
+
+    await batch.flush()
+  }
+
+  await Promise.all([
+    add(2), add(3),
+    add(9), add(8), add(7)
+  ])
+
+  const all = await collect(db.createReadStream())
+
+  t.alike(all, [
+    {
+      seq: 6,
+      key: '/items',
+      value: [
+        1, 2, 3,
+        9, 8, 7
+      ]
+    }
+  ])
+})

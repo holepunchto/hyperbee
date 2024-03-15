@@ -248,6 +248,14 @@ class TreeNode {
     return offset
   }
 
+  updateChildren (seq, block) {
+    for (const child of this.children) {
+      if (!child.value || child.seq !== seq) continue
+      child.value.block = block
+      child.value.updateChildren(seq, block)
+    }
+  }
+
   static create (block) {
     const node = new TreeNode(block, [], [], 0)
     node.changed = true
@@ -1025,10 +1033,12 @@ class Batch {
 
     if (!this.autoFlush) {
       const block = new BatchEntry(seq, this, key, value, index)
-      if (!root.block) root.block = block
+      root.block = block
       this.root = root
       this.length++
       this.blocks.set(seq, block)
+
+      root.updateChildren(seq, block)
       return
     }
 
@@ -1144,8 +1154,10 @@ class Watcher extends ReadyResource {
     this._differ = opts.differ || defaultDiffer
     this._eager = !!opts.eager
     this._updateOnce = !!opts.updateOnce
+    this._onchange = opts.onchange
 
     this.on('newListener', autoFlowOnUpdate)
+
     this.ready().catch(safetyCatch)
   }
 
@@ -1166,6 +1178,11 @@ class Watcher extends ReadyResource {
 
     // Point from which to start watching
     this.current = this._eager ? this.bee.checkout(1, opts) : this.bee.snapshot(opts)
+
+    if (this._onchange) {
+      if (this._eager) await this._onchange()
+      this._consume()
+    }
   }
 
   [Symbol.asyncIterator] () {
@@ -1251,9 +1268,18 @@ class Watcher extends ReadyResource {
     }
   }
 
-  _yield () {
+  async _yield () {
     this.currentMapped = this.map(this.current)
     this.previousMapped = this.map(this.previous)
+
+    if (this._onchange) {
+      try {
+        await this._onchange()
+      } catch (err) {
+        safetyCatch(err)
+      }
+    }
+
     this.emit('update')
     return { done: false, value: [this.currentMapped, this.previousMapped] }
   }

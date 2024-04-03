@@ -1250,14 +1250,14 @@ class Watcher extends ReadyResource {
         })
 
         if (this.current.core.fork !== this.previous.core.fork) {
-          return this._yield()
+          return await this._yield()
         }
 
         this.stream = this._differ(this.current, this.previous, this.range)
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            return this._yield()
+            return await this._yield()
           }
         } finally {
           this.stream = null

@@ -1154,7 +1154,7 @@ class Watcher extends ReadyResource {
     this._differ = opts.differ || defaultDiffer
     this._eager = !!opts.eager
     this._updateOnce = !!opts.updateOnce
-    this._onchange = opts.onchange
+    this._onchange = opts.onchange || null
 
     this.on('newListener', autoFlowOnUpdate)
 

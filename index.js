@@ -1154,8 +1154,10 @@ class Watcher extends ReadyResource {
     this._differ = opts.differ || defaultDiffer
     this._eager = !!opts.eager
     this._updateOnce = !!opts.updateOnce
+    this._onchange = opts.onchange || null
 
     this.on('newListener', autoFlowOnUpdate)
+
     this.ready().catch(safetyCatch)
   }
 
@@ -1176,6 +1178,11 @@ class Watcher extends ReadyResource {
 
     // Point from which to start watching
     this.current = this._eager ? this.bee.checkout(1, opts) : this.bee.snapshot(opts)
+
+    if (this._onchange) {
+      if (this._eager) await this._onchange()
+      this._consume()
+    }
   }
 
   [Symbol.asyncIterator] () {
@@ -1243,14 +1250,14 @@ class Watcher extends ReadyResource {
         })
 
         if (this.current.core.fork !== this.previous.core.fork) {
-          return this._yield()
+          return await this._yield()
         }
 
         this.stream = this._differ(this.current, this.previous, this.range)
 
         try {
           for await (const data of this.stream) { // eslint-disable-line
-            return this._yield()
+            return await this._yield()
           }
         } finally {
           this.stream = null
@@ -1261,9 +1268,18 @@ class Watcher extends ReadyResource {
     }
   }
 
-  _yield () {
+  async _yield () {
     this.currentMapped = this.map(this.current)
     this.previousMapped = this.map(this.previous)
+
+    if (this._onchange) {
+      try {
+        await this._onchange()
+      } catch (err) {
+        safetyCatch(err)
+      }
+    }
+
     this.emit('update')
     return { done: false, value: [this.currentMapped, this.previousMapped] }
   }

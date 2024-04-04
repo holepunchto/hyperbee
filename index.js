@@ -5,6 +5,7 @@ const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
+const Xache = require('xache')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -32,6 +33,30 @@ class Child {
     this.seq = seq
     this.offset = offset
     this.value = value
+  }
+}
+
+class KeyCache {
+  constructor () {
+    this.keys = new Xache({ maxSize: 65536 })
+    this.length = 0
+  }
+
+  get (seq) {
+    if (this.keys.has(seq)) return this.keys.get(seq)
+    return null
+  }
+
+  set (seq, key) {
+    this.keys.set(seq, key)
+    if (seq >= this.length) this.length = seq + 1
+  }
+
+  gc (length) {
+    for (let i = length; i < this.length; i++) {
+      this.keys.delete(i)
+    }
+    this.length = length
   }
 }
 
@@ -350,6 +375,7 @@ class Hyperbee extends ReadyResource {
     this._watchers = this._onappendBound ? [] : null
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
+    this._cache = new KeyCache()
 
     this._batches = []
 
@@ -526,6 +552,8 @@ class Hyperbee extends ReadyResource {
     for (const watcher of this._entryWatchers) {
       watcher._ontruncate()
     }
+
+    this._cache.gc(this.core.length)
   }
 
   _makeSnapshot () {
@@ -682,7 +710,11 @@ class Batch {
   }
 
   async getKey (seq) {
-    return (await this.getBlock(seq)).key
+    const k = this.tree._cache.get(seq)
+    if (k) return k
+    const key = (await this.getBlock(seq)).key
+    this.tree._cache.set(seq, key)
+    return key
   }
 
   async getBlock (seq) {

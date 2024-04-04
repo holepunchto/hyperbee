@@ -43,8 +43,7 @@ class KeyCache {
   }
 
   get (seq) {
-    if (this.keys.has(seq)) return this.keys.get(seq)
-    return null
+    return this.keys.get(seq) || null
   }
 
   set (seq, key) {
@@ -375,7 +374,7 @@ class Hyperbee extends ReadyResource {
     this._watchers = this._onappendBound ? [] : null
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
-    this._cache = new KeyCache()
+    this._keyCache = new KeyCache()
 
     this._batches = []
 
@@ -553,7 +552,7 @@ class Hyperbee extends ReadyResource {
       watcher._ontruncate()
     }
 
-    this._cache.gc(this.core.length)
+    this._keyCache.gc(this.core.length)
   }
 
   _makeSnapshot () {
@@ -710,10 +709,10 @@ class Batch {
   }
 
   async getKey (seq) {
-    const k = this.tree._cache.get(seq)
-    if (k) return k
+    const k = this.tree._keyCache.get(seq)
+    if (k !== null) return k
     const key = (await this.getBlock(seq)).key
-    this.tree._cache.set(seq, key)
+    this.tree._keyCache.set(seq, key)
     return key
   }
 

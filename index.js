@@ -120,6 +120,11 @@ function deflate (index) {
   return YoloIndex.encode({ levels })
 }
 
+function preloadBlock (core, index) {
+  if (core.replicator._blocks.get(index)) return
+  core.get(index).catch(safetyCatch)
+}
+
 class TreeNode {
   constructor (block, keys, children, offset) {
     this.block = block
@@ -137,21 +142,18 @@ class TreeNode {
     const core = getBackingCore(this.block.tree.core)
     const bitfield = core.core.bitfield
 
-    const missing = []
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
       if (k.seq >= core.length || bitfield.get(k.seq)) continue
-      missing.push(k.seq)
+      preloadBlock(core, k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
       if (c.seq >= core.length || bitfield.get(c.seq)) continue
-      missing.push(c.seq)
+      preloadBlock(core, c.seq)
     }
-
-    if (missing.length) core.download({ blocks: missing })
   }
 
   async insertKey (key, value, child, node, encoding, cas) {

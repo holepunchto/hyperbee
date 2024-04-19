@@ -36,7 +36,7 @@ class Child {
   }
 }
 
-class KeyCache {
+class Cache {
   constructor () {
     this.keys = new Xache({ maxSize: 65536 })
     this.length = 0
@@ -66,8 +66,8 @@ class KeyCache {
 }
 
 class Pointers {
-  constructor (buf) {
-    this.levels = YoloIndex.decode(buf).levels.map(l => {
+  constructor (decoded) {
+    this.levels = decoded.levels.map(l => {
       const children = []
       const keys = []
 
@@ -97,8 +97,12 @@ class Pointers {
   }
 }
 
-function inflate (buf) {
-  return new Pointers(buf)
+function inflate (entry) {
+  if (entry.inflated === null) {
+    entry.inflated = YoloIndex.decode(entry.index)
+    entry.index = null
+  }
+  return new Pointers(entry.inflated)
 }
 
 function deflate (index) {
@@ -300,7 +304,7 @@ class BlockEntry {
     this.seq = seq
     this.tree = tree
     this.index = null
-    this.indexBuffer = entry.index
+    this.entry = entry
     this.key = entry.key
     this.value = entry.value
   }
@@ -313,8 +317,7 @@ class BlockEntry {
     if (this.value !== null) return false
 
     if (this.index === null) {
-      this.index = inflate(this.indexBuffer)
-      this.indexBuffer = null
+      this.index = inflate(this.entry)
     }
 
     return !this.index.hasKey(this.seq)
@@ -330,8 +333,7 @@ class BlockEntry {
 
   getTreeNode (offset) {
     if (this.index === null) {
-      this.index = inflate(this.indexBuffer)
-      this.indexBuffer = null
+      this.index = inflate(this.entry)
     }
     const entry = this.index.get(offset)
     return new TreeNode(this, entry.keys, entry.children, offset)
@@ -340,7 +342,7 @@ class BlockEntry {
 
 class BatchEntry extends BlockEntry {
   constructor (seq, tree, key, value, index) {
-    super(seq, tree, { key, value, index: null })
+    super(seq, tree, { key, value, index: null, inflated: null })
     this.pendingIndex = index
   }
 
@@ -382,7 +384,8 @@ class Hyperbee extends ReadyResource {
     this._watchers = this._onappendBound ? [] : null
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
-    this._keyCache = new KeyCache()
+    this._keyCache = new Cache()
+    this._nodeCache = new Cache()
 
     this._batches = []
 
@@ -560,6 +563,7 @@ class Hyperbee extends ReadyResource {
       watcher._ontruncate()
     }
 
+    this._nodeCache.gc(this.core.length)
     this._keyCache.gc(this.core.length)
   }
 
@@ -724,13 +728,27 @@ class Batch {
     return key
   }
 
+  async _getNode (seq) {
+    const cached = this.tree._nodeCache.get(seq)
+    if (cached !== null) return cached
+    const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
+    if (entry === null) throw BLOCK_NOT_AVAILABLE()
+    const wrap = {
+      key: entry.key,
+      value: entry.value,
+      index: entry.index,
+      inflated: null
+    }
+    this.tree._nodeCache.set(seq, wrap)
+    return wrap
+  }
+
   async getBlock (seq) {
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
-    const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
-    if (entry === null) throw BLOCK_NOT_AVAILABLE()
+    const entry = await this._getNode(seq)
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
     return b

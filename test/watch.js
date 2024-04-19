@@ -701,3 +701,30 @@ test('watch uses the bee`s encodings by default', async function (t) {
     break
   }
 })
+
+test('lite watcher triggers on ranges only', async function (t) {
+  t.plan(1)
+
+  const db = await createRange(50)
+
+  const watcher = db.watch({ gte: '14' }, { lite: true })
+  t.teardown(() => watcher.destroy())
+
+  // + could be simpler but could be a helper for other tests
+  let next = watcher.next()
+  let onchange = null
+  next.then(data => {
+    next = watcher.next()
+    onchange(data)
+  })
+
+  onchange = () => t.fail('should not trigger changes')
+  await db.put('13')
+  await eventFlush()
+  onchange = null
+
+  onchange = () => t.pass('change')
+  await db.put('14')
+  await eventFlush()
+  onchange = null
+})

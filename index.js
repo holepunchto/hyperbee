@@ -721,15 +721,15 @@ class Batch {
   }
 
   async getKey (seq) {
-    const k = this.tree._keyCache.get(seq)
+    const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
     if (k !== null) return k
     const key = (await this.getBlock(seq)).key
-    this.tree._keyCache.set(seq, key)
+    if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
     return key
   }
 
   async _getNode (seq) {
-    const cached = this.tree._nodeCache.get(seq)
+    const cached = this.core.fork === this.tree.core.fork ? this.tree._nodeCache.get(seq) : null
     if (cached !== null) return cached
     const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
     if (entry === null) throw BLOCK_NOT_AVAILABLE()
@@ -739,7 +739,7 @@ class Batch {
       index: entry.index,
       inflated: null
     }
-    this.tree._nodeCache.set(seq, wrap)
+    if (this.core.fork === this.tree.core.fork) this.tree._nodeCache.set(seq, wrap)
     return wrap
   }
 

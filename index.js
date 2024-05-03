@@ -1212,6 +1212,7 @@ class Watcher extends ReadyResource {
     this._eager = !!opts.eager
     this._updateOnce = !!opts.updateOnce
     this._onchange = opts.onchange || null
+    this._flush = opts.flush !== false && this.core.isAutobase
 
     this.on('newListener', autoFlowOnUpdate)
 
@@ -1295,6 +1296,7 @@ class Watcher extends ReadyResource {
           await this.bee.update({ wait: true })
         }
 
+        if (this._flush) await this.core.base.flush()
         if (this.closing) return { value: undefined, done: true }
 
         await this._closePrevious()

@@ -144,18 +144,19 @@ class TreeNode {
     if (this.block === null) return
 
     const core = getBackingCore(this.block.tree.core)
+    const indexedLength = getIndexedLength(this.block.core.tree)
     const bitfield = core.core.bitfield
 
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
-      if (k.seq >= core.length || bitfield.get(k.seq)) continue
+      if (k.seq >= indexedLength || bitfield.get(k.seq)) continue
       preloadBlock(core, k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
-      if (c.seq >= core.length || bitfield.get(c.seq)) continue
+      if (c.seq >= indexedLength || bitfield.get(c.seq)) continue
       preloadBlock(core, c.seq)
     }
   }
@@ -1560,6 +1561,12 @@ function getBackingCore (core) {
   if (core._source) return core._source.originalCore
   if (core.flush) return core.session
   return core
+}
+
+function getIndexedLength (core) {
+  if (core._source) return core._source.core.indexedLength
+  if (core.flush) return core.indexedLength
+  return core.length
 }
 
 function sameValue (a, b) {

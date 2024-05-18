@@ -144,7 +144,7 @@ class TreeNode {
     if (this.block === null) return
 
     const core = getBackingCore(this.block.tree.core)
-    const indexedLength = getIndexedLength(this.block.core.tree)
+    const indexedLength = getIndexedLength(this.block.tree.core)
     const bitfield = core.core.bitfield
 
     for (let i = 0; i < this.keys.length; i++) {

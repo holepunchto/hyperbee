@@ -36,6 +36,13 @@ class Child {
   }
 }
 
+class DummyCache {
+  get () { return null }
+
+  set () { }
+
+  gc () { }
+}
 class Cache {
   constructor () {
     this.keys = new Xache({ maxSize: 65536 })
@@ -384,8 +391,8 @@ class Hyperbee extends ReadyResource {
     this._watchers = this._onappendBound ? [] : null
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
-    this._keyCache = new Cache()
-    this._nodeCache = new Cache()
+    this._keyCache = opts.useCache !== true ? new DummyCache() : new Cache() // TODO: default to true
+    this._nodeCache = opts.useCache !== true ? new DummyCache() : new Cache() // TODO: default to true
 
     this._batches = []
 

@@ -25,4 +25,6 @@ test('entries are not cached using buffers from default slab', async function (t
     true,
     'Uses a small slab for cached value entry'
   )
+
+  await db.close()
 })

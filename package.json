@@ -18,7 +18,7 @@
     "ready-resource": "^1.0.0",
     "safety-catch": "^1.0.2",
     "streamx": "^2.12.4",
-    "unslab": "hdegroote/unslab#copy-nulls",
+    "unslab": "^1.2.0",
     "xache": "^1.2.1"
   },
   "devDependencies": {

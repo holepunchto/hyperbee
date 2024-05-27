@@ -6,6 +6,7 @@ const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
 const Xache = require('xache')
+const { all: unslabAll } = require('unslab')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -734,12 +735,7 @@ class Batch {
     if (cached !== null) return cached
     const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
     if (entry === null) throw BLOCK_NOT_AVAILABLE()
-    const wrap = {
-      key: entry.key,
-      value: entry.value,
-      index: entry.index,
-      inflated: null
-    }
+    const wrap = copyEntry(entry)
     if (this.core.fork === this.tree.core.fork) this.tree._nodeCache.set(seq, wrap)
     return wrap
   }
@@ -1550,6 +1546,31 @@ function prefixEncoding (prefix, keyEncoding) {
       const sliced = key.slice(prefix.length, key.length)
       return keyEncoding ? keyEncoding.decode(sliced) : sliced
     }
+  }
+}
+
+function copyEntry (entry) {
+  let key = entry.key
+  let value = entry.value
+  let index = entry.index
+
+  // key, value and index all refer to the same buffer (one hypercore block)
+  // If together they are larger than half the buffer's byteLength,
+  // this means that they got their own private slab (see Buffer.allocUnsafe docs)
+  // so no need to unslab
+  const size = key.byteLength + (value === null ? 0 : value.byteLength) + (index === null ? 0 : index.byteLength)
+  if (2 * size < key.buffer.byteLength) {
+    const [newKey, newValue, newIndex] = unslabAll([entry.key, entry.value, entry.index])
+    key = newKey
+    value = newValue
+    index = newIndex
+  }
+
+  return {
+    key,
+    value,
+    index,
+    inflated: null
   }
 }
 

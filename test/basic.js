@@ -552,7 +552,7 @@ test('session id reuse does not stall', async function (t) {
   const b = new Hypercore(path.join(os.tmpdir(), 'hyperbee-b'), a.key)
   await b.ready()
 
-  const n = 500
+  const n = 3000
 
   const s1 = a.replicate(true, { keepAlive: false })
   const s2 = b.replicate(false, { keepAlive: false })
@@ -576,7 +576,7 @@ test('session id reuse does not stall', async function (t) {
   const requests = Array(n).fill().map(async (e, i) => {
     const buffer = b4a.alloc(2)
     buffer.writeUInt16BE(i)
-    return await beeB.get(buffer)
+    return beeB.get(buffer)
   })
 
   await Promise.all(requests)

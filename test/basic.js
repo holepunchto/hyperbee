@@ -1,6 +1,9 @@
 const test = require('brittle')
 const b4a = require('b4a')
 const { create, collect, createCore } = require('./helpers')
+const Hypercore = require('hypercore')
+const path = require('path')
+const os = require('os')
 
 const Hyperbee = require('..')
 
@@ -538,4 +541,45 @@ test('get by seq', async function (t) {
 
   t.alike(await db.getBySeq(1), { key: '/a', value: '1' })
   t.alike(await db.getBySeq(2), { key: '/b', value: '2' })
+})
+
+test('session id reuse does not stall', async function (t) {
+  t.plan(1)
+
+  const a = new Hypercore(path.join(os.tmpdir(), 'hyperbee-a'))
+  await a.ready()
+
+  const b = new Hypercore(path.join(os.tmpdir(), 'hyperbee-b'), a.key)
+  await b.ready()
+
+  const n = 500
+
+  const s1 = a.replicate(true, { keepAlive: false })
+  const s2 = b.replicate(false, { keepAlive: false })
+
+  s1.pipe(s2).pipe(s1)
+
+  const beeA = new Hyperbee(a)
+  const beeB = new Hyperbee(b)
+
+  const batch = beeA.batch()
+
+  const entries = Array(n).fill().map(e => b4a.from([0])).map((e, i) => {
+    const buffer = b4a.alloc(2)
+    buffer.writeUInt16BE(i)
+    return batch.put(buffer, Buffer.alloc(1))
+  })
+
+  await Promise.all(entries)
+  await batch.flush()
+
+  const requests = Array(n).fill().map(async (e, i) => {
+    const buffer = b4a.alloc(2)
+    buffer.writeUInt16BE(i)
+    return await beeB.get(buffer)
+  })
+
+  await Promise.all(requests)
+
+  t.pass('All requests completed')
 })

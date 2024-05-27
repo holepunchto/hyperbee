@@ -6,6 +6,7 @@ const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
 const Xache = require('xache')
+const { all: unslabAll } = require('unslab')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
@@ -1553,26 +1554,16 @@ function copyEntry (entry) {
   let value = entry.value
   let index = entry.index
 
+  // key, value and index all refer to the same buffer (one hypercore block)
+  // If together they are larger than half the buffer's byteLength,
+  // this means that they got their own private slab (see Buffer.allocUnsafe docs)
+  // so no need to unslab
   const size = key.byteLength + (value === null ? 0 : value.byteLength) + (index === null ? 0 : index.byteLength)
-
-  // if we have small values that use <50% of the current slab copy to a new one to avoid the cache memleaking
   if (2 * size < key.buffer.byteLength) {
-    const slab = b4a.alloc(size)
-
-    let offset = 0
-
-    b4a.copy(key, slab, offset)
-    key = slab.subarray(offset, offset += key.byteLength)
-
-    if (value !== null) {
-      b4a.copy(value, slab, offset)
-      value = slab.subarray(offset, offset += value.byteLength)
-    }
-
-    if (index !== null) {
-      b4a.copy(index, slab, offset)
-      index = slab.subarray(offset, offset += index.byteLength)
-    }
+    const [newKey, newValue, newIndex] = unslabAll([entry.key, entry.value, entry.index])
+    key = newKey
+    value = newValue
+    index = newIndex
   }
 
   return {

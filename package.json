@@ -18,6 +18,7 @@
     "ready-resource": "^1.0.0",
     "safety-catch": "^1.0.2",
     "streamx": "^2.12.4",
+    "test-tmp": "^1.2.1",
     "xache": "^1.2.1"
   },
   "devDependencies": {

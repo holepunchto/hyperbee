@@ -2,8 +2,7 @@ const test = require('brittle')
 const b4a = require('b4a')
 const { create, collect, createCore } = require('./helpers')
 const Hypercore = require('hypercore')
-const path = require('path')
-const os = require('os')
+const tmp = require('test-tmp')
 
 const Hyperbee = require('..')
 
@@ -546,10 +545,10 @@ test('get by seq', async function (t) {
 test('session id reuse does not stall', async function (t) {
   t.plan(1)
 
-  const a = new Hypercore(path.join(os.tmpdir(), 'hyperbee-a'))
+  const a = new Hypercore(await tmp(t))
   await a.ready()
 
-  const b = new Hypercore(path.join(os.tmpdir(), 'hyperbee-b'), a.key)
+  const b = new Hypercore(await tmp(t), a.key)
   await b.ready()
 
   const n = 3000

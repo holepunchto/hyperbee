@@ -2,6 +2,7 @@ const test = require('brittle')
 const b4a = require('b4a')
 const Hypercore = require('hypercore')
 const makeTmpDir = require('test-tmp')
+const RAM = require('random-access-memory')
 
 const Hyperbee = require('../index')
 
@@ -27,4 +28,18 @@ test('entries are not cached using buffers from default slab', async function (t
   )
 
   await db.close()
+})
+
+test('maxCacheSize arg can be set', async function (t) {
+  const core = new Hypercore(RAM.reusable())
+  const db = new Hyperbee(core, { maxCacheSize: 10 })
+
+  t.is(db.maxCacheSize, 10, 'Correct max cache size')
+})
+
+test('default maxCacheSize', async function (t) {
+  const core = new Hypercore(RAM.reusable())
+  const db = new Hyperbee(core)
+
+  t.is(db.maxCacheSize, 65536, 'Correct max cache size')
 })

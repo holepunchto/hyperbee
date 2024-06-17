@@ -38,8 +38,8 @@ class Child {
 }
 
 class Cache {
-  constructor () {
-    this.keys = new Xache({ maxSize: 65536 })
+  constructor (maxSize) {
+    this.keys = new Xache({ maxSize })
     this.length = 0
   }
 
@@ -386,8 +386,10 @@ class Hyperbee extends ReadyResource {
     this._watchers = this._onappendBound ? [] : null
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
-    this._keyCache = new Cache()
-    this._nodeCache = new Cache()
+
+    const maxCacheSize = opts.maxCacheSize || 65536
+    this._keyCache = new Cache(maxCacheSize)
+    this._nodeCache = new Cache(maxCacheSize)
 
     this._batches = []
 
@@ -427,6 +429,11 @@ class Hyperbee extends ReadyResource {
 
   get readable () {
     return this.core.readable
+  }
+
+  get maxCacheSize () {
+    // Note: the key cache and the node cache have the same size
+    return this._keyCache.keys.maxSize
   }
 
   replicate (isInitiator, opts) {

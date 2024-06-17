@@ -431,6 +431,11 @@ class Hyperbee extends ReadyResource {
     return this.core.readable
   }
 
+  get maxCacheSize () {
+    // Note: the key cache and the node cache have the same size
+    return this._keyCache.keys.maxSize
+  }
+
   replicate (isInitiator, opts) {
     return this.core.replicate(isInitiator, opts)
   }

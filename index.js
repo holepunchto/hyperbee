@@ -387,9 +387,7 @@ class Hyperbee extends ReadyResource {
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
 
-    const maxCacheSize = opts.maxCacheSize == null
-      ? 65536
-      : opts.maxCacheSize
+    const maxCacheSize = opts.maxCacheSize || 65536
     this._keyCache = new Cache(maxCacheSize)
     this._nodeCache = new Cache(maxCacheSize)
 

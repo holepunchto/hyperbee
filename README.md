@@ -61,7 +61,8 @@ Make a new Hyperbee instance. `core` should be a [Hypercore](https://github.com/
 ```js
 {
   keyEncoding: 'binary', // "binary" (default), "utf-8", "ascii", "json", or an abstract-encoding
-  valueEncoding: 'binary' // Same options as keyEncoding like "json", etc
+  valueEncoding: 'binary', // Same options as keyEncoding like "json", etc
+  maxCacheSize: 65536 // Max size of the key and node cache
 }
 ```
 
@@ -106,6 +107,10 @@ Boolean indicating if we can put or delete data in this bee.
 #### `db.readable`
 
 Boolean indicating if we can read from this bee. After closing the bee this will be `false`.
+
+#### `db.maxCacheSize`
+
+Integer indicating the max size of the caches (both the node and the key cache).
 
 #### `await db.put(key, [value], [options])`
 

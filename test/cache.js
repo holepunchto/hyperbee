@@ -30,11 +30,20 @@ test('entries are not cached using buffers from default slab', async function (t
   await db.close()
 })
 
-test('maxCacheSize arg', async function (t) {
+test('maxCacheSize arg can be set', async function (t) {
   const core = new Hypercore(RAM.reusable())
   const db = new Hyperbee(core, { maxCacheSize: 10 })
 
   // Note: tests private props, so not ideal
   t.is(db._keyCache.keys.maxSize, 10, 'key cache size')
   t.is(db._nodeCache.keys.maxSize, 10, 'node cache size')
+})
+
+test('default maxCacheSize', async function (t) {
+  const core = new Hypercore(RAM.reusable())
+  const db = new Hyperbee(core)
+
+  // Note: tests private props, so not ideal
+  t.is(db._keyCache.keys.maxSize, 65536, 'default key cache size')
+  t.is(db._nodeCache.keys.maxSize, 65536, 'default node cache size')
 })

@@ -599,7 +599,8 @@ class Hyperbee extends ReadyResource {
       checkout: version,
       keyEncoding: opts.keyEncoding || this.keyEncoding,
       valueEncoding: opts.valueEncoding || this.valueEncoding,
-      extension: this.extension !== null ? this.extension : false
+      extension: this.extension !== null ? this.extension : false,
+      maxCacheSize: this.maxCacheSize
     })
   }
 
@@ -626,7 +627,8 @@ class Hyperbee extends ReadyResource {
       valueEncoding,
       keyEncoding,
       extension: this.extension !== null ? this.extension : false,
-      metadata: this.metadata
+      metadata: this.metadata,
+      maxCacheSize: this.maxCacheSize
     })
   }
 

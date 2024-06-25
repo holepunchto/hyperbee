@@ -35,6 +35,8 @@ test('maxCacheSize arg can be set', async function (t) {
   const db = new Hyperbee(core, { maxCacheSize: 10 })
 
   t.is(db.maxCacheSize, 10, 'Correct max cache size')
+  t.is(db.checkout(0).maxCacheSize, 10, 'correct checkout cache size')
+  t.is(db.sub('ok').maxCacheSize, 10, 'correct sub cache size')
 })
 
 test('default maxCacheSize', async function (t) {

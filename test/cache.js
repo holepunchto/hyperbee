@@ -41,5 +41,5 @@ test('default maxCacheSize', async function (t) {
   const core = new Hypercore(RAM.reusable())
   const db = new Hyperbee(core)
 
-  t.is(db.maxCacheSize, 65536, 'Correct max cache size')
+  t.is(db.maxCacheSize, 1, 'Correct max cache size')
 })

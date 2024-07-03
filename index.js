@@ -389,9 +389,8 @@ class Hyperbee extends ReadyResource {
     this._sessions = opts.sessions !== false
 
     // sub from existing rache if any passed in
-    const baseCache = Rache.from(opts.cache)
-    this._keyCache = new Cache(baseCache)
-    this._nodeCache = new Cache(Rache.from(baseCache))
+    this._keyCache = new Cache(Rache.from(this.core.globalCache))
+    this._nodeCache = new Cache(Rache.from(this._keyCache))
 
     this._batches = []
 

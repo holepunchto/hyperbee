@@ -388,9 +388,8 @@ class Hyperbee extends ReadyResource {
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
 
-    // sub from existing rache if any passed in
-    this._keyCache = new Cache(Rache.from(this.core.globalCache))
-    this._nodeCache = new Cache(Rache.from(this._keyCache))
+    this._keyCache = null
+    this._nodeCache = null
 
     this._batches = []
 
@@ -404,8 +403,12 @@ class Hyperbee extends ReadyResource {
     }
   }
 
-  _open () {
-    return this.core.ready()
+  async _open () {
+    await this.core.ready()
+
+    const baseCache = Rache.from(this.core.globalCache)
+    this._keyCache = new Cache(baseCache)
+    this._nodeCache = new Cache(Rache.from(baseCache))
   }
 
   get version () {

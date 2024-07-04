@@ -598,8 +598,7 @@ class Hyperbee extends ReadyResource {
       checkout: version,
       keyEncoding: opts.keyEncoding || this.keyEncoding,
       valueEncoding: opts.valueEncoding || this.valueEncoding,
-      extension: this.extension !== null ? this.extension : false,
-      cache: this._keyCache // Used to sub from
+      extension: this.extension !== null ? this.extension : false
     })
   }
 

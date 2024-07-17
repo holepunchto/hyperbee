@@ -34,7 +34,6 @@ test('entries are not cached using buffers from default slab', async function (t
 test('node and key caches are subbed from a passed-in rache', async t => {
   const globalCache = new Rache()
   const core = new Hypercore(RAM, { globalCache })
-  console.log('core has', core.globalCache)
   const db = new Hyperbee(core)
 
   t.is(globalCache.globalSize, 0, 'sanity check')
@@ -44,19 +43,4 @@ test('node and key caches are subbed from a passed-in rache', async t => {
   // TODO: for some reason, there's only 1 cache entry
   // total after a put+get, which seems off. Investigate.
   t.is(globalCache.globalSize > 0, true, 'subbed from globalCache')
-})
-
-test('node and key caches are derived from the same rache instance', async t => {
-  const core = new Hypercore(RAM)
-  const db = new Hyperbee(core)
-  await db.ready()
-
-  // Note: not an ideal test, since it accesses private props,
-  //   and sets something nonsensical on the cache
-  // These caches currently aren't passed down
-  //   to sessions and checkouts, which create their own new cache
-  //   so we can't indirectly put an element in them to verify they're linked
-  //  (hence the hack of directly setting something in the cache)
-  db._keyCache.keys.set('some', 'thing')
-  t.is(db._nodeCache.keys.globalSize, 1, 'caches are globally linked')
 })

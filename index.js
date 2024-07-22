@@ -5,7 +5,8 @@ const b4a = require('b4a')
 const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
-const Xache = require('xache')
+const Rache = require('rache')
+
 const { all: unslabAll } = require('unslab')
 
 const RangeIterator = require('./iterators/range')
@@ -38,8 +39,8 @@ class Child {
 }
 
 class Cache {
-  constructor (maxSize) {
-    this.keys = new Xache({ maxSize })
+  constructor (rache) {
+    this.keys = rache
     this.length = 0
   }
 
@@ -387,9 +388,8 @@ class Hyperbee extends ReadyResource {
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
 
-    const maxCacheSize = opts.maxCacheSize || 65536
-    this._keyCache = new Cache(maxCacheSize)
-    this._nodeCache = new Cache(maxCacheSize)
+    this._keyCache = null
+    this._nodeCache = null
 
     this._batches = []
 
@@ -403,8 +403,12 @@ class Hyperbee extends ReadyResource {
     }
   }
 
-  _open () {
-    return this.core.ready()
+  async _open () {
+    await this.core.ready()
+
+    const baseCache = Rache.from(this.core.globalCache)
+    this._keyCache = new Cache(baseCache)
+    this._nodeCache = new Cache(Rache.from(baseCache))
   }
 
   get version () {
@@ -429,11 +433,6 @@ class Hyperbee extends ReadyResource {
 
   get readable () {
     return this.core.readable
-  }
-
-  get maxCacheSize () {
-    // Note: the key cache and the node cache have the same size
-    return this._keyCache.keys.maxSize
   }
 
   replicate (isInitiator, opts) {

@@ -3,6 +3,7 @@ const b4a = require('b4a')
 const Hypercore = require('hypercore')
 const makeTmpDir = require('test-tmp')
 const RAM = require('random-access-memory')
+const Rache = require('rache')
 
 const Hyperbee = require('../index')
 
@@ -30,16 +31,16 @@ test('entries are not cached using buffers from default slab', async function (t
   await db.close()
 })
 
-test('maxCacheSize arg can be set', async function (t) {
-  const core = new Hypercore(RAM.reusable())
-  const db = new Hyperbee(core, { maxCacheSize: 10 })
-
-  t.is(db.maxCacheSize, 10, 'Correct max cache size')
-})
-
-test('default maxCacheSize', async function (t) {
-  const core = new Hypercore(RAM.reusable())
+test('node and key caches are subbed from a passed-in rache', async t => {
+  const globalCache = new Rache()
+  const core = new Hypercore(RAM, { globalCache })
   const db = new Hyperbee(core)
 
-  t.is(db.maxCacheSize, 65536, 'Correct max cache size')
+  t.is(globalCache.globalSize, 0, 'sanity check')
+  await db.put('some', 'thing')
+  await db.get('some')
+
+  // TODO: for some reason, there's only 1 cache entry
+  // total after a put+get, which seems off. Investigate.
+  t.is(globalCache.globalSize > 0, true, 'subbed from globalCache')
 })

@@ -15,15 +15,15 @@
     "hypercore-errors": "^1.0.0",
     "mutexify": "^1.4.0",
     "protocol-buffers-encodings": "^1.2.0",
+    "rache": "^1.0.0",
     "ready-resource": "^1.0.0",
     "safety-catch": "^1.0.2",
     "streamx": "^2.12.4",
-    "unslab": "^1.2.0",
-    "xache": "^1.2.1"
+    "unslab": "^1.2.0"
   },
   "devDependencies": {
     "brittle": "^3.1.0",
-    "hypercore": "^10.18.0",
+    "hypercore": "^10.37.10",
     "protocol-buffers": "^4.2.0",
     "random-access-memory": "^6.0.0",
     "standard": "^17.0.0",

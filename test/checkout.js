@@ -22,3 +22,20 @@ test('checkouts can point to the future', async function (t) {
   t.alike((await checkout.get('a')).value, 'a')
   t.alike((await checkout.get('b')).value, 'b')
 })
+
+test('checkout in the middle of a batch', async function (t) {
+  const db = create()
+  const batch = db.batch()
+
+  await batch.put('a', 'a')
+  await batch.put('b', 'b')
+  await batch.flush()
+
+  let checkout = db.checkout(2)
+
+  await t.exception(checkout.get('a'), /Cannot checkout in the middle of a batch/)
+
+  checkout = db.checkout(3)
+
+  t.alike((await checkout.get('a')).value, 'a')
+})

@@ -57,13 +57,13 @@ class Cache {
     // if we need to "work" more than 128 ticks, just bust the cache...
     if (this.length - length > 128) {
       this.keys.clear()
+      this.length = 0
     } else {
       for (let i = length; i < this.length; i++) {
         this.keys.delete(i)
       }
+      this.length = length
     }
-
-    this.length = length
   }
 }
 

@@ -14,7 +14,7 @@ const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
-const { BLOCK_NOT_AVAILABLE } = require('hypercore-errors')
+const { BLOCK_NOT_AVAILABLE, DECODING_ERROR } = require('hypercore-errors')
 
 const T = 5
 const MIN_KEYS = T - 1
@@ -631,7 +631,11 @@ class Hyperbee extends ReadyResource {
 
   async getHeader (opts) {
     const blk = await this.core.get(0, opts)
-    return blk && Header.decode(blk)
+    try {
+      return blk && Header.decode(blk)
+    } catch {
+      throw DECODING_ERROR()
+    }
   }
 
   async _close () {

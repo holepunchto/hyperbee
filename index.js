@@ -1262,7 +1262,7 @@ class Watcher extends ReadyResource {
   _onappend () {
     // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
     // the better solution is propably just to change non-sparse sessions to not report a fake length
-    if (!this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
+    if (!this.closing && !this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
 
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
@@ -1297,6 +1297,8 @@ class Watcher extends ReadyResource {
 
       while (true) {
         await this._waitForChanges()
+
+        if (this.closing) return { value: undefined, done: true }
 
         if (this._updateOnce) {
           this._updateOnce = false

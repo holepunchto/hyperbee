@@ -1298,6 +1298,8 @@ class Watcher extends ReadyResource {
       while (true) {
         await this._waitForChanges()
 
+        if (this.closing) return { value: undefined, done: true }
+
         if (this._updateOnce) {
           this._updateOnce = false
           await this.bee.update({ wait: true })
@@ -1370,6 +1372,8 @@ class Watcher extends ReadyResource {
 
     await this._closeCurrent().catch(safetyCatch)
     await this._closePrevious().catch(safetyCatch)
+
+    if (this._resolveOnChange) this._resolveOnChange()
 
     const release = await this._lock()
     release()

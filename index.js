@@ -583,11 +583,14 @@ class Hyperbee extends ReadyResource {
 
   checkout (version, opts = {}) {
     if (version < 1) version = 1
+    if (version > this.core.length) {
+      throw BAD_ARGUMENT('Bad checkout length')
+    }
 
     // same as above, just checkout isn't set yet...
     const snap = (opts.reuseSession || this._sessions === false)
       ? this.core
-      : (version <= this.core.length || version <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
+      : version <= 1 ? this.core.snapshot() : this.core.session({ snapshot: false })
 
     return new Hyperbee(snap, {
       _view: true,

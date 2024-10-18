@@ -406,6 +406,9 @@ class Hyperbee extends ReadyResource {
   async _open () {
     await this.core.ready()
 
+    // snapshot
+    if (this._checkout === -1) this._checkout = this.core.length
+
     const baseCache = Rache.from(this.core.globalCache)
     this._keyCache = new Cache(baseCache)
     this._nodeCache = new Cache(Rache.from(baseCache))
@@ -582,7 +585,7 @@ class Hyperbee extends ReadyResource {
   }
 
   checkout (version, opts = {}) {
-    if (version < 1) version = 1
+    if (version === 0) version = 1
 
     // same as above, just checkout isn't set yet...
     const snap = (opts.reuseSession || this._sessions === false)
@@ -603,7 +606,7 @@ class Hyperbee extends ReadyResource {
   }
 
   snapshot (opts) {
-    return this.checkout(Math.max(1, this.version), opts)
+    return this.checkout(this.core.opened === false ? -1 : Math.max(1, this.version), opts)
   }
 
   sub (prefix, opts = {}) {

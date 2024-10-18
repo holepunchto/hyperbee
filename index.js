@@ -407,7 +407,7 @@ class Hyperbee extends ReadyResource {
     await this.core.ready()
 
     // snapshot
-    if (this._checkout === -1) this._checkout = this.core.length
+    if (this._checkout === -1) this._checkout = Math.max(1, this.core.length)
 
     const baseCache = Rache.from(this.core.globalCache)
     this._keyCache = new Cache(baseCache)

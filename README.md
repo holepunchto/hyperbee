@@ -262,6 +262,8 @@ Create a stream of all entries ever inserted or deleted from the db.
 
 Each entry has an additional `type` property indicating if it was a `put` or `del` operation.
 
+If you pass `wait: false`, then the type of each entry for which blocks are missing will be `BLOCK_NOT_AVAILABLE`.
+
 `options` include:
 ```js
 {
@@ -272,6 +274,7 @@ Each entry has an additional `type` property indicating if it was a `put` or `de
   lte: seq, // Stop after this index
   lt: seq, // Stop before this index
   limit: -1 // Set to the max number of entries you want
+  wait: true // Don't wait to load blocks
 }
 ```
 

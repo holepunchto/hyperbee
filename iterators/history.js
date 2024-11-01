@@ -27,10 +27,24 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.lt <= 1) return null
-      return final(await this.batch.getBlock(--this.lt), this.encoding)
+      try {
+        const block = await this.batch.getBlock(--this.lt)
+        return final(block, this.encoding)
+      } catch (e) {
+        if (e.message.startsWith('BLOCK_NOT_AVAILABLE')) {
+          return { type: 'BLOCK_NOT_AVAILABLE', seq: this.lt }
+        } else throw e
+      }
     }
 
-    return final(await this.batch.getBlock(this.gte++), this.encoding)
+    try {
+      const block = await this.batch.getBlock(this.gte++)
+      return final(block, this.encoding)
+    } catch (e) {
+      if (e.message.startsWith('BLOCK_NOT_AVAILABLE')) {
+        return { type: 'BLOCK_NOT_AVAILABLE', seq: this.gte }
+      } else throw e
+    }
   }
 
   close () {

@@ -1,4 +1,5 @@
 const b4a = require('b4a')
+const safetyCatch = require('safety-catch')
 
 class SubTree {
   constructor (node, parent) {
@@ -154,7 +155,12 @@ module.exports = class DiffIterator {
   }
 
   async open () {
-    await Promise.all([this.left.open(), this.right.open()])
+    const leftProm = this.left.open()
+    leftProm.catch(safetyCatch)
+    const rightProm = this.right.open()
+    rightProm.catch(safetyCatch)
+
+    await Promise.all([leftProm, rightProm])
   }
 
   async next () {

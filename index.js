@@ -401,10 +401,12 @@ class Hyperbee extends ReadyResource {
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
     }
+
+    this.ready().catch(safetyCatch)
   }
 
   async _open () {
-    await this.core.ready()
+    if (this.core.opened === false) await this.core.ready()
 
     // snapshot
     if (this._checkout === -1) this._checkout = Math.max(1, this.core.length)
@@ -744,12 +746,12 @@ class Batch {
   }
 
   async _getNode (seq) {
-    const cached = this.core.fork === this.tree.core.fork ? this.tree._nodeCache.get(seq) : null
+    const cached = this.tree._nodeCache !== null && this.core.fork === this.tree.core.fork ? this.tree._nodeCache.get(seq) : null
     if (cached !== null) return cached
     const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
     if (entry === null) throw BLOCK_NOT_AVAILABLE()
     const wrap = copyEntry(entry)
-    if (this.core.fork === this.tree.core.fork) this.tree._nodeCache.set(seq, wrap)
+    if (this.core.fork === this.tree.core.fork && this.tree._nodeCache !== null) this.tree._nodeCache.set(seq, wrap)
     return wrap
   }
 

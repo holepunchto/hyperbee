@@ -567,7 +567,7 @@ class Hyperbee extends ReadyResource {
     }
   }
 
-  _ontruncate () {
+  _ontruncate (length) {
     for (const watcher of this._watchers) {
       watcher._ontruncate()
     }
@@ -576,8 +576,8 @@ class Hyperbee extends ReadyResource {
       watcher._ontruncate()
     }
 
-    this._nodeCache.gc(this.core.length)
-    this._keyCache.gc(this.core.length)
+    this._nodeCache.gc(length)
+    this._keyCache.gc(length)
   }
 
   _makeSnapshot () {

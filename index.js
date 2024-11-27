@@ -680,8 +680,10 @@ class Hyperbee extends ReadyResource {
   }
 }
 
-class Batch {
+class Batch extends ReadyResource {
   constructor (tree, core, batchLock, cache, options = {}) {
+    super()
+
     this.tree = tree
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
@@ -704,9 +706,11 @@ class Batch {
       key: options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding,
       value: options.valueEncoding ? codecs(options.valueEncoding) : tree.valueEncoding
     }
+
+    this.ready().catch(safetyCatch)
   }
 
-  ready () {
+  _open () {
     return this.tree.ready()
   }
 
@@ -1015,12 +1019,13 @@ class Batch {
     }
   }
 
-  async close () {
+  async _close () {
     if (this.isSnapshot) return this._closeSnapshot()
 
     this.root = null
     if (this.blocks) this.blocks.clear()
     this.length = 0
+
     this._unlock()
   }
 
@@ -1063,7 +1068,7 @@ class Batch {
     return batch
   }
 
-  flush () {
+  async flush () {
     if (!this.length) return this.close()
 
     const batch = this.toBlocks()
@@ -1072,7 +1077,9 @@ class Batch {
     this.blocks.clear()
     this.length = 0
 
-    return this._appendBatch(batch)
+    await this._appendBatch(batch)
+
+    return this.close()
   }
 
   _unlockMaybe () {

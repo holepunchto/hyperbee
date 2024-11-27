@@ -734,7 +734,9 @@ class Batch {
       await this.updating
     }
     if (this.version < 2) return null
-    return (await this.getBlock(this.version - 1)).getTreeNode(0)
+    const block = await this.getBlock(this.version - 1)
+    if (block.entry.batchEnd > 0) throw new Error('Cannot checkout in the middle of a batch')
+    return block.getTreeNode(0)
   }
 
   async getKey (seq) {
@@ -1055,7 +1057,8 @@ class Batch {
       batch[i] = Node.encode({
         key,
         value,
-        index: deflate(pendingIndex)
+        index: deflate(pendingIndex),
+        batchEnd: this.length - i - 1
       })
     }
 
@@ -1587,7 +1590,8 @@ function copyEntry (entry) {
     key,
     value,
     index,
-    inflated: null
+    inflated: null,
+    batchEnd: entry.batchEnd
   }
 }
 

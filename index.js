@@ -367,7 +367,8 @@ class Hyperbee extends ReadyResource {
 
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
-    this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
+    this.hasExtension = opts.extension !== false
+    this.extension = opts.extension || null
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
@@ -393,11 +394,6 @@ class Hyperbee extends ReadyResource {
 
     this._batches = []
 
-    if (this._watchers) {
-      this.core.on('append', this._onappendBound)
-      this.core.on('truncate', this._ontruncateBound)
-    }
-
     if (this.prefix && opts._sub) {
       this.keyEncoding = prefixEncoding(this.prefix, this.keyEncoding)
     }
@@ -406,7 +402,14 @@ class Hyperbee extends ReadyResource {
   }
 
   async _open () {
-    if (this.core.opened === false) await this.core.ready()
+    await this.core.ready()
+
+    if (this.hasExtension) this.extension = this.extension || Extension.register(this)
+
+    if (this._watchers) {
+      this.core.on('append', this._onappendBound)
+      this.core.on('truncate', this._ontruncateBound)
+    }
 
     // snapshot
     if (this._checkout === -1) this._checkout = Math.max(1, this.core.length)

@@ -146,18 +146,17 @@ class TreeNode {
     if (this.block === null) return
 
     const core = this.block.tree.core
-    const indexedLength = this.block.tree.core.signedLength
 
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
-      if (k.seq >= indexedLength) continue
+      if (k.seq >= core.signedLength) continue
       preloadBlock(core, k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
-      if (c.seq >= indexedLength) continue
+      if (c.seq >= core.signedLength) continue
       preloadBlock(core, c.seq)
     }
   }
@@ -1264,10 +1263,6 @@ class Watcher extends ReadyResource {
   }
 
   _onappend () {
-    // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
-    // the better solution is propably just to change non-sparse sessions to not report a fake length
-    if (!this.closing && !this.core.isAutobase && (!this.core.core || this.core.state.tree.length !== this.core.length)) return
-
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()

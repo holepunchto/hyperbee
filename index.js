@@ -146,7 +146,7 @@ class TreeNode {
     if (this.block === null) return
 
     const core = this.block.tree.core
-    const bitfield = core.core.bitfield
+    const bitfield = core.core ? core.core.bitfield : null
 
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]

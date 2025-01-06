@@ -145,8 +145,10 @@ class TreeNode {
   preload () {
     if (this.block === null) return
 
-    const core = this.block.tree.core
-    const bitfield = core.core ? core.core.bitfield : null
+    const core = getBackingCore(this.block.tree.core)
+    if (!core) return
+
+    const bitfield = core.core.bitfield
 
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
@@ -1588,6 +1590,12 @@ function copyEntry (entry) {
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
+}
+
+function getBackingCore (core) {
+  if (core.core) return core
+  if (core.getBackingCore) return core.getBackingCore().session
+  return null
 }
 
 function sameValue (a, b) {

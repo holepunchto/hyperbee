@@ -145,20 +145,19 @@ class TreeNode {
   preload () {
     if (this.block === null) return
 
-    const core = getBackingCore(this.block.tree.core)
-    const indexedLength = getIndexedLength(this.block.tree.core)
+    const core = this.block.tree.core
     const bitfield = core.core.bitfield
 
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
-      if (k.seq >= indexedLength || bitfield.get(k.seq)) continue
+      if (k.seq >= core.signedLength || (bitfield && bitfield.get(k.seq))) continue
       preloadBlock(core, k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
-      if (c.seq >= indexedLength || bitfield.get(c.seq)) continue
+      if (c.seq >= core.signedLength || (bitfield && bitfield.get(c.seq))) continue
       preloadBlock(core, c.seq)
     }
   }
@@ -746,7 +745,7 @@ class Batch {
   }
 
   async _getNode (seq) {
-    const cached = this.tree._nodeCache !== null && this.core.fork === this.tree.core.fork ? this.tree._nodeCache.get(seq) : null
+    const cached = (this.tree._nodeCache !== null && this.core.fork === this.tree.core.fork) ? this.tree._nodeCache.get(seq) : null
     if (cached !== null) return cached
     const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
     if (entry === null) throw BLOCK_NOT_AVAILABLE()
@@ -1265,10 +1264,6 @@ class Watcher extends ReadyResource {
   }
 
   _onappend () {
-    // TODO: this is a light hack / fix for non-sparse session reporting .length's inside batches
-    // the better solution is propably just to change non-sparse sessions to not report a fake length
-    if (!this.closing && !this.core.isAutobase && (!this.core.core || this.core.core.tree.length !== this.core.length)) return
-
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()
@@ -1593,18 +1588,6 @@ function copyEntry (entry) {
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
-}
-
-function getBackingCore (core) {
-  if (core._source) return core._source.originalCore
-  if (core.flush) return core.session
-  return core
-}
-
-function getIndexedLength (core) {
-  if (core._source) return core._source.core.indexedLength
-  if (core.flush) return core.indexedLength
-  return core.length
 }
 
 function sameValue (a, b) {

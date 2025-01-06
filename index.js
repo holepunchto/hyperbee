@@ -146,17 +146,18 @@ class TreeNode {
     if (this.block === null) return
 
     const core = this.block.tree.core
+    const bitfield = core.core.bitfield
 
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
-      if (k.seq >= core.signedLength) continue
+      if (k.seq >= core.signedLength || (bitfield && bitfield.get(k.seq))) continue
       preloadBlock(core, k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
-      if (c.seq >= core.signedLength) continue
+      if (c.seq >= core.signedLength || (bitfield && bitfield.get(c.seq))) continue
       preloadBlock(core, c.seq)
     }
   }

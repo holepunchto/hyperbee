@@ -211,9 +211,11 @@ class TreeNode {
   async siblings (parent) {
     for (let i = 0; i < parent.children.length; i++) {
       if (parent.children[i].value === this) {
-        const left = i ? parent.getChildNode(i - 1) : null
-        const right = i < parent.children.length - 1 ? parent.getChildNode(i + 1) : null
-        return { left: await left, index: i, right: await right }
+        const [left, right] = await Promise.all([
+          i ? parent.getChildNode(i - 1) : null,
+          i < parent.children.length - 1 ? parent.getChildNode(i + 1) : null
+        ])
+        return { left, index: i, right }
       }
     }
 

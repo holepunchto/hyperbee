@@ -536,6 +536,11 @@ class Hyperbee extends ReadyResource {
           return
         }
 
+        if (left.core.closing || right.core.closing) {
+          cb(new Error('Bee closed'))
+          return
+        }
+
         const snapshot = right.version > left.version
           ? right._makeSnapshot()
           : left._makeSnapshot()

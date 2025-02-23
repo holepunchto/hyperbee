@@ -23,12 +23,10 @@
   },
   "devDependencies": {
     "brittle": "^3.1.0",
-    "hypercore": "^10.37.10",
+    "hypercore": "^11.0.0",
     "protocol-buffers": "^4.2.0",
-    "random-access-memory": "^6.0.0",
     "standard": "^17.0.0",
     "sub-encoder": "^1.0.6",
-    "test-tmp": "^1.2.1",
     "tree-to-string": "^1.1.1"
   },
   "scripts": {

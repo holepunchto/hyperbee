@@ -2,7 +2,7 @@ const { createRange, collect } = require('./helpers')
 const test = require('brittle')
 
 test('basic history', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
 
   {
     const h = await collect(db.createHistoryStream())
@@ -65,7 +65,7 @@ test('basic history', async function (t) {
 })
 
 test('reverse history', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
 
   {
     const h = await collect(db.createHistoryStream({ reverse: true }))
@@ -130,7 +130,7 @@ test('reverse history', async function (t) {
 test('live history', async function (t) {
   t.plan(2)
 
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
 
   const s = db.createHistoryStream({ gte: 10, live: true })
 
@@ -146,7 +146,7 @@ test('live history', async function (t) {
 })
 
 test('negative indexes is implicit + version', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
 
   const h = await collect(db.createHistoryStream({ gte: -2 }))
 
@@ -158,7 +158,7 @@ test('negative indexes is implicit + version', async function (t) {
 })
 
 test('live history can be destroyed', async function (t) {
-  const db = await createRange(1)
+  const db = await createRange(t, 1)
 
   let done
   const end = new Promise(resolve => { done = resolve })
@@ -177,7 +177,7 @@ test('live history can be destroyed', async function (t) {
 })
 
 test('no session leak after history stream closes', async function (t) {
-  const db = await createRange(5)
+  const db = await createRange(t, 5)
   const v1 = db.version
 
   const snap = db.snapshot()
@@ -190,4 +190,6 @@ test('no session leak after history stream closes', async function (t) {
 
   t.is(entries.length, 5) // Sanity check
   t.is(nrSessions, db.core.sessions.length)
+
+  await snap.close()
 })

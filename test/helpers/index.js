@@ -1,6 +1,5 @@
 const Hyperbee = require('../../')
 const Hypercore = require('hypercore')
-const RAM = require('random-access-memory')
 
 module.exports = {
   toString,
@@ -54,10 +53,10 @@ async function insertRange (db, start, end) {
   await b.flush()
 }
 
-async function createRange (start, end, opts = end) {
+async function createRange (t, start, end, opts = end) {
   if (typeof end !== 'number') end = undefined
 
-  const db = create(opts)
+  const db = await create(t, opts)
   await insertRange(db, start, end)
   return db
 }
@@ -77,46 +76,50 @@ async function toString (tree) {
   }
 }
 
-function clone (db, opts) {
+async function clone (t, db, opts) {
   opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
-  const clone = new Hypercore(RAM, db.core.key)
-  return new Hyperbee(clone, opts)
+  const storage = await t.tmp()
+  const clone = new Hypercore(storage, db.core.key)
+  const cdb = new Hyperbee(clone, opts)
+  t.teardown(() => cdb.close())
+  return cdb
 }
 
-function create (opts) {
+async function create (t, opts) {
   opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
-  const core = new Hypercore(RAM)
-  return new Hyperbee(core, opts)
+  const storage = await t.tmp()
+  const core = new Hypercore(storage)
+  const db = new Hyperbee(core, opts)
+  t.teardown(() => db.close())
+  return db
 }
 
-function createStoredCore () {
-  const files = new Map()
-
+async function createStoredCore (t) {
+  const storage = await t.tmp()
   return function (...args) {
-    return new Hypercore(storage, ...args)
-  }
-
-  function storage (name) {
-    if (files.has(name)) return files.get(name).clone()
-    const st = new RAM()
-    files.set(name, st)
-    return st
+    const core = new Hypercore(storage, ...args)
+    t.teardown(() => core.close())
+    return core
   }
 }
 
-function createStored () {
-  const create = createStoredCore()
+async function createStored (t) {
+  const create = await createStoredCore(t)
 
   return function (...args) {
     const core = create(...args)
-    return new Hyperbee(core)
+    const db = new Hyperbee(core)
+    t.teardown(() => db.close())
+    return db
   }
 }
 
-function createCore () {
-  return new Hypercore(require('random-access-memory'))
+async function createCore (t) {
+  const core = new Hypercore(await t.tmp())
+  t.teardown(() => core.close())
+  return core
 }
 
 function eventFlush () {
-  return new Promise(resolve => setImmediate(resolve))
+  return new Promise(resolve => setTimeout(resolve, 1000))
 }

@@ -7,7 +7,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   const value = 'value'
 
   {
-    const db = create()
+    const db = await create(t)
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
     const fst = await db.get(key)
@@ -17,7 +17,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = create()
+    const db = await create(t)
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
     const fst = await db.get(key)
@@ -27,7 +27,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
     const fst = await db.get(key)
@@ -37,7 +37,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
     const fst = await db.get(key)
@@ -47,7 +47,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const cas = (lst, nxt) => JSON.stringify(lst.value) !== JSON.stringify(nxt.value)
     const v = { value }
     await db.put(key, v)
@@ -58,7 +58,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const cas = (lst, nxt) => JSON.stringify(lst.value) !== JSON.stringify(nxt.value)
     const v = { value }
     await db.put(key, v)
@@ -69,7 +69,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
@@ -81,7 +81,7 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
@@ -98,7 +98,7 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
   const value = 'value'
 
   {
-    const bee = create()
+    const bee = await create(t)
     const db = bee.batch()
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
@@ -106,10 +106,11 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(key, value + '^', { cas })
     const snd = await db.get(key)
     t.unlike(fst, snd)
+    await db.close()
   }
 
   {
-    const bee = create()
+    const bee = await create(t)
     const db = bee.batch()
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
@@ -117,10 +118,11 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(key, value, { cas })
     const snd = await db.get(key)
     t.alike(fst, snd)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     const db = bee.batch()
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
@@ -128,10 +130,11 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(key, value + '^', { cas })
     const snd = await db.get(key)
     t.unlike(fst, snd)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     const db = bee.batch()
     const cas = (lst, nxt) => nxt.value !== lst.value
     await db.put(key, value)
@@ -139,10 +142,11 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(key, value, { cas })
     const snd = await db.get(key)
     t.alike(fst, snd)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const db = bee.batch()
     const cas = (lst, nxt) => JSON.stringify(lst.value) !== JSON.stringify(nxt.value)
     const v = { value }
@@ -151,10 +155,11 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(key, { value: value + '^' }, { cas })
     const snd = await db.get(key)
     t.unlike(fst, snd)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const db = bee.batch()
     const cas = (lst, nxt) => JSON.stringify(lst.value) !== JSON.stringify(nxt.value)
     const v = { value }
@@ -163,10 +168,11 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(key, { value }, { cas })
     const snd = await db.get(key)
     t.alike(fst, snd)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
@@ -176,10 +182,11 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(k0, b4a.from(value), { cas })
     const snd = await db.get(k0)
     t.alike(fst, snd)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
@@ -189,6 +196,7 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
     await db.put(k0, b4a.from(value + '^'), { cas })
     const snd = await db.get(k0)
     t.unlike(fst, snd)
+    await db.close()
   }
 })
 
@@ -197,7 +205,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   const value = 'value'
 
   {
-    const db = create()
+    const db = await create(t)
     await db.put(key, value)
     const fst = await db.get(key)
     const cas = (lst) => lst.value === value
@@ -208,7 +216,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create()
+    const db = await create(t)
     await db.put(key, value)
     const fst = await db.get(key)
     const cas = (lst) => lst.value !== value
@@ -219,7 +227,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     await db.put(key, value)
     const fst = await db.get(key)
     const cas = (lst) => lst.value === value
@@ -230,7 +238,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     await db.put(key, value)
     const fst = await db.get(key)
     const cas = (lst) => lst.value !== value
@@ -241,7 +249,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const v = { value }
     await db.put(key, v)
     const fst = await db.get(key)
@@ -253,7 +261,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const v = { value }
     await db.put(key, v)
     const fst = await db.get(key)
@@ -265,7 +273,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const v = { value }
     await db.put(key, v)
     const fst = await db.get(key)
@@ -277,7 +285,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const db = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const v = { value }
     await db.put(key, v)
     const fst = await db.get(key)
@@ -289,7 +297,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
     await db.put(k0, v0)
@@ -302,7 +310,7 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
     await db.put(k0, v0)
@@ -320,7 +328,7 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
   const value = 'value'
 
   {
-    const bee = create()
+    const bee = await create(t)
     const db = bee.batch()
     await db.put(key, value)
     const fst = await db.get(key)
@@ -329,10 +337,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.unlike(fst, snd)
     t.is(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create()
+    const bee = await create(t)
     const db = bee.batch()
     await db.put(key, value)
     const fst = await db.get(key)
@@ -341,10 +350,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.alike(fst, snd)
     t.not(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     const db = bee.batch()
     await db.put(key, value)
     const fst = await db.get(key)
@@ -353,10 +363,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.unlike(fst, snd)
     t.is(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'utf8' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'utf8' })
     const db = bee.batch()
     await db.put(key, value)
     const fst = await db.get(key)
@@ -365,10 +376,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.alike(fst, snd)
     t.not(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const db = bee.batch()
     const v = { value }
     await db.put(key, v)
@@ -378,10 +390,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.unlike(fst, snd)
     t.is(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const db = bee.batch()
     const v = { value }
     await db.put(key, v)
@@ -391,10 +404,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.alike(fst, snd)
     t.not(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const db = bee.batch()
     const v = { value }
     await db.put(key, v)
@@ -404,10 +418,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.unlike(fst, snd)
     t.is(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'json' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'json' })
     const db = bee.batch()
     const v = { value }
     await db.put(key, v)
@@ -417,10 +432,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(key)
     t.alike(fst, snd)
     t.not(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
@@ -431,10 +447,11 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(k0)
     t.unlike(fst, snd)
     t.is(snd, null)
+    await db.close()
   }
 
   {
-    const bee = create({ keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
     const db = bee.batch()
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
@@ -445,6 +462,7 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
     const snd = await db.get(k0)
     t.alike(fst, snd)
     t.not(snd, null)
+    await db.close()
   }
 })
 
@@ -454,7 +472,7 @@ test('flushing an empty batch after a "failed" cas op releases lock (allows prog
 
   {
     const cas = (lst, nxt) => lst.value !== nxt.value
-    const db = create()
+    const db = await create(t)
     await db.put(key, value)
     let b = db.batch()
     await b.put(key, value, { cas })
@@ -468,7 +486,7 @@ test('flushing an empty batch after a "failed" cas op releases lock (allows prog
 
   {
     const cas = (lst, nxt) => lst.value !== nxt.value
-    const db = create()
+    const db = await create(t)
     await db.put(key, value)
     let b = db.batch()
     await b.put(key, value, { cas })
@@ -482,7 +500,7 @@ test('flushing an empty batch after a "failed" cas op releases lock (allows prog
 
   {
     const cas = (lst) => lst.value !== value
-    const db = create()
+    const db = await create(t)
     await db.put(key, value)
     let b = db.batch()
     await b.del(key, { cas })
@@ -496,7 +514,7 @@ test('flushing an empty batch after a "failed" cas op releases lock (allows prog
 
   {
     const cas = (lst) => lst.value !== value
-    const db = create()
+    const db = await create(t)
     await db.put(key, value)
     let b = db.batch()
     await b.del(key, { cas })
@@ -510,8 +528,8 @@ test('flushing an empty batch after a "failed" cas op releases lock (allows prog
 })
 
 test('alwaysDuplicate - should not insert the same kv-pair twice', async function (t) {
-  const db1 = create()
-  const db2 = create({ alwaysDuplicate: false })
+  const db1 = await create(t)
+  const db2 = await create(t, { alwaysDuplicate: false })
 
   await db1.put('/a', '1')
   await db2.put('/a', '1')
@@ -538,8 +556,8 @@ test('alwaysDuplicate - should not insert the same kv-pair twice', async functio
 })
 
 test('alwaysDuplicate - works on batch puts', async function (t) {
-  const db1 = create()
-  const db2 = create({ alwaysDuplicate: false })
+  const db1 = await create(t)
+  const db2 = await create(t, { alwaysDuplicate: false })
 
   const b1 = db1.batch()
   const b2 = db2.batch()

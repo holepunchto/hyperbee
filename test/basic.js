@@ -5,7 +5,7 @@ const { create, collect, createCore } = require('./helpers')
 const Hyperbee = require('..')
 
 test('basic properties', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   t.is(typeof db.replicate, 'function')
 
@@ -30,7 +30,7 @@ test('basic properties', async function (t) {
 })
 
 test('out of bounds iterator', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
 
@@ -56,7 +56,7 @@ test('out of bounds iterator', async function (t) {
 })
 
 test('createHistoryStream reverse', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
 
@@ -83,7 +83,7 @@ test('createHistoryStream reverse', async function (t) {
 })
 
 test('out of bounds iterator, string encoding', async function (t) {
-  const db = create({ keyEncoding: 'utf8' })
+  const db = await create(t, { keyEncoding: 'utf8' })
 
   const b = db.batch()
 
@@ -109,7 +109,7 @@ test('out of bounds iterator, string encoding', async function (t) {
 })
 
 test('out of bounds iterator, larger db', async function (t) {
-  const db = create({ keyEncoding: 'utf8' })
+  const db = await create(t, { keyEncoding: 'utf8' })
 
   for (let i = 0; i < 8; i++) {
     await db.put('' + i, 'hello world')
@@ -131,7 +131,7 @@ test('out of bounds iterator, larger db', async function (t) {
 })
 
 test('test all short iterators', async function (t) {
-  const db = create({ keyEncoding: 'utf8' })
+  const db = await create(t, { keyEncoding: 'utf8' })
 
   const MAX = 25
 
@@ -187,7 +187,7 @@ test('test all short iterators', async function (t) {
 })
 
 test('test all short iterators, sub database', async function (t) {
-  const parent = create({ keyEncoding: 'utf8' })
+  const parent = await create(t, { keyEncoding: 'utf8' })
   const db = parent.sub('sub1')
 
   const MAX = 25
@@ -224,6 +224,8 @@ test('test all short iterators, sub database', async function (t) {
 
   t.pass('all iterations passed')
 
+  await db.close()
+
   function validate (size, reference, opts, entries) {
     const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
     const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
@@ -245,7 +247,7 @@ test('test all short iterators, sub database', async function (t) {
 })
 
 test('custom key/value encodings in get/put', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put(b4a.from('hello'), b4a.from('world'), {
     keyEncoding: 'binary',
     valueEncoding: 'binary'
@@ -259,7 +261,7 @@ test('custom key/value encodings in get/put', async function (t) {
 })
 
 test('custom key/value encodings in range iterator', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put(b4a.from('hello1'), b4a.from('world1'), {
     keyEncoding: 'binary',
     valueEncoding: 'binary'
@@ -290,16 +292,18 @@ test('custom key/value encodings in range iterator', async function (t) {
 })
 
 test('simple sub put/get', async function (t) {
-  const db = create()
+  const db = await create(t)
   const sub = db.sub('hello')
   await sub.put('world', 'hello world')
   const node = await sub.get('world')
   t.is(node && node.key, 'world')
   t.is(node && node.value, 'hello world')
+
+  await sub.close()
 })
 
 test('multiple levels of sub', async function (t) {
-  const db = create({ sep: '!' })
+  const db = await create(t, { sep: '!' })
   const sub = db.sub('hello').sub('world')
   await sub.put('a', 'b')
 
@@ -324,10 +328,12 @@ test('multiple levels of sub', async function (t) {
     t.is(node && node.key, key)
     t.is(node && node.value, 'b')
   }
+
+  await sub.close()
 })
 
 test('multiple levels of sub, entries outside sub', async function (t) {
-  const db = create({ sep: '!' })
+  const db = await create(t, { sep: '!' })
   const helloSub = db.sub('hello')
   const worldSub = helloSub.sub('world')
   await helloSub.put('a', 'b')
@@ -344,12 +350,15 @@ test('multiple levels of sub, entries outside sub', async function (t) {
     t.is(value, next[1])
   }
   t.is(expected.length, 0)
+
+  await helloSub.close()
+  await worldSub.close()
 })
 
 test('sub respects keyEncoding', async function (t) {
   t.plan(2)
 
-  const db = create({ sep: '!' })
+  const db = await create(t, { sep: '!' })
   const helloSub = db.sub('hello', {
     keyEncoding: {
       encode (key) {
@@ -370,12 +379,14 @@ test('sub respects keyEncoding', async function (t) {
   const node = await helloSub.get({ key: 'hello' })
 
   t.ok(node)
+
+  await helloSub.close()
 })
 
 test('sub with a key that starts with 0xff', async function (t) {
   t.plan(2)
 
-  const db = create({ sep: '!', keyEncoding: 'binary' })
+  const db = await create(t, { sep: '!', keyEncoding: 'binary' })
   const helloSub = db.sub('hello')
   const key = b4a.from([0xff, 0x01, 0x02])
 
@@ -388,12 +399,14 @@ test('sub with a key that starts with 0xff', async function (t) {
   const node = await helloSub.get(key)
 
   t.ok(node)
+
+  await helloSub.close()
 })
 
 test('read stream on sub checkout returns only sub keys', async function (t) {
   t.plan(3)
 
-  const db = create({ sep: '!', keyEncoding: 'utf-8' })
+  const db = await create(t, { sep: '!', keyEncoding: 'utf-8' })
   const sub = db.sub('sub')
 
   await db.put('a', 'a')
@@ -412,19 +425,22 @@ test('read stream on sub checkout returns only sub keys', async function (t) {
   t.is(keys.length, 2)
   t.is(keys[0], 'sa')
   t.is(keys[1], 'sb')
+
+  await sub.close()
 })
 
 test('read stream on double sub checkout', async function (t) {
   t.plan(3)
 
-  const db = create({ sep: '!', keyEncoding: 'utf-8' })
+  const db = await create(t, { sep: '!', keyEncoding: 'utf-8' })
   const sub = db.sub('sub')
 
   await db.put('a', 'a')
   await sub.put('sa', 'sa')
   await sub.put('sb', 'sb')
 
-  const checkout = sub.snapshot().snapshot()
+  const a = sub.snapshot()
+  const checkout = a.snapshot()
 
   await db.put('b', 'b')
 
@@ -436,10 +452,14 @@ test('read stream on double sub checkout', async function (t) {
   t.is(keys.length, 2)
   t.is(keys[0], 'sa')
   t.is(keys[1], 'sb')
+
+  await sub.close()
+  await checkout.close()
+  await a.close()
 })
 
 test('no session leak after read stream closes', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('e1', 'entry1')
   await db.put('e2', 'entry2')
 
@@ -454,31 +474,25 @@ test('no session leak after read stream closes', async function (t) {
 
   t.is(entries.length, 2) // Sanity check
   t.is(nrSessions, db.core.sessions.length)
+
+  await checkout.close()
 })
 
 test('setting read-only flag to false disables header write', async function (t) {
-  const db = create({ readonly: true })
+  const db = await create(t, { readonly: true })
   await db.ready()
   t.is(db.core.length, 0)
   t.ok(db.readonly)
 })
 
 test('cannot append to read-only db', async function (t) {
-  const db = create({ readonly: true })
+  const db = await create(t, { readonly: true })
   await db.ready()
   await t.exception(() => db.put('hello', 'world'))
 })
 
-test('core is unwrapped in getter', async function (t) {
-  const Hypercore = require('hypercore')
-  const core = new Hypercore(require('random-access-memory'))
-  const db = new Hyperbee(core)
-  await db.ready()
-  t.ok(core === db.core)
-})
-
 test('get header out', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.ready()
   await db.put('hi', 'ho')
   const h = await db.getHeader()
@@ -486,30 +500,30 @@ test('get header out', async function (t) {
 })
 
 test('isHyperbee throws for empty hypercore and wait false', async function (t) {
-  const core = createCore()
+  const core = await createCore(t)
   await t.exception(Hyperbee.isHyperbee(core, { wait: false }), 'Block is not available')
 })
 
 test('isHyperbee is false for non-empty hypercore', async function (t) {
-  const core = createCore()
+  const core = await createCore(t)
   await core.append('something')
   t.is(await Hyperbee.isHyperbee(core), false)
 })
 
 test('isHyperbee is false for hypercore with 1st entry hyperbee', async function (t) {
-  const core = createCore()
+  const core = await createCore(t)
   await core.append('hyperbee')
   t.is(await Hyperbee.isHyperbee(core), false)
 })
 
 test('isHyperbee is true for core of actual hyperbee', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('hi', 'ho') // Adds the header on the first put
   t.ok(await Hyperbee.isHyperbee(db.core))
 })
 
 test('supports encodings in checkout', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('hi', 'there')
 
   const checkout1 = db.checkout(db.version, { keyEncoding: 'binary' })
@@ -517,10 +531,13 @@ test('supports encodings in checkout', async function (t) {
 
   t.alike(await checkout1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
   t.alike(await checkout2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
+
+  await checkout1.close()
+  await checkout2.close()
 })
 
 test('supports encodings in snapshot', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('hi', 'there')
 
   const snap1 = db.snapshot({ keyEncoding: 'binary' })
@@ -528,10 +545,13 @@ test('supports encodings in snapshot', async function (t) {
 
   t.alike(await snap1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
   t.alike(await snap2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
+
+  await snap1.close()
+  await snap2.close()
 })
 
 test('get by seq', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   await db.put('/a', '1')
   await db.put('/b', '2')

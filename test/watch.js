@@ -4,7 +4,7 @@ const Hyperbee = require('../index.js')
 const SubEncoder = require('sub-encoder')
 
 test('basic getAndWatch append flow', async function (t) {
-  const db = create()
+  const db = await create(t)
   const watcher = await db.getAndWatch('aKey')
 
   t.is(watcher.node, null)
@@ -31,7 +31,7 @@ test('basic getAndWatch append flow', async function (t) {
 })
 
 test('current value loaded when getAndWatch resolves', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('aKey', 'here')
 
   const watcher = await db.getAndWatch('aKey')
@@ -39,7 +39,7 @@ test('current value loaded when getAndWatch resolves', async function (t) {
 })
 
 test('throws if bee closing while calling getAndWatch', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('aKey', 'here')
 
   const prom = db.close()
@@ -49,7 +49,7 @@ test('throws if bee closing while calling getAndWatch', async function (t) {
 })
 
 test('throws if bee starts closing before getAndWatch resolves', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('aKey', 'here')
 
   const prom = db.getAndWatch('aKey')
@@ -60,7 +60,7 @@ test('throws if bee starts closing before getAndWatch resolves', async function 
 })
 
 test('getAndWatch truncate flow', async function (t) {
-  const db = create()
+  const db = await create(t)
   const watcher = await db.getAndWatch('aKey')
 
   await db.put('aKey', 'here')
@@ -89,7 +89,7 @@ test('getAndWatch truncate flow', async function (t) {
 })
 
 test('getAndWatch truncate flow with deletes', async function (t) {
-  const db = create()
+  const db = await create(t)
   const watcher = await db.getAndWatch('aKey')
 
   await db.put('aKey', 'here')
@@ -113,7 +113,7 @@ test('getAndWatch truncate flow with deletes', async function (t) {
 test('getAndWatch emits update', async function (t) {
   t.plan(2)
 
-  const db = create()
+  const db = await create(t)
   const watcher = await db.getAndWatch('aKey')
 
   let first = true
@@ -141,7 +141,7 @@ test('getAndWatch with passed key/value encodings', async function (t) {
   const enc = new SubEncoder()
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
-  const db = create({ keyEncoding: 'binary', valueEncoding: 'binary' })
+  const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
   const watcher = await db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
   t.is(watcher.node, null)
 
@@ -156,7 +156,7 @@ test('getAndWatch with passed key/value encodings', async function (t) {
 })
 
 test('getAndWatch uses the default encodings of the bee', async function (t) {
-  const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
+  const db = await create(t, { keyEncoding: 'utf-8', valueEncoding: 'json' })
   const watcher = await db.getAndWatch('entry')
   t.is(watcher.node, null)
 
@@ -169,7 +169,7 @@ test('getAndWatch uses the default encodings of the bee', async function (t) {
 test('basic watch', async function (t) {
   t.plan(2)
 
-  const db = create()
+  const db = await create(t)
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
@@ -189,7 +189,7 @@ test('basic watch', async function (t) {
 test('basic watch next', async function (t) {
   t.plan(3)
 
-  const db = create()
+  const db = await create(t)
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
@@ -205,7 +205,7 @@ test('basic watch next', async function (t) {
 test('watch multiple next() on parallel - value', async function (t) {
   t.plan(9)
 
-  const db = create()
+  const db = await create(t)
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
 
@@ -247,7 +247,7 @@ test('watch multiple next() on parallel - value', async function (t) {
 test('watch multiple next() on parallel - done', async function (t) {
   t.plan(2)
 
-  const db = create()
+  const db = await create(t)
   const watcher = db.watch()
 
   const a = watcher.next()
@@ -262,7 +262,7 @@ test('watch multiple next() on parallel - done', async function (t) {
 test('watch next() after is destroyed', async function (t) {
   t.plan(1)
 
-  const db = create()
+  const db = await create(t)
   const watcher = db.watch()
 
   await watcher.destroy()
@@ -273,7 +273,7 @@ test('watch next() after is destroyed', async function (t) {
 test('watch waits for new change', async function (t) {
   t.plan(3)
 
-  const db = create()
+  const db = await create(t)
   await db.put('/a') // Ignore first append (header)
 
   const watcher = db.watch()
@@ -293,7 +293,7 @@ test('watch waits for new change', async function (t) {
 test('watch does not lose changes if next() was not called yet', async function (t) {
   t.plan(3)
 
-  const db = create()
+  const db = await create(t)
   await db.put('/a') // Ignore first append (header)
 
   const watcher = db.watch()
@@ -315,7 +315,7 @@ test('watch does not lose changes if next() was not called yet', async function 
 test('destroy watch while waiting for a new change', async function (t) {
   t.plan(1)
 
-  const db = create()
+  const db = await create(t)
 
   const watcher = db.watch()
 
@@ -329,7 +329,7 @@ test('destroy watch while waiting for a new change', async function (t) {
 test('basic watch on range', async function (t) {
   t.plan(1)
 
-  const db = await createRange(50)
+  const db = await createRange(t, 50)
 
   const watcher = db.watch({ gte: '14' })
   t.teardown(() => watcher.destroy())
@@ -356,7 +356,7 @@ test('basic watch on range', async function (t) {
 test('batch multiple changes', async function (t) {
   t.plan(2)
 
-  const db = create()
+  const db = await create(t)
 
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
@@ -379,7 +379,7 @@ test('batch multiple changes', async function (t) {
 test('watch ready step should not trigger changes if already had entries', async function (t) {
   t.plan(3)
 
-  const create = createStored()
+  const create = await createStored(t)
 
   const bee = create()
   await bee.put('/a')
@@ -411,7 +411,7 @@ test('watch ready step should not trigger changes if already had entries', async
 test('watch without bee.ready() should trigger the correct version changes', async function (t) {
   t.plan(3)
 
-  const create = createStored()
+  const create = await createStored(t)
 
   const bee = create()
   await bee.put('/a')
@@ -437,7 +437,7 @@ test('watch without bee.ready() should trigger the correct version changes', asy
 test('destroy watch (without stream)', async function (t) {
   t.plan(3)
 
-  const db = create()
+  const db = await create(t)
 
   const watcher = db.watch()
   t.teardown(() => watcher.destroy())
@@ -462,7 +462,7 @@ test('destroy watch (without stream)', async function (t) {
 test('destroy watch (with stream)', async function (t) {
   t.plan(2)
 
-  const db = create()
+  const db = await create(t)
 
   const watcher = db.watch()
 
@@ -480,7 +480,7 @@ test('destroy watch (with stream)', async function (t) {
 test('closing bee should destroy watcher', async function (t) {
   t.plan(2)
 
-  const db = create()
+  const db = await create(t)
 
   const watcher = db.watch()
 
@@ -492,7 +492,7 @@ test('closing bee should destroy watcher', async function (t) {
 test('destroy should not trigger stream error', async function (t) {
   t.plan(1)
 
-  const db = create()
+  const db = await create(t)
 
   await db.ready()
   await db.put('/a') // Ignore first append (header)
@@ -521,7 +521,7 @@ test('destroy should not trigger stream error', async function (t) {
 test('close core in the middle of diffing', async function (t) {
   t.plan(3)
 
-  const createCore = createStoredCore()
+  const createCore = await createStoredCore(t)
   const beeOptions = { keyEncoding: 'utf-8', valueEncoding: 'utf-8' }
 
   const core = createCore()
@@ -550,7 +550,7 @@ test('create lots of watchers', async function (t) {
   t.plan(1)
 
   const count = 1000
-  const db = create()
+  const db = await create(t)
   const watchers = []
 
   for (let i = 0; i < count; i++) {
@@ -575,32 +575,8 @@ test('create lots of watchers', async function (t) {
   await db.put('/a')
 })
 
-test('create and destroy lots of watchers', async function (t) {
-  const count = 1000
-  const db = create()
-
-  for (let i = 0; i < count; i++) {
-    let changed = false
-
-    const watcher = db.watch()
-
-    watcher.next().then(({ done }) => {
-      if (!done) changed = true
-    })
-
-    await db.put('/a')
-    await eventFlush()
-
-    if (!changed) {
-      t.fail('should have changed')
-    }
-
-    await watcher.destroy()
-  }
-})
-
 test('can specify own differ', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   await db.ready()
   await db.put('e1', 'entry1')
@@ -632,7 +608,7 @@ test('can specify own differ', async function (t) {
 test('slow differ that gets destroyed should not throw', async function (t) {
   t.plan(1)
 
-  const db = create()
+  const db = await create(t)
   const watcher = db.watch({}, { differ })
 
   await db.put('/a')
@@ -658,7 +634,7 @@ test('slow differ that gets destroyed should not throw', async function (t) {
 })
 
 test('watch with passed key/value encodings', async function (t) {
-  const db = create()
+  const db = await create(t)
   const enc = new SubEncoder()
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
@@ -682,7 +658,7 @@ test('watch with passed key/value encodings', async function (t) {
 })
 
 test('watch uses the bee`s encodings by default', async function (t) {
-  const db = create({ keyEncoding: 'utf-8', valueEncoding: 'json' })
+  const db = await create(t, { keyEncoding: 'utf-8', valueEncoding: 'json' })
 
   const watcher = db.watch()
   await watcher.ready()

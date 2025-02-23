@@ -2,7 +2,7 @@ const test = require('brittle')
 const { create, createRange, collect, insertRange } = require('./helpers')
 
 test('basic diff', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
   const v1 = db.version
 
   await db.put('a', 'b')
@@ -14,7 +14,7 @@ test('basic diff', async function (t) {
 })
 
 test('basic diff with passed snap', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
   const snap = db.snapshot()
 
   await db.put('a', 'b')
@@ -31,7 +31,7 @@ test('basic diff with passed snap', async function (t) {
 })
 
 test('basic diff with older snap as base', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
   const snap = db.snapshot()
 
   await db.put('a', 'b')
@@ -48,7 +48,7 @@ test('basic diff with older snap as base', async function (t) {
 })
 
 test('basic diff with 2 snaps', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
   const snap = db.snapshot()
 
   await db.put('a', 'b')
@@ -67,7 +67,7 @@ test('basic diff with 2 snaps', async function (t) {
 })
 
 test('bigger diff', async function (t) {
-  const db = await createRange(10)
+  const db = await createRange(t, 10)
   const v1 = db.version
 
   await db.del('01')
@@ -87,7 +87,7 @@ test('bigger diff', async function (t) {
 })
 
 test('diff stream on sub + checkout', async function (t) {
-  const db = create({ sep: '!', keyEncoding: 'utf-8' })
+  const db = await create(t, { sep: '!', keyEncoding: 'utf-8' })
   const sub = db.sub('sub')
 
   await db.put('a', 'a')
@@ -106,11 +106,14 @@ test('diff stream on sub + checkout', async function (t) {
   t.is(entries1[0].left.key, 'sb')
   t.is(entries2[0].left.key, 'sb')
   t.is(entries2[1].left.key, 'sc')
+
+  await sub.close()
 })
 
 test('diff on multi-level sub db with parent checkout', async function (t) {
-  const db = await create()
-  const sub = db.sub('hello').sub('world')
+  const db = await create(t)
+  const a = db.sub('hello')
+  const sub = a.sub('world')
 
   await sub.put('a', 'b')
   await sub.put('b', 'c')
@@ -134,10 +137,13 @@ test('diff on multi-level sub db with parent checkout', async function (t) {
   t.is(entries2.length, 2)
   t.is(entries[0].right.key, entries2[0].right.key)
   t.is(entries[1].left.key, entries2[1].left.key)
+
+  await sub.close()
+  await a.close()
 })
 
 test('diff regression', async function (t) {
-  const db = await create()
+  const db = await create(t)
 
   await db.put('1')
   await db.put('2')
@@ -170,7 +176,7 @@ test('diff regression', async function (t) {
 })
 
 test('diff key encoding option', async function (t) {
-  const db = await create({
+  const db = await create(t, {
     keyEncoding: null
   })
   const v1 = db.version
@@ -192,7 +198,7 @@ test('diff key encoding option', async function (t) {
 })
 
 test('diff oob seek', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   await db.put('d0')
   await db.put('d1')
@@ -210,7 +216,7 @@ test('diff oob seek', async function (t) {
 })
 
 test('no session leak after diff stream closes', async function (t) {
-  const db = await createRange(5)
+  const db = await createRange(t, 5)
   const v1 = db.version
 
   await db.put('a', 'b')
@@ -226,4 +232,6 @@ test('no session leak after diff stream closes', async function (t) {
 
   t.is(entries.length, 1) // Sanity check
   t.is(nrSessions, db.core.sessions.length)
+
+  await checkout.close()
 })

@@ -70,6 +70,7 @@ test('basic diff with 2 snaps', async function (t) {
   t.is(nrSessions, db.core.sessions.length) // no leaks
 
   await snap.close()
+  await newerSnap.close()
 })
 
 test('bigger diff', async function (t) {

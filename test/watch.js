@@ -1,6 +1,5 @@
 const test = require('brittle')
-const { create, createRange, createStoredCore, createStored, eventFlush } = require('./helpers')
-const Hyperbee = require('../index.js')
+const { create, createRange, createStored, eventFlush } = require('./helpers')
 const SubEncoder = require('sub-encoder')
 
 test('basic getAndWatch append flow', async function (t) {

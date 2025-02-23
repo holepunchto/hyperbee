@@ -2,12 +2,12 @@ const { create, clone } = require('./helpers')
 const test = require('brittle')
 
 test('checkouts can point to the future', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   await db.put('a', 'a')
   await db.put('b', 'b')
 
-  const dbClone = clone(db)
+  const dbClone = await clone(t, db)
 
   const s1 = db.core.replicate(true, { keepAlive: false })
   const s2 = dbClone.core.replicate(false, { keepAlive: false })
@@ -21,4 +21,6 @@ test('checkouts can point to the future', async function (t) {
 
   t.alike((await checkout.get('a')).value, 'a')
   t.alike((await checkout.get('b')).value, 'b')
+
+  await checkout.close()
 })

@@ -2,7 +2,7 @@ const { createRange } = require('./helpers')
 const test = require('brittle')
 
 test('basic peak', async function (t) {
-  const db = await createRange(50)
+  const db = await createRange(t, 50)
 
   {
     const e = await db.get('14')
@@ -25,7 +25,7 @@ test('basic peak', async function (t) {
 })
 
 test('read all', async function (t) {
-  const db = await createRange(100)
+  const db = await createRange(t, 100)
 
   let i = 0
   for await (const data of db.createReadStream()) {

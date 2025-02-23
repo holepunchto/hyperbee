@@ -2,7 +2,7 @@ const { create, collect } = require('./helpers')
 const test = require('brittle')
 
 test('basic batch', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
   await b.put('a', '1')
@@ -18,7 +18,7 @@ test('basic batch', async function (t) {
 })
 
 test('batch peek', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('5')
 
   const b = db.batch()
@@ -34,7 +34,7 @@ test('batch peek', async function (t) {
 })
 
 test('many concurrent batch puts/peeks', async function (t) {
-  const db = create()
+  const db = await create(t)
   const b = db.batch()
 
   const putPromises = []
@@ -57,7 +57,7 @@ test('many concurrent batch puts/peeks', async function (t) {
 })
 
 test('batch get', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('5')
 
   const b = db.batch()
@@ -73,7 +73,7 @@ test('batch get', async function (t) {
 })
 
 test('batch createReadStream', async function (t) {
-  const db = create()
+  const db = await create(t)
   await db.put('a', '1')
 
   const b = db.batch()
@@ -97,7 +97,7 @@ test('batch createReadStream', async function (t) {
 })
 
 test('batch with multiple read streams', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
 
@@ -119,7 +119,7 @@ test('batch with multiple read streams', async function (t) {
 })
 
 test('batch.get(k) after flush', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
   await b.put('0', 'a')
@@ -129,7 +129,7 @@ test('batch.get(k) after flush', async function (t) {
 })
 
 test('batch overwriting itself', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
   await b.put('a', '1')
@@ -144,7 +144,7 @@ test('batch overwriting itself', async function (t) {
 })
 
 test('parallel batches', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const a = batch([
     { key: 'a', value: '1' },
@@ -184,7 +184,7 @@ test('parallel batches', async function (t) {
 })
 
 test('batches can survive parallel ops', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const a = db.batch()
   const expected = []
@@ -207,7 +207,7 @@ test('batches can survive parallel ops', async function (t) {
 })
 
 test('batch puts support custom key/value encodings', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
   await b.put({ a: 1 }, { b: 2 }, {
@@ -233,7 +233,7 @@ test('batch puts support custom key/value encodings', async function (t) {
 })
 
 test('batch del supports custom key encodings', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
   await b.put({ a: 1 }, { b: 2 }, {
@@ -249,7 +249,7 @@ test('batch del supports custom key encodings', async function (t) {
 })
 
 test('batch createRangeIterator supports custom key/value encodings', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   const b = db.batch()
   await b.put({ a: 1 }, { b: 2 }, {
@@ -275,7 +275,7 @@ test('batch createRangeIterator supports custom key/value encodings', async func
 test('batches close when instance closes', async function (t) {
   t.plan(1)
 
-  const db = create()
+  const db = await create(t)
   const d = db.checkout(100)
 
   d.get('hello').catch(function () {
@@ -286,7 +286,7 @@ test('batches close when instance closes', async function (t) {
 })
 
 test('batches simple support read after write', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   await db.put('test', '#0')
 
@@ -296,10 +296,11 @@ test('batches simple support read after write', async function (t) {
   const node = await batch.get('test')
 
   t.is(node.value, 'a')
+  await batch.close()
 })
 
 test('batches simple support read after write with multiple writes', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   await db.put('test-0', '#0')
   await db.put('test-1', '#1')
@@ -315,10 +316,12 @@ test('batches simple support read after write with multiple writes', async funct
 
   await batch.put('test-2', 'c')
   t.is((await batch.get('test-2')).value, 'c')
+
+  await batch.close()
 })
 
 test('batches support lots of read after write', async function (t) {
-  const db = create()
+  const db = await create(t)
 
   for (let i = 0; i < 1000; i++) {
     await db.put('#' + i, '#' + i)
@@ -352,4 +355,6 @@ test('batches support lots of read after write', async function (t) {
   }
 
   t.is(all.size, 1000)
+
+  await batch.close()
 })

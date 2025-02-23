@@ -508,13 +508,75 @@ class Hyperbee extends ReadyResource {
     // backwards compat range arg
     opts = opts ? { ...opts, ...range } : range
 
-    const snapshot = right.version > this.version ? right._makeSnapshot() : this._makeSnapshot()
     const signal = (opts && opts.signal) || null
 
     const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
     if (keyEncoding) opts = encRange(keyEncoding, { ...opts, sub: this._sub })
 
-    return iteratorToStream(new DiffIterator(new Batch(this, snapshot, null, false, opts), new Batch(right, snapshot, null, false, opts), opts), signal)
+    let done
+    let closing
+    let ite
+
+    const left = this
+
+    const rs = new Readable({
+      signal,
+      eagerOpen: true,
+      async open (cb) {
+        try {
+          if (right.opened === false) await right.ready()
+          if (left.opened === false) await left.ready()
+        } catch (err) {
+          cb(err)
+          return
+        }
+
+        if (closing) {
+          cb(null)
+          return
+        }
+
+        const snapshot = right.version > left.version
+          ? right._makeSnapshot()
+          : left._makeSnapshot()
+
+        done = cb
+        ite = new DiffIterator(
+          new Batch(left, snapshot, null, false, opts),
+          new Batch(right, snapshot, null, false, opts),
+          opts
+        )
+        ite.open().then(fin, fin)
+      },
+      read (cb) {
+        done = cb
+        ite.next().then(push, fin)
+      },
+      predestroy () {
+        if (!ite) {
+          closing = Promise.resolve()
+        } else {
+          closing = ite.close()
+          closing.catch(noop)
+        }
+      },
+      destroy (cb) {
+        done = cb
+        if (!closing) closing = ite.close()
+        closing.then(fin, fin)
+      }
+    })
+
+    return rs
+
+    function fin (err) {
+      done(err)
+    }
+
+    function push (val) {
+      rs.push(val)
+      done(null)
+    }
   }
 
   get (key, opts) {
@@ -1250,6 +1312,7 @@ class Watcher extends ReadyResource {
 
     // Point from which to start watching
     this.current = this._eager ? this.bee.checkout(1, opts) : this.bee.snapshot(opts)
+    await this.current.ready()
 
     if (this._onchange) {
       if (this._eager) await this._onchange()
@@ -1318,6 +1381,9 @@ class Watcher extends ReadyResource {
           keyEncoding: this.keyEncoding,
           valueEncoding: this.valueEncoding
         })
+
+        await this.current.ready()
+        await this.previous.ready()
 
         if (this.current.core.fork !== this.previous.core.fork) {
           return await this._yield()

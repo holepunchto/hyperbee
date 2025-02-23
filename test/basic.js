@@ -427,6 +427,7 @@ test('read stream on sub checkout returns only sub keys', async function (t) {
   t.is(keys[1], 'sb')
 
   await sub.close()
+  await checkout.close()
 })
 
 test('read stream on double sub checkout', async function (t) {

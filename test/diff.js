@@ -105,7 +105,8 @@ test('diff stream on sub + checkout', async function (t) {
   await db.put('b', 'b')
   await sub.put('sc', 'sc')
 
-  const entries1 = await collect(sub.checkout(v2).createDiffStream(v1))
+  const co = sub.checkout(v2)
+  const entries1 = await collect(co.createDiffStream(v1))
   const entries2 = await collect(sub.createDiffStream(v1))
 
   t.is(entries1.length, 1)
@@ -115,6 +116,7 @@ test('diff stream on sub + checkout', async function (t) {
   t.is(entries2[1].left.key, 'sc')
 
   await sub.close()
+  await co.close()
 })
 
 test('diff on multi-level sub db with parent checkout', async function (t) {
@@ -135,7 +137,9 @@ test('diff on multi-level sub db with parent checkout', async function (t) {
   await sub.put('e', 'f')
   await sub.put('g', 'h')
 
-  const c1 = db.checkout(v2).sub('hello').sub('world')
+  const b = db.checkout(v2)
+  const c = b.sub('hello')
+  const c1 = c.sub('world')
   const c2 = sub.checkout(v2)
   const entries = await collect(c1.createDiffStream(v1))
   const entries2 = await collect(c2.createDiffStream(v1))
@@ -145,8 +149,12 @@ test('diff on multi-level sub db with parent checkout', async function (t) {
   t.is(entries[0].right.key, entries2[0].right.key)
   t.is(entries[1].left.key, entries2[1].left.key)
 
-  await sub.close()
   await a.close()
+  await b.close()
+  await c.close()
+  await sub.close()
+  await c1.close()
+  await c2.close()
 })
 
 test('diff regression', async function (t) {

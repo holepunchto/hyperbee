@@ -304,7 +304,8 @@ test('simple sub put/get', async function (t) {
 
 test('multiple levels of sub', async function (t) {
   const db = await create(t, { sep: '!' })
-  const sub = db.sub('hello').sub('world')
+  const a = db.sub('hello')
+  const sub = a.sub('world')
   await sub.put('a', 'b')
 
   const encoded = sub.keyEncoding.encode('a')
@@ -329,6 +330,7 @@ test('multiple levels of sub', async function (t) {
     t.is(node && node.value, 'b')
   }
 
+  await a.close()
   await sub.close()
 })
 

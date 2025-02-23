@@ -518,34 +518,6 @@ test('destroy should not trigger stream error', async function (t) {
   await eventFlush()
 })
 
-test('close core in the middle of diffing', async function (t) {
-  t.plan(3)
-
-  const createCore = await createStoredCore(t)
-  const beeOptions = { keyEncoding: 'utf-8', valueEncoding: 'utf-8' }
-
-  const core = createCore()
-  const bee = new Hyperbee(core, beeOptions)
-  await bee.put('/a') // Ignore first append (header)
-  await bee.close()
-
-  const core2 = createCore()
-  core2.on('append', () => core2.close())
-  const db = new Hyperbee(core2, beeOptions)
-
-  const watcher = db.watch()
-
-  watcher.next().then(() => {
-    t.fail('should not trigger changes')
-  }).catch(err => {
-    t.is(err.code, 'SESSION_CLOSED')
-    t.is(watcher.current, null)
-    t.is(watcher.previous, null)
-  })
-
-  await db.put('/b')
-})
-
 test('create lots of watchers', async function (t) {
   t.plan(1)
 

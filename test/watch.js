@@ -552,6 +552,7 @@ test('create lots of watchers', async function (t) {
   const count = 1000
   const db = await create(t)
   const watchers = []
+  let ran = 0
 
   for (let i = 0; i < count; i++) {
     const watcher = db.watch()
@@ -566,7 +567,7 @@ test('create lots of watchers', async function (t) {
         t.fail('wrong versions')
       }
 
-      if (i === count - 1) {
+      if (++ran === count) {
         t.pass()
       }
     })

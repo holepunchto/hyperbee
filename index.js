@@ -771,8 +771,9 @@ class Batch {
     }
   }
 
-  ready () {
-    return this.tree.ready()
+  async ready () {
+    if (this.core.opened === false) await this.core.ready()
+    if (this.tree.opened === false) await this.tree.ready()
   }
 
   async lock () {

@@ -28,6 +28,8 @@ test('basic diff with passed snap', async function (t) {
   t.is(snap.closed, false)
   t.is(db.closed, false)
   t.is(nrSessions, db.core.sessions.length) // no leaks
+
+  await snap.close()
 })
 
 test('basic diff with older snap as base', async function (t) {
@@ -45,6 +47,8 @@ test('basic diff with older snap as base', async function (t) {
   t.is(snap.closed, false)
   t.is(db.closed, false)
   t.is(nrSessions, db.core.sessions.length) // no leaks
+
+  await snap.close()
 })
 
 test('basic diff with 2 snaps', async function (t) {
@@ -64,6 +68,8 @@ test('basic diff with 2 snaps', async function (t) {
   t.is(snap.closed, false)
   t.is(newerSnap.closed, false)
   t.is(nrSessions, db.core.sessions.length) // no leaks
+
+  await snap.close()
 })
 
 test('bigger diff', async function (t) {

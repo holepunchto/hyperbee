@@ -678,7 +678,7 @@ class Hyperbee extends ReadyResource {
   }
 
   snapshot (opts) {
-    return this.checkout((this.core.opened === false || this.core.snapshotted === false) ? -1 : Math.max(1, this.version), opts)
+    return this.checkout((this.core.opened === false || this._checkout <= 0) ? -1 : Math.max(1, this.version), opts)
   }
 
   sub (prefix, opts = {}) {

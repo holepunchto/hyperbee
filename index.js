@@ -1213,7 +1213,6 @@ class EntryWatcher extends ReadyResource {
 
     this._forceUpdate = false
     this._debouncedUpdate = debounce(this._processUpdate.bind(this))
-    this._updateOnce = !!opts.updateOnce
   }
 
   _close () {
@@ -1236,11 +1235,6 @@ class EntryWatcher extends ReadyResource {
   async _processUpdate () {
     const force = this._forceUpdate
     this._forceUpdate = false
-
-    if (this._updateOnce) {
-      this._updateOnce = false
-      await this.bee.update({ wait: true })
-    }
 
     let newNode
     try {
@@ -1293,7 +1287,6 @@ class Watcher extends ReadyResource {
     this._resolveOnChange = null
     this._differ = opts.differ || defaultDiffer
     this._eager = !!opts.eager
-    this._updateOnce = !!opts.updateOnce
     this._onchange = opts.onchange || null
 
     this.on('newListener', autoFlowOnUpdate)
@@ -1369,13 +1362,6 @@ class Watcher extends ReadyResource {
 
       while (true) {
         await this._waitForChanges()
-
-        if (this.closing) return { value: undefined, done: true }
-
-        if (this._updateOnce) {
-          this._updateOnce = false
-          await this.bee.update({ wait: true })
-        }
 
         if (this.closing) return { value: undefined, done: true }
 

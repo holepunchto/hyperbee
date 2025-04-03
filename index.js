@@ -786,11 +786,8 @@ class Batch {
   }
 
   get version () {
-    const checkout = this.tree._checkout
-      ? this.tree._checkout
-      : this.checkout || (this.core.length + this.length)
-
-    return Math.max(1, checkout)
+    const checkout = this.checkout || this.tree._checkout
+    return Math.max(1, checkout || (this.core.length + this.length))
   }
 
   async getRoot (ensureHeader) {

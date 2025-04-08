@@ -760,7 +760,7 @@ class Batch {
     this.rootSeq = 0
     this.root = null
     this.length = 0
-    this.checkout = options.checkout ? options.checkout : 0
+    this.checkout = options.checkout === undefined ? -1 : options.checkout
     this.options = options
     this.locked = null
     this.batchLock = batchLock
@@ -786,8 +786,8 @@ class Batch {
   }
 
   get version () {
-    const checkout = this.checkout || this.tree._checkout
-    return Math.max(1, checkout || (this.core.length + this.length))
+    if (this.checkout !== -1) return Math.max(1, this.checkout)
+    return Math.max(1, this.tree._checkout || (this.core.length + this.length))
   }
 
   async getRoot (ensureHeader) {
@@ -800,7 +800,7 @@ class Batch {
         }))
       }
     }
-    if (this.tree._checkout === 0 && this.checkout === 0 && this.shouldUpdate) {
+    if (this.tree._checkout === 0 && this.checkout === -1 && this.shouldUpdate) {
       if (this.updating === null) this.updating = this.core.update()
       await this.updating
     }

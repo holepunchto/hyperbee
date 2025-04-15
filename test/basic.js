@@ -562,3 +562,19 @@ test('get by seq', async function (t) {
   t.alike(await db.getBySeq(1), { key: '/a', value: '1' })
   t.alike(await db.getBySeq(2), { key: '/b', value: '2' })
 })
+
+test('select', async function (t) {
+  const db = create()
+
+  await db.put('/a', '1')
+
+  t.alike(await db.select('/a'), '1')
+  t.alike(await db.select('/b'), null)
+
+  const batch = db.batch()
+
+  t.alike(await batch.select('/a'), '1')
+  t.alike(await batch.select('/b'), null)
+
+  await batch.close()
+})

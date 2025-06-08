@@ -190,6 +190,10 @@ Get the key and value from a block number.
 
 `seq` is the Hypercore index. Returns `null` if block doesn't exists.
 
+#### `await db.gc()`
+
+Deletes unused old entries from storage to free up space.
+
 #### `const stream = db.replicate(isInitiatorOrStream)`
 
 See more about how replicate works at [core.replicate][core-replicate-docs].

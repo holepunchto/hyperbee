@@ -562,3 +562,31 @@ test('get by seq', async function (t) {
   t.alike(await db.getBySeq(1), { key: '/a', value: '1' })
   t.alike(await db.getBySeq(2), { key: '/b', value: '2' })
 })
+
+test('gc', async function (t) {
+  const db = await create(t)
+
+  await db.put('/data', 'x'.repeat(1024 * 1024))
+  await db.put('/data', 'Hello World!')
+  await db.gc()
+
+  t.alike((await db.get('/data')).value, 'Hello World!')
+
+  t.absent(await db.core.get(1, { wait: false }))
+})
+
+test('gc deleted entries', async function (t) {
+  const db = await create(t)
+
+  await db.put('/data', 'x'.repeat(1024 * 1024))
+  await db.del('/data')
+  await db.put('/final', 'Hello World!')
+  await db.gc()
+
+  t.absent(await db.get('/data'))
+
+  t.ok(await db.core.get(0, { wait: false }), 'header is kept')
+  t.absent(await db.core.get(1, { wait: false }), 'put entry cleared')
+  t.absent(await db.core.get(2, { wait: false }), 'del entry cleared')
+  t.ok(await db.core.get(3, { wait: false }), 'root is kept')
+})

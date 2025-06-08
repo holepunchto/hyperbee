@@ -711,6 +711,75 @@ class Hyperbee extends ReadyResource {
     }
   }
 
+  async gc () {
+    if (!this.opened) await this.ready()
+
+    if (this.version === 1) {
+      return
+    }
+
+    const seq = this.version - 1
+    const head = await this.core.get(seq, { valueEncoding: Node })
+
+    if (head === null) {
+      return
+    }
+
+    const rootEntry = new BlockEntry(seq, this, copyEntry(head))
+    const rootNode = rootEntry.getTreeNode(0)
+
+    const seqs = new Set([0]) // Header included
+    const stack = [rootNode]
+
+    while (stack.length) {
+      const node = stack.pop()
+
+      if (seqs.has(node.block.seq)) {
+        continue
+      }
+
+      seqs.add(node.block.seq)
+
+      for (const nodeKey of node.keys) {
+        seqs.add(nodeKey.seq)
+      }
+
+      for (let i = 0; i < node.children.length; i++) {
+        seqs.add(node.children[i].seq)
+
+        stack.push(await node.getChildNode(i))
+      }
+    }
+
+    const sorted = Array.from(seqs).sort((a, b) => a - b)
+    const used = []
+
+    for (const seq of sorted) {
+      const last = used[used.length - 1]
+
+      if (last && seq === last[1]) {
+        last[1]++
+      } else {
+        used.push([seq, seq + 1])
+      }
+    }
+
+    const total = this.core.length
+    let cursor = 0
+
+    for (const [start, end] of used) {
+      if (cursor < start) {
+        await this.core.clear(cursor, start)
+      }
+
+      cursor = end
+    }
+
+    if (cursor < total) {
+      await this.core.clear(cursor, total)
+    }
+  }
+
   async _close () {
     if (this._watchers) {
       this.core.off('append', this._onappendBound)

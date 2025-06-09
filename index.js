@@ -712,49 +712,36 @@ class Hyperbee extends ReadyResource {
   }
 
   async gc () {
-    if (!this.opened) await this.ready()
+    const b = new Batch(this, this._makeSnapshot(), null, true)
+    const rootNode = await b.getRoot(false)
+    await b.close()
 
-    if (this.version === 1) {
+    if (!rootNode) {
       return
     }
 
-    const seq = this.version - 1
-    const head = await this.core.get(seq, { valueEncoding: Node })
-
-    if (head === null) {
-      return
-    }
-
-    const rootEntry = new BlockEntry(seq, this, copyEntry(head))
-    const rootNode = rootEntry.getTreeNode(0)
-
-    const seqs = new Set([0]) // Header included
+    const seqs = [0] // Header included
     const stack = [rootNode]
 
     while (stack.length) {
       const node = stack.pop()
 
-      if (seqs.has(node.block.seq)) {
-        continue
-      }
-
-      seqs.add(node.block.seq)
-
       for (const nodeKey of node.keys) {
-        seqs.add(nodeKey.seq)
+        seqs.push(nodeKey.seq)
       }
 
       for (let i = 0; i < node.children.length; i++) {
-        seqs.add(node.children[i].seq)
+        seqs.push(node.children[i].seq)
 
         stack.push(await node.getChildNode(i))
       }
     }
 
-    const sorted = Array.from(seqs).sort((a, b) => a - b)
+    seqs.sort((a, b) => a - b)
+
     const used = []
 
-    for (const seq of sorted) {
+    for (const seq of seqs) {
       const last = used[used.length - 1]
 
       if (last && seq === last[1]) {
@@ -764,7 +751,6 @@ class Hyperbee extends ReadyResource {
       }
     }
 
-    const total = this.core.length
     let cursor = 0
 
     for (const [start, end] of used) {
@@ -773,10 +759,6 @@ class Hyperbee extends ReadyResource {
       }
 
       cursor = end
-    }
-
-    if (cursor < total) {
-      await this.core.clear(cursor, total)
     }
   }
 

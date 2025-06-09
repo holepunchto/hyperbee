@@ -566,19 +566,21 @@ test('get by seq', async function (t) {
 test('gc', async function (t) {
   const db = await create(t)
 
-  await db.put('/data', 'x'.repeat(1024 * 1024))
+  await db.put('/data', '¡Hola Mundo!')
   await db.put('/data', 'Hello World!')
   await db.gc()
 
   t.alike((await db.get('/data')).value, 'Hello World!')
 
-  t.absent(await db.core.get(1, { wait: false }))
+  t.ok(await db.core.get(0, { wait: false }), 'header is kept')
+  t.absent(await db.core.get(1, { wait: false }), 'put entry cleared')
+  t.ok(await db.core.get(2, { wait: false }), 'new put is kept')
 })
 
 test('gc deleted entries', async function (t) {
   const db = await create(t)
 
-  await db.put('/data', 'x'.repeat(1024 * 1024))
+  await db.put('/data', 'x')
   await db.del('/data')
   await db.put('/final', 'Hello World!')
   await db.gc()

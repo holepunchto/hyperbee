@@ -728,28 +728,29 @@ class Hyperbee extends ReadyResource {
       return
     }
 
-    const seqs = [0] // Header included
+    const seqs = new Set([0]) // Header included
     const stack = [rootNode]
 
     while (stack.length) {
       const node = stack.pop()
 
+      seqs.add(node.block.seq)
+
       for (const nodeKey of node.keys) {
-        seqs.push(nodeKey.seq)
+        seqs.add(nodeKey.seq)
       }
 
       for (let i = 0; i < node.children.length; i++) {
-        seqs.push(node.children[i].seq)
+        seqs.add(node.children[i].seq)
 
         stack.push(await node.getChildNode(i))
       }
     }
 
-    seqs.sort((a, b) => a - b)
-
+    const sorted = Array.from(seqs).sort((a, b) => a - b)
     const used = []
 
-    for (const seq of seqs) {
+    for (const seq of sorted) {
       const last = used[used.length - 1]
 
       if (last && seq === last[1]) {

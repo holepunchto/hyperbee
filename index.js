@@ -712,9 +712,17 @@ class Hyperbee extends ReadyResource {
   }
 
   async gc () {
-    const b = new Batch(this, this._makeSnapshot(), null, true)
-    const rootNode = await b.getRoot(false)
-    await b.close()
+    const batch = new Batch(this, this._makeSnapshot(), null, true)
+
+    try {
+      await this._gc(batch)
+    } finally {
+      await batch.close()
+    }
+  }
+
+  async _gc (batch) {
+    const rootNode = await batch.getRoot(false)
 
     if (!rootNode) {
       return

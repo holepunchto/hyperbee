@@ -1,6 +1,6 @@
 const test = require('brittle')
 const b4a = require('b4a')
-const { create, collect, createCore } = require('./helpers')
+const { create, clone, collect, createCore } = require('./helpers')
 
 const Hyperbee = require('..')
 
@@ -592,3 +592,39 @@ test('gc deleted entries', async function (t) {
   t.absent(await db.core.get(2, { wait: false }), 'del entry cleared')
   t.ok(await db.core.get(3, { wait: false }), 'root is kept')
 })
+
+test('gc with replicate', async function (t) {
+  const writer = await create(t)
+
+  await writer.put('/data', 'Hello World!')
+
+  const reader = await clone(t, writer)
+
+  await replicate(t, writer, reader)
+
+  t.ok(await reader.getHeader())
+  t.ok(await reader.get('/data'))
+
+  await writer.put('/data', '¡Hola Mundo!')
+
+  await new Promise(resolve => reader.core.once('append', resolve))
+
+  t.ok(await reader.get('/data'))
+
+  await reader.gc()
+
+  t.ok(await reader.core.get(0, { wait: false }), 'header is kept')
+  t.absent(await reader.core.get(1, { wait: false }), 'put entry cleared')
+  t.ok(await reader.core.get(2, { wait: false }), 'entry is kept')
+})
+
+async function replicate (t, a, b) {
+  b.core.once('append', b.core.findingPeers())
+
+  const s1 = a.core.replicate(true, { keepAlive: false })
+  const s2 = b.core.replicate(false, { keepAlive: false })
+
+  s1.pipe(s2).pipe(s1)
+
+  await b.update()
+}

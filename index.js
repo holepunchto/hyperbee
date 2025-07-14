@@ -368,7 +368,7 @@ class Hyperbee extends ReadyResource {
 
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
-    this.extension = opts.extension !== false ? opts.extension || Extension.register(this) : null
+    this.extension = opts.extension !== false ? getExtension(this, opts) : null
     this.metadata = opts.metadata || null
     this.lock = opts.lock || mutexify()
     this.sep = opts.sep || SEP
@@ -1661,5 +1661,11 @@ function sameValue (a, b) {
 }
 
 function noop () {}
+
+function getExtension (db, opts) {
+  if (opts.extension === false) return null
+  if (opts.extension && opts.extension !== true) return opts.extension
+  return Extension.register(db)
+}
 
 module.exports = Hyperbee

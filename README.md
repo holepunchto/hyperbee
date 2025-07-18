@@ -13,9 +13,8 @@ npm install hyperbee
 ```js
 const Hyperbee = require('hyperbee')
 const Hypercore = require('hypercore')
-const RAM = require('random-access-memory')
 
-const core = new Hypercore(RAM)
+const core = new Hypercore('./storage')
 const db = new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'binary' })
 
 // If you own the core

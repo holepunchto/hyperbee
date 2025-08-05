@@ -65,6 +65,10 @@ class Cache {
 
     this.length = length
   }
+
+  clear () {
+    this.keys.clear()
+  }
 }
 
 class Pointers {
@@ -712,6 +716,11 @@ class Hyperbee extends ReadyResource {
   }
 
   async _close () {
+    if (!this._view) {
+      if (this._keyCache) this._keyCache.clear()
+      if (this._nodeCache) this._nodeCache.clear()
+    }
+
     if (this._watchers) {
       this.core.off('append', this._onappendBound)
       this.core.off('truncate', this._ontruncateBound)

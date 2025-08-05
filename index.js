@@ -6,6 +6,7 @@ const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
 const Rache = require('rache')
+const rrp = require('resolve-reject-promise')
 
 const { all: unslabAll } = require('unslab')
 
@@ -348,6 +349,35 @@ class BlockEntry {
   }
 }
 
+class CacheLock {
+  constructor () {
+    this.map = new Map()
+  }
+
+  enter (seq) {
+    const pending = this.map.get(seq)
+
+    if (!pending) {
+      this.map.set(seq, [])
+      return Promise.resolve()
+    }
+
+    const { resolve, promise } = rrp()
+    pending.push(resolve)
+    return promise
+  }
+
+  exit (seq) {
+    const pending = this.map.get(seq)
+    if (!pending.length) {
+      this.map.delete(seq)
+      return
+    }
+
+    pending.pop()()
+  }
+}
+
 class BatchEntry extends BlockEntry {
   constructor (seq, tree, key, value, index) {
     super(seq, tree, { key, value, index: null, inflated: null })
@@ -395,6 +425,7 @@ class Hyperbee extends ReadyResource {
 
     this._keyCache = null
     this._nodeCache = null
+    this._cacheLock = new CacheLock()
 
     this._batches = []
 
@@ -766,6 +797,7 @@ class Batch {
     this.index = tree._batches.push(this) - 1
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
+    this.maxBlocksCached = options.maxBlocksCached || 128
     this.rootSeq = 0
     this.root = null
     this.length = 0
@@ -818,11 +850,17 @@ class Batch {
   }
 
   async getKey (seq) {
-    const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
-    if (k !== null) return k
-    const key = (await this.getBlock(seq)).key
-    if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
-    return key
+    await this.tree._cacheLock.enter(seq)
+
+    try {
+      const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
+      if (k !== null) return k
+      const key = (await this._getBlock(seq)).key
+      if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
+      return key
+    } finally {
+      this.tree._cacheLock.exit(seq)
+    }
   }
 
   async _getNode (seq) {
@@ -836,13 +874,23 @@ class Batch {
   }
 
   async getBlock (seq) {
+    await this.tree._cacheLock.enter(seq)
+
+    try {
+      return await this._getBlock(seq)
+    } finally {
+      this.tree._cacheLock.exit(seq)
+    }
+  }
+
+  async _getBlock (seq) {
     if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
     const entry = await this._getNode(seq)
     b = new BlockEntry(seq, this, entry)
-    if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
+    if (this.blocks && (this.blocks.size - this.length) < this.maxBlocksCached) this.blocks.set(seq, b)
     return b
   }
 

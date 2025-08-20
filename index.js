@@ -13,6 +13,7 @@ const { all: unslabAll } = require('unslab')
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
+const LocalBlockIterator = require('./iterators/local')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 const { BLOCK_NOT_AVAILABLE, DECODING_ERROR } = require('hypercore-errors')
@@ -320,6 +321,12 @@ class BlockEntry {
 
   isTarget (key) {
     return b4a.equals(this.key, key)
+  }
+
+  inflate () {
+    if (this.index === null) {
+      this.index = inflate(this.entry)
+    }
   }
 
   isDeletion () {
@@ -689,6 +696,48 @@ class Hyperbee extends ReadyResource {
     return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
   }
 
+  async clearUnlinked ({ gte = 0, lt = this.core.length - 1 } = {}) {
+    const checkout = this.core.length
+
+    const prev = this.batch({
+      wait: false,
+      checkout: gte
+    })
+
+    const b = this.batch({
+      wait: false,
+      checkout
+    })
+
+    const ite = new LocalBlockIterator(b, { gte, lt })
+    await ite.open()
+
+    while (true) {
+      const data = await ite.next()
+      if (!data) break
+
+      console.log('ite', data.key, data.value, data.index)
+
+      if (!(await isLinked(b, data))) {
+        console.log('clear', data.key.toString())
+        await this.core.clear(data.seq)
+      }
+
+      const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
+
+      if (prevNode && !(await isLinked(b, prevNode))) {
+        console.log('??')
+        await this.core.clear(prevNode.seq)
+      }
+    }
+
+    await b.close()
+    await prev.close()
+    await ite.close()
+
+    return lt
+  }
+
   checkout (version, opts = {}) {
     if (version === 0) version = 1
 
@@ -985,6 +1034,39 @@ class Batch {
 
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
+    }
+  }
+
+  async links (key, seq) {
+    let node = await this.getRoot(false)
+    if (!node) return false
+
+    if (node.block.seq === seq) return true
+
+    while (true) {
+      if (node.block.isTarget(key)) return false
+
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+
+        if (node.keys[mid].seq === seq) return true
+        c = b4a.compare(key, await node.getKey(mid))
+
+        if (c === 0) return false
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      if (!node.children.length) return false
+
+      const i = c < 0 ? e : s
+      node = await node.getChildNode(i)
+      if (node.block.seq === seq) return true
     }
   }
 
@@ -1713,6 +1795,10 @@ function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
 }
 
+function toNull () {
+  return null
+}
+
 function getBackingCore (core) {
   if (core.core) return core
   if (core.getBackingCore) return core.getBackingCore().session
@@ -1729,6 +1815,31 @@ function getExtension (db, opts) {
   if (opts.extension === false) return null
   if (opts.extension && opts.extension !== true) return opts.extension
   return Extension.register(db)
+}
+
+async function isLinked (batch, block) {
+  const seq = block.seq
+  block.inflate()
+
+  const keys = [block.key]
+
+  for (const l of block.index.levels) {
+    for (const c of l.children) {
+      if (c.seq !== seq) continue
+      const lvl = block.index.levels[c.offset]
+      try {
+        keys.push(await batch.getKey(lvl.keys[0].seq))
+      } catch {}
+    }
+  }
+
+  let seen = false
+
+  for (const k of keys) {
+    if (!seen) seen = await batch.links(k, seq)
+  }
+
+  return seen
 }
 
 module.exports = Hyperbee

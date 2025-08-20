@@ -939,15 +939,16 @@ class Batch {
 
   async get (key, opts) {
     const encoding = this._getEncoding(opts)
+    const finalize = opts ? opts.finalize !== false : true
 
     try {
-      return await this._get(key, encoding)
+      return await this._get(key, encoding, finalize)
     } finally {
       await this._closeSnapshot()
     }
   }
 
-  async _get (key, encoding) {
+  async _get (key, encoding, finalize) {
     key = enc(encoding.key, key)
 
     if (this.tree.extension !== null && this.options.extension !== false) {
@@ -959,7 +960,7 @@ class Batch {
 
     while (true) {
       if (node.block.isTarget(key)) {
-        return node.block.isDeletion() ? null : node.block.final(encoding)
+        return node.block.isDeletion() ? null : (finalize ? node.block.final(encoding) : node.block)
       }
 
       let s = 0
@@ -971,7 +972,10 @@ class Batch {
 
         c = b4a.compare(key, await node.getKey(mid))
 
-        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final(encoding)
+        if (c === 0) {
+          const block = await this.getBlock(node.keys[mid].seq)
+          return finalize ? block.final(encoding) : block
+        }
 
         if (c < 0) e = mid
         else s = mid + 1

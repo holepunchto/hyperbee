@@ -696,8 +696,11 @@ class Hyperbee extends ReadyResource {
     return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
   }
 
-  async clearUnlinked ({ gte = 0, lt = this.core.length - 1 } = {}) {
-    const checkout = this.core.length
+  async clearUnlinked (options = {}) {
+    await this.ready()
+
+    const { gte = 0, lt = this.version - 1 } = options
+    const checkout = this.version
 
     const prev = this.batch({
       wait: false,

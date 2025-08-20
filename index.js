@@ -716,17 +716,13 @@ class Hyperbee extends ReadyResource {
       const data = await ite.next()
       if (!data) break
 
-      console.log('ite', data.key, data.value, data.index)
-
       if (!(await isLinked(b, data))) {
-        console.log('clear', data.key.toString())
         await this.core.clear(data.seq)
       }
 
       const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
 
       if (prevNode && !(await isLinked(b, prevNode))) {
-        console.log('??')
         await this.core.clear(prevNode.seq)
       }
     }
@@ -1833,13 +1829,11 @@ async function isLinked (batch, block) {
     }
   }
 
-  let seen = false
-
   for (const k of keys) {
-    if (!seen) seen = await batch.links(k, seq)
+    if (await batch.links(k, seq)) return true
   }
 
-  return seen
+  return false
 }
 
 module.exports = Hyperbee

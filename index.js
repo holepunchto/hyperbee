@@ -874,6 +874,7 @@ class Batch {
   }
 
   async getBlock (seq) {
+    if (this.rootSeq === 0) this.rootSeq = seq
     await this.tree._cacheLock.enter(seq)
 
     try {
@@ -884,11 +885,12 @@ class Batch {
   }
 
   async _getBlock (seq) {
-    if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
     const entry = await this._getNode(seq)
+    b = this.blocks && this.blocks.get(seq)
+    if (b) return b
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < this.maxBlocksCached) this.blocks.set(seq, b)
     return b

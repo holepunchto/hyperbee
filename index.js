@@ -13,6 +13,7 @@ const { all: unslabAll } = require('unslab')
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
+const LocalBlockIterator = require('./iterators/local')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 const { BLOCK_NOT_AVAILABLE, DECODING_ERROR } = require('hypercore-errors')
@@ -320,6 +321,12 @@ class BlockEntry {
 
   isTarget (key) {
     return b4a.equals(this.key, key)
+  }
+
+  inflate () {
+    if (this.index === null) {
+      this.index = inflate(this.entry)
+    }
   }
 
   isDeletion () {
@@ -689,6 +696,47 @@ class Hyperbee extends ReadyResource {
     return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
   }
 
+  async clearUnlinked (options = {}) {
+    await this.ready()
+
+    const { gte = 0, lt = this.version - 1 } = options
+    const checkout = this.version
+
+    const prev = this.batch({
+      wait: false,
+      checkout: gte
+    })
+
+    const b = this.batch({
+      wait: false,
+      checkout
+    })
+
+    const ite = new LocalBlockIterator(b, { gte, lt })
+    await ite.open()
+
+    while (true) {
+      const data = await ite.next()
+      if (!data) break
+
+      if (!(await isLinked(b, data))) {
+        await this.core.clear(data.seq)
+      }
+
+      const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
+
+      if (prevNode && !(await isLinked(b, prevNode))) {
+        await this.core.clear(prevNode.seq)
+      }
+    }
+
+    await b.close()
+    await prev.close()
+    await ite.close()
+
+    return lt
+  }
+
   checkout (version, opts = {}) {
     if (version === 0) version = 1
 
@@ -874,6 +922,7 @@ class Batch {
   }
 
   async getBlock (seq) {
+    if (this.rootSeq === 0) this.rootSeq = seq
     await this.tree._cacheLock.enter(seq)
 
     try {
@@ -884,11 +933,12 @@ class Batch {
   }
 
   async _getBlock (seq) {
-    if (this.rootSeq === 0) this.rootSeq = seq
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
     const entry = await this._getNode(seq)
+    b = this.blocks && this.blocks.get(seq)
+    if (b) return b
     b = new BlockEntry(seq, this, entry)
     if (this.blocks && (this.blocks.size - this.length) < this.maxBlocksCached) this.blocks.set(seq, b)
     return b
@@ -937,15 +987,16 @@ class Batch {
 
   async get (key, opts) {
     const encoding = this._getEncoding(opts)
+    const finalize = opts ? opts.finalize !== false : true
 
     try {
-      return await this._get(key, encoding)
+      return await this._get(key, encoding, finalize)
     } finally {
       await this._closeSnapshot()
     }
   }
 
-  async _get (key, encoding) {
+  async _get (key, encoding, finalize) {
     key = enc(encoding.key, key)
 
     if (this.tree.extension !== null && this.options.extension !== false) {
@@ -957,7 +1008,7 @@ class Batch {
 
     while (true) {
       if (node.block.isTarget(key)) {
-        return node.block.isDeletion() ? null : node.block.final(encoding)
+        return node.block.isDeletion() ? null : (finalize ? node.block.final(encoding) : node.block)
       }
 
       let s = 0
@@ -969,7 +1020,10 @@ class Batch {
 
         c = b4a.compare(key, await node.getKey(mid))
 
-        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final(encoding)
+        if (c === 0) {
+          const block = await this.getBlock(node.keys[mid].seq)
+          return finalize ? block.final(encoding) : block
+        }
 
         if (c < 0) e = mid
         else s = mid + 1
@@ -979,6 +1033,39 @@ class Batch {
 
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
+    }
+  }
+
+  async links (key, seq) {
+    let node = await this.getRoot(false)
+    if (!node) return false
+
+    if (node.block.seq === seq) return true
+
+    while (true) {
+      if (node.block.isTarget(key)) return false
+
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+
+        if (node.keys[mid].seq === seq) return true
+        c = b4a.compare(key, await node.getKey(mid))
+
+        if (c === 0) return false
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      if (!node.children.length) return false
+
+      const i = c < 0 ? e : s
+      node = await node.getChildNode(i)
+      if (node.block.seq === seq) return true
     }
   }
 
@@ -1707,6 +1794,10 @@ function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
 }
 
+function toNull () {
+  return null
+}
+
 function getBackingCore (core) {
   if (core.core) return core
   if (core.getBackingCore) return core.getBackingCore().session
@@ -1723,6 +1814,29 @@ function getExtension (db, opts) {
   if (opts.extension === false) return null
   if (opts.extension && opts.extension !== true) return opts.extension
   return Extension.register(db)
+}
+
+async function isLinked (batch, block) {
+  const seq = block.seq
+  block.inflate()
+
+  const keys = [block.key]
+
+  for (const l of block.index.levels) {
+    for (const c of l.children) {
+      if (c.seq !== seq) continue
+      const lvl = block.index.levels[c.offset]
+      try {
+        keys.push(await batch.getKey(lvl.keys[0].seq))
+      } catch {}
+    }
+  }
+
+  for (const k of keys) {
+    if (await batch.links(k, seq)) return true
+  }
+
+  return false
 }
 
 module.exports = Hyperbee

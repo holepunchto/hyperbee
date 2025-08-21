@@ -700,6 +700,8 @@ class Hyperbee extends ReadyResource {
     await this.ready()
 
     const { gte = 0, lt = this.version - 1 } = options
+    if (lt >= this.version) throw new Error('lt too high: it is never safe to clear the last block')
+
     const checkout = this.version
 
     const prev = this.batch({

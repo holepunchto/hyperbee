@@ -381,6 +381,19 @@ Returns the header contained in the first block. Throws if undecodable.
 
 `options` are the same as the `core.get` method.
 
+#### `const lt = await db.clearUnlinked([options])`
+
+Clear all blocks not linked by the current version of the b-tree, i.e. historical blocks. Returns the `seq` where it left off.
+
+`options` include:
+
+```
+{
+  gte: 0, // Start with this seq (inclusive)
+  lt: this.version - 1 // Stop before this index. Note this.version is never valid
+}
+```
+
 #### `const isHyperbee = await Hyperbee.isHyperbee(core, [options])`
 
 Returns `true` if the core contains a Hyperbee, `false` otherwise.

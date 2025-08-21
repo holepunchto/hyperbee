@@ -700,6 +700,8 @@ class Hyperbee extends ReadyResource {
     await this.ready()
 
     const { gte = 0, lt = this.version - 1 } = options
+    if (lt >= this.version) throw new Error('lt too high: it is never safe to clear the last block')
+
     const checkout = this.version
 
     const prev = this.batch({
@@ -713,26 +715,33 @@ class Hyperbee extends ReadyResource {
     })
 
     const ite = new LocalBlockIterator(b, { gte, lt })
-    await ite.open()
+    try {
+      await ite.open()
 
-    while (true) {
-      const data = await ite.next()
-      if (!data) break
+      while (true) {
+        const data = await ite.next()
+        if (!data) break
 
-      if (!(await isLinked(b, data))) {
-        await this.core.clear(data.seq)
+        if (!(await isLinked(b, data))) {
+          await this.core.clear(data.seq)
+        }
+
+        let prevNode = null
+        try {
+          prevNode = await prev.get(data.key, { finalize: false })
+        } catch (e) {
+          if (e.code !== 'BLOCK_NOT_AVAILABLE') throw e
+        }
+
+        if (prevNode && !(await isLinked(b, prevNode))) {
+          await this.core.clear(prevNode.seq)
+        }
       }
-
-      const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
-
-      if (prevNode && !(await isLinked(b, prevNode))) {
-        await this.core.clear(prevNode.seq)
-      }
+    } finally {
+      await b.close()
+      await prev.close()
+      await ite.close()
     }
-
-    await b.close()
-    await prev.close()
-    await ite.close()
 
     return lt
   }
@@ -1792,10 +1801,6 @@ function copyEntry (entry) {
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
-}
-
-function toNull () {
-  return null
 }
 
 function getBackingCore (core) {

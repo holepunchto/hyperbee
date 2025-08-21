@@ -381,9 +381,9 @@ Returns the header contained in the first block. Throws if undecodable.
 
 `options` are the same as the `core.get` method.
 
-#### `await db.clearUnlinked([options])`
+#### `const lt = await db.clearUnlinked([options])`
 
-Clear all blocks not linked by the current version of the b-tree, i.e. historical blocks.
+Clear all blocks not linked by the current version of the b-tree, i.e. historical blocks. Returns the `seq` where it left off.
 
 `options` include:
 

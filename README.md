@@ -193,11 +193,23 @@ Get the key and value from a block number.
 
 See more about how replicate works at [core.replicate][core-replicate-docs].
 
-#### `const batch = db.batch()`
+#### `const batch = db.batch([opts])`
 
 Make a new atomic batch that is either fully processed or not processed at all.
 
 If you have several inserts and deletions then a batch can be much faster.
+
+`opts` includes:
+
+```
+{
+  onseq: (seq) => { ... }, // A callback called when a block is gotten from the underlying hypercore
+  keyEncoding: db.keyEncoding, // Overrides keyEncoding inherited from hyperbee
+  valueEncoding: db.valueEncoding, // Overrides keyEncoding inherited from hyperbee
+  update: true, // Whether the underlying hypercore should update
+  checkout: -1, // The version to checkout the batch at. Defaults to the current version
+}
+```
 
 #### `await batch.put(key, [value], [options])`
 
@@ -242,11 +254,11 @@ All entries in the stream are similar to the ones returned from `db.get`.
 }
 ```
 
-`options` include:
+`options` are the same as `db.batch()` and also include:
 
 ```js
 {
-  reverse: false // Set to true to get them in reverse order,
+  reverse: false, // Set to true to get them in reverse order,
   limit: -1 // Set to the max number of entries you want
 }
 ```
@@ -261,7 +273,7 @@ Create a stream of all entries ever inserted or deleted from the db.
 
 Each entry has an additional `type` property indicating if it was a `put` or `del` operation.
 
-`options` include:
+`options` are the same as `db.batch()` and also include:
 ```js
 {
   live: false, // If true the stream will wait for new data and never end

@@ -726,7 +726,12 @@ class Hyperbee extends ReadyResource {
           await this.core.clear(data.seq)
         }
 
-        const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
+        let prevNode = null
+        try {
+          prevNode = await prev.get(data.key, { finalize: false })
+        } catch (e) {
+          if (e.code !== 'BLOCK_NOT_AVAILABLE') throw e
+        }
 
         if (prevNode && !(await isLinked(b, prevNode))) {
           await this.core.clear(prevNode.seq)
@@ -1796,10 +1801,6 @@ function copyEntry (entry) {
 
 function defaultDiffer (currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
-}
-
-function toNull () {
-  return null
 }
 
 function getBackingCore (core) {

@@ -713,26 +713,28 @@ class Hyperbee extends ReadyResource {
     })
 
     const ite = new LocalBlockIterator(b, { gte, lt })
-    await ite.open()
+    try {
+      await ite.open()
 
-    while (true) {
-      const data = await ite.next()
-      if (!data) break
+      while (true) {
+        const data = await ite.next()
+        if (!data) break
 
-      if (!(await isLinked(b, data))) {
-        await this.core.clear(data.seq)
+        if (!(await isLinked(b, data))) {
+          await this.core.clear(data.seq)
+        }
+
+        const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
+
+        if (prevNode && !(await isLinked(b, prevNode))) {
+          await this.core.clear(prevNode.seq)
+        }
       }
-
-      const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
-
-      if (prevNode && !(await isLinked(b, prevNode))) {
-        await this.core.clear(prevNode.seq)
-      }
+    } finally {
+      await b.close()
+      await prev.close()
+      await ite.close()
     }
-
-    await b.close()
-    await prev.close()
-    await ite.close()
 
     return lt
   }

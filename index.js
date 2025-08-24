@@ -699,21 +699,16 @@ class Hyperbee extends ReadyResource {
   async clearUnlinked (options = {}) {
     await this.ready()
 
-    const { gte = 0, lt = this.version - 1 } = options
+    const { gte = 0, lt = this.version - 1, batchSize = 4096, wait = true } = options
     const checkout = this.version
 
-    const prev = this.batch({
-      wait: false,
-      checkout: gte
-    })
-
-    const b = this.batch({
-      wait: false,
-      checkout
-    })
+    let prev = this.batch({ wait: false, checkout: gte })
+    let b = this.batch({ wait, checkout })
 
     const ite = new LocalBlockIterator(b, { gte, lt })
     await ite.open()
+
+    let ticks = 0
 
     while (true) {
       const data = await ite.next()
@@ -727,6 +722,14 @@ class Hyperbee extends ReadyResource {
 
       if (prevNode && !(await isLinked(b, prevNode))) {
         await this.core.clear(prevNode.seq)
+      }
+
+      if (ticks++ >= batchSize) {
+        await prev.close()
+        await b.close()
+
+        prev = this.batch({ wait: false, checkout: gte })
+        b = this.batch({ wait, checkout })
       }
     }
 

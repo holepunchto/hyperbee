@@ -725,6 +725,7 @@ class Hyperbee extends ReadyResource {
       }
 
       if (ticks++ >= batchSize) {
+        ticks = 0
         await prev.close()
         await b.close()
 

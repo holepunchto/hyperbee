@@ -1825,14 +1825,17 @@ async function isLinked (batch, block) {
   block.inflate()
 
   const keys = [block.key]
+  const wait = batch.options.wait
 
   for (const l of block.index.levels) {
     for (const c of l.children) {
       if (c.seq !== seq) continue
       const lvl = block.index.levels[c.offset]
+      batch.options.wait = false
       try {
         keys.push(await batch.getKey(lvl.keys[0].seq))
       } catch {}
+      batch.options.wait = wait
     }
   }
 

@@ -715,12 +715,14 @@ class Hyperbee extends ReadyResource {
       if (!data) break
 
       if (!(await isLinked(b, data))) {
+        if (b.core.closing || this.core.closing || this.closing) break
         await this.core.clear(data.seq)
       }
 
       const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
 
       if (prevNode && !(await isLinked(b, prevNode))) {
+        if (b.core.closing || this.core.closing || this.closing) break
         await this.core.clear(prevNode.seq)
       }
 
@@ -733,6 +735,8 @@ class Hyperbee extends ReadyResource {
         b = this.batch({ wait, checkout })
       }
     }
+
+    if (b.core.closing || this.core.closing || this.closing) throw new Error('Core is closed')
 
     await b.close()
     await prev.close()
@@ -1842,6 +1846,8 @@ async function isLinked (batch, block) {
   for (const k of keys) {
     if (await batch.links(k, seq)) return true
   }
+
+  if (batch.core.closing) throw new Error('Core is closed')
 
   return false
 }

@@ -705,7 +705,8 @@ class Hyperbee extends ReadyResource {
     let prev = this.batch({ wait: false, checkout: gte })
     let b = this.batch({ wait, checkout })
 
-    const ite = new LocalBlockIterator(b, { gte, lt })
+    const iteBatch = this.batch({ wait: false, checkout })
+    const ite = new LocalBlockIterator(iteBatch, { gte, lt })
     await ite.open()
 
     let ticks = 0
@@ -741,6 +742,7 @@ class Hyperbee extends ReadyResource {
     await b.close()
     await prev.close()
     await ite.close()
+    await iteBatch.close()
 
     return lt
   }

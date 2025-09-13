@@ -47,7 +47,8 @@ class Cache {
   }
 
   get (seq) {
-    return this.keys.get(seq) || null
+    return null
+    // return this.keys.get(seq) || null
   }
 
   set (seq, key) {

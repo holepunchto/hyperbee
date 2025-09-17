@@ -195,7 +195,13 @@ module.exports = class DiffIterator {
       }
 
       if (l.isKey && r.isKey) {
-        if (c === 0) return { left: await a.nextKey(), right: await b.nextKey() }
+        if (c === 0) {
+          const [left, right] = await Promise.all([
+            a.nextKey(),
+            b.nextKey()
+          ])
+          return { left, right }
+        }
         if (c < 0) return { left: await a.nextKey(), right: null }
         return { left: null, right: await b.nextKey() }
       }

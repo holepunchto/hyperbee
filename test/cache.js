@@ -29,7 +29,7 @@ test('entries are not cached using buffers from default slab', async function (t
   await db.close()
 })
 
-test('node and key caches are subbed from a passed-in rache', async t => {
+test('node and key caches are subbed from a passed-in rache', async (t) => {
   const globalCache = new Rache()
   const core = new Hypercore(await t.tmp(), { globalCache })
   const db = new Hyperbee(core)

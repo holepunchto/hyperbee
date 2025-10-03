@@ -141,7 +141,10 @@ test('getAndWatch with passed key/value encodings', async function (t) {
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
   const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
-  const watcher = await db.getAndWatch('entry', { keyEncoding: sub, valueEncoding: 'utf-8' })
+  const watcher = await db.getAndWatch('entry', {
+    keyEncoding: sub,
+    valueEncoding: 'utf-8'
+  })
   t.is(watcher.node, null)
 
   await db.put('entry', 'not in sub')
@@ -178,7 +181,8 @@ test('basic watch', async function (t) {
     await db.put('/a.txt')
   })
 
-  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+  for await (const [current, previous] of watcher) {
+    // eslint-disable-line no-unreachable-loop
     t.is(current.version, 2)
     t.is(previous.version, 1)
     break
@@ -194,7 +198,10 @@ test('basic watch next', async function (t) {
 
   db.put('/a') // Run on background
 
-  const { done, value: [current, previous] } = await watcher.next()
+  const {
+    done,
+    value: [current, previous]
+  } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 2)
@@ -215,7 +222,10 @@ test('watch multiple next() on parallel - value', async function (t) {
   db.put('/a') // Run on background
 
   {
-    const { done, value: [current, previous] } = await a
+    const {
+      done,
+      value: [current, previous]
+    } = await a
 
     t.is(done, false)
     t.is(current.version, 2)
@@ -225,7 +235,10 @@ test('watch multiple next() on parallel - value', async function (t) {
   db.put('/b') // Run on background
 
   {
-    const { done, value: [current, previous] } = await b
+    const {
+      done,
+      value: [current, previous]
+    } = await b
 
     t.is(done, false)
     t.is(current.version, 3)
@@ -235,7 +248,10 @@ test('watch multiple next() on parallel - value', async function (t) {
   db.put('/c') // Run on background
 
   {
-    const { done, value: [current, previous] } = await c
+    const {
+      done,
+      value: [current, previous]
+    } = await c
 
     t.is(done, false)
     t.is(current.version, 4)
@@ -282,7 +298,10 @@ test('watch waits for new change', async function (t) {
     await db.put('/b') // Run on background
   })
 
-  const { done, value: [current, previous] } = await watcher.next()
+  const {
+    done,
+    value: [current, previous]
+  } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 3)
@@ -304,7 +323,10 @@ test('watch does not lose changes if next() was not called yet', async function 
   await db.put('/c')
   await eventFlush()
 
-  const { done, value: [current, previous] } = await watcher.next()
+  const {
+    done,
+    value: [current, previous]
+  } = await watcher.next()
 
   t.is(done, false)
   t.is(current.version, 4)
@@ -336,7 +358,7 @@ test('basic watch on range', async function (t) {
   // + could be simpler but could be a helper for other tests
   let next = watcher.next()
   let onchange = null
-  next.then(data => {
+  next.then((data) => {
     next = watcher.next()
     onchange(data)
   })
@@ -368,7 +390,8 @@ test('batch multiple changes', async function (t) {
     await batch.flush()
   })
 
-  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+  for await (const [current, previous] of watcher) {
+    // eslint-disable-line no-unreachable-loop
     t.is(current.version, 4)
     t.is(previous.version, 1)
     break
@@ -498,16 +521,19 @@ test('destroy should not trigger stream error', async function (t) {
 
   const watcher = db.watch()
 
-  watcher.next().then(({ done }) => {
-    if (done) {
-      t.pass()
-      return
-    }
+  watcher
+    .next()
+    .then(({ done }) => {
+      if (done) {
+        t.pass()
+        return
+      }
 
-    t.fail('should not trigger changes')
-  }).catch(err => {
-    t.fail('should not have given error: ' + err)
-  })
+      t.fail('should not trigger changes')
+    })
+    .catch((err) => {
+      t.fail('should not have given error: ' + err)
+    })
 
   db.core.once('append', async function () {
     await watcher.destroy()
@@ -592,15 +618,15 @@ test('slow differ that gets destroyed should not throw', async function (t) {
 
   t.pass()
 
-  function differ () {
+  function differ() {
     return {
-      async * [Symbol.asyncIterator] () {
+      async *[Symbol.asyncIterator]() {
         while (true) {
           if (watcher.closing) throw new Error('Custom stream was destroyed')
           await eventFlush()
         }
       },
-      destroy () {}
+      destroy() {}
     }
   }
 })
@@ -610,20 +636,38 @@ test('watch with passed key/value encodings', async function (t) {
   const enc = new SubEncoder()
   const sub = enc.sub('mySub', { keyEncoding: 'utf-8' })
 
-  const watcher = db.watch(sub.range(), { keyEncoding: sub, valueEncoding: 'json' })
+  const watcher = db.watch(sub.range(), {
+    keyEncoding: sub,
+    valueEncoding: 'json'
+  })
   await watcher.ready()
 
   await db.put('not in sub', 'ignored')
-  await db.put('in sub 1', { 'this is': 'yielded' }, { keyEncoding: sub, valueEncoding: 'json' })
-  await db.put('in sub 2', { 'this is': 'yielded' }, { keyEncoding: sub, valueEncoding: 'json' })
+  await db.put(
+    'in sub 1',
+    { 'this is': 'yielded' },
+    { keyEncoding: sub, valueEncoding: 'json' }
+  )
+  await db.put(
+    'in sub 2',
+    { 'this is': 'yielded' },
+    { keyEncoding: sub, valueEncoding: 'json' }
+  )
 
-  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+  for await (const [current, previous] of watcher) {
+    // eslint-disable-line no-unreachable-loop
     const diffs = current.createDiffStream(previous, sub.range())
     const entries = []
     for await (const diff of diffs) entries.push(diff.left)
 
-    t.alike(entries.map(e => e.key), ['in sub 1', 'in sub 2'])
-    t.alike(entries.map(e => e.value), [{ 'this is': 'yielded' }, { 'this is': 'yielded' }])
+    t.alike(
+      entries.map((e) => e.key),
+      ['in sub 1', 'in sub 2']
+    )
+    t.alike(
+      entries.map((e) => e.value),
+      [{ 'this is': 'yielded' }, { 'this is': 'yielded' }]
+    )
 
     break
   }
@@ -638,13 +682,20 @@ test('watch uses the bee`s encodings by default', async function (t) {
   await db.put('entry1', { 'this is': 'entry1' })
   await db.put('entry2', { 'this is': 'entry2' })
 
-  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+  for await (const [current, previous] of watcher) {
+    // eslint-disable-line no-unreachable-loop
     const diffs = current.createDiffStream(previous)
     const entries = []
     for await (const diff of diffs) entries.push(diff.left)
 
-    t.alike(entries.map(e => e.key), ['entry1', 'entry2'])
-    t.alike(entries.map(e => e.value), [{ 'this is': 'entry1' }, { 'this is': 'entry2' }])
+    t.alike(
+      entries.map((e) => e.key),
+      ['entry1', 'entry2']
+    )
+    t.alike(
+      entries.map((e) => e.value),
+      [{ 'this is': 'entry1' }, { 'this is': 'entry2' }]
+    )
 
     break
   }

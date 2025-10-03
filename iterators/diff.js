@@ -1,7 +1,7 @@
 const b4a = require('b4a')
 
 class SubTree {
-  constructor (node, parent) {
+  constructor(node, parent) {
     this.node = node
     this.parent = parent
 
@@ -14,14 +14,14 @@ class SubTree {
     this.offset = child !== null ? child.offset : 0
   }
 
-  next () {
+  next() {
     this.i++
     this.isKey = (this.i & 1) === 1
     if (!this.isKey && !this.node.children.length) this.i++
     return this.update()
   }
 
-  async bisect (key, incl) {
+  async bisect(key, incl) {
     let s = 0
     let e = this.node.keys.length
     let c
@@ -45,28 +45,33 @@ class SubTree {
     return this.node.children.length === 0
   }
 
-  update () {
+  update() {
     this.isKey = (this.i & 1) === 1
     this.n = this.i >> 1
-    if (this.n >= (this.isKey ? this.node.keys.length : this.node.children.length)) return false
+    if (
+      this.n >= (this.isKey ? this.node.keys.length : this.node.children.length)
+    )
+      return false
     const child = this.isKey ? null : this.node.children[this.n]
     this.seq = child !== null ? child.seq : this.node.keys[this.n].seq
     this.offset = child !== null ? child.offset : 0
     return true
   }
 
-  async key () {
-    return this.n < this.node.keys.length ? this.node.getKey(this.n) : (this.parent && this.parent.key())
+  async key() {
+    return this.n < this.node.keys.length
+      ? this.node.getKey(this.n)
+      : this.parent && this.parent.key()
   }
 
-  async compare (tree) {
+  async compare(tree) {
     const [a, b] = await Promise.all([this.key(), tree.key()])
     return cmp(a, b)
   }
 }
 
 class TreeIterator {
-  constructor (batch, opts) {
+  constructor(batch, opts) {
     this.batch = batch
     this.stack = []
     this.lt = opts.lt || opts.lte || null
@@ -77,7 +82,7 @@ class TreeIterator {
     this.encoding = opts.encoding || batch.encoding
   }
 
-  async open () {
+  async open() {
     const node = await this.batch.getRoot(false)
     if (!node || !node.keys.length) return
     const tree = new SubTree(node, null)
@@ -85,7 +90,7 @@ class TreeIterator {
     this.stack.push(tree)
   }
 
-  async _seek (tree) {
+  async _seek(tree) {
     const done = await tree.bisect(this.gt, this.gte)
     const oob = !tree.update()
     if (done || oob) {
@@ -95,17 +100,17 @@ class TreeIterator {
     return true
   }
 
-  peek () {
+  peek() {
     if (!this.stack.length) return null
     return this.stack[this.stack.length - 1]
   }
 
-  skip () {
+  skip() {
     if (!this.stack.length) return
     if (!this.stack[this.stack.length - 1].next()) this.stack.pop()
   }
 
-  async nextKey () {
+  async nextKey() {
     let n = null
     while (this.stack.length && n === null) n = await this.next()
     if (n === null) return null
@@ -117,7 +122,7 @@ class TreeIterator {
     return null
   }
 
-  async next () {
+  async next() {
     if (!this.stack.length) return null
 
     const top = this.stack[this.stack.length - 1]
@@ -141,23 +146,23 @@ class TreeIterator {
     return null
   }
 
-  close () {
+  close() {
     return this.batch._closeSnapshot()
   }
 }
 
 module.exports = class DiffIterator {
-  constructor (left, right, opts = {}) {
+  constructor(left, right, opts = {}) {
     this.left = new TreeIterator(left, opts)
     this.right = new TreeIterator(right, opts)
     this.limit = typeof opts.limit === 'number' ? opts.limit : -1
   }
 
-  async open () {
+  async open() {
     await Promise.all([this.left.open(), this.right.open()])
   }
 
-  async next () {
+  async next() {
     if (this.limit === 0) return null
     const res = await this._next()
     if (!res || (res.left === null && res.right === null)) return null
@@ -165,7 +170,7 @@ module.exports = class DiffIterator {
     return res
   }
 
-  async _next () {
+  async _next() {
     const a = this.left
     const b = this.right
 
@@ -195,7 +200,8 @@ module.exports = class DiffIterator {
       }
 
       if (l.isKey && r.isKey) {
-        if (c === 0) return { left: await a.nextKey(), right: await b.nextKey() }
+        if (c === 0)
+          return { left: await a.nextKey(), right: await b.nextKey() }
         if (c < 0) return { left: await a.nextKey(), right: null }
         return { left: null, right: await b.nextKey() }
       }
@@ -206,12 +212,12 @@ module.exports = class DiffIterator {
     }
   }
 
-  async close () {
+  async close() {
     await Promise.all([this.left.close(), this.right.close()])
   }
 }
 
-function cmp (a, b) {
+function cmp(a, b) {
   if (!a) return b ? 1 : 0
   if (!b) return a ? -1 : 0
   return b4a.compare(a, b)

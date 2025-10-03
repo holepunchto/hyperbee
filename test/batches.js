@@ -50,10 +50,7 @@ test('many concurrent batch puts/peeks', async function (t) {
     peekPromises.push(b.peek({ reverse: false }))
   }
 
-  await Promise.all([
-    ...putPromises,
-    ...peekPromises
-  ])
+  await Promise.all([...putPromises, ...peekPromises])
 })
 
 test('batch get', async function (t) {
@@ -109,7 +106,7 @@ test('batch with multiple read streams', async function (t) {
     expected.push({ seq: i + 1, key, value })
   }
 
-  expected.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+  expected.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
 
   await b.flush()
 
@@ -138,9 +135,7 @@ test('batch overwriting itself', async function (t) {
 
   const all = await collect(db.createReadStream())
 
-  t.alike(all, [
-    { seq: 2, key: 'a', value: '2' }
-  ])
+  t.alike(all, [{ seq: 2, key: 'a', value: '2' }])
 })
 
 test('parallel batches', async function (t) {
@@ -157,9 +152,7 @@ test('parallel batches', async function (t) {
     { key: 'c', value: '5' }
   ])
 
-  const c = batch([
-    { key: 'b', value: '6' }
-  ])
+  const c = batch([{ key: 'b', value: '6' }])
 
   await Promise.all([a, b, c])
 
@@ -171,7 +164,7 @@ test('parallel batches', async function (t) {
     { seq: 5, key: 'c', value: '5' }
   ])
 
-  async function batch (list) {
+  async function batch(list) {
     const b = db.batch()
 
     for (const { type = 'put', key, value } of list) {
@@ -197,7 +190,7 @@ test('batches can survive parallel ops', async function (t) {
     p.push(a.put(key, value))
   }
 
-  expected.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+  expected.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
 
   await Promise.all(p)
   await a.flush()
@@ -210,61 +203,90 @@ test('batch puts support custom key/value encodings', async function (t) {
   const db = await create(t)
 
   const b = db.batch()
-  await b.put({ a: 1 }, { b: 2 }, {
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  })
-  const node = await b.get({ a: 1 }, {
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  })
+  await b.put(
+    { a: 1 },
+    { b: 2 },
+    {
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    }
+  )
+  const node = await b.get(
+    { a: 1 },
+    {
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    }
+  )
   t.alike(node.key, { a: 1 })
   t.alike(node.value, { b: 2 })
   await b.flush()
 
-  const all = await collect(db.createReadStream({
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  }))
+  const all = await collect(
+    db.createReadStream({
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    })
+  )
 
-  t.alike(all, [
-    { seq: 1, key: { a: 1 }, value: { b: 2 } }
-  ])
+  t.alike(all, [{ seq: 1, key: { a: 1 }, value: { b: 2 } }])
 })
 
 test('batch del supports custom key encodings', async function (t) {
   const db = await create(t)
 
   const b = db.batch()
-  await b.put({ a: 1 }, { b: 2 }, {
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  })
-  await b.del({ a: 1 }, {
-    keyEncoding: 'json'
-  })
-  t.absent(await b.get({ a: 1 }, {
-    keyEncoding: 'json'
-  }))
+  await b.put(
+    { a: 1 },
+    { b: 2 },
+    {
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    }
+  )
+  await b.del(
+    { a: 1 },
+    {
+      keyEncoding: 'json'
+    }
+  )
+  t.absent(
+    await b.get(
+      { a: 1 },
+      {
+        keyEncoding: 'json'
+      }
+    )
+  )
 })
 
 test('batch createRangeIterator supports custom key/value encodings', async function (t) {
   const db = await create(t)
 
   const b = db.batch()
-  await b.put({ a: 1 }, { b: 2 }, {
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  })
-  await b.put({ a: 3 }, { b: 4 }, {
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  })
+  await b.put(
+    { a: 1 },
+    { b: 2 },
+    {
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    }
+  )
+  await b.put(
+    { a: 3 },
+    { b: 4 },
+    {
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    }
+  )
 
-  const all = await collect(b.createReadStream({
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  }))
+  const all = await collect(
+    b.createReadStream({
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    })
+  )
 
   t.alike(all, [
     { seq: 1, key: { a: 1 }, value: { b: 2 } },

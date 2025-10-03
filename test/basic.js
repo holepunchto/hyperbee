@@ -47,7 +47,7 @@ test('out of bounds iterator', async function (t) {
     count++
   })
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     s.on('end', function () {
       t.is(count, 0, 'no out of bounds reads')
       resolve()
@@ -74,7 +74,7 @@ test('createHistoryStream reverse', async function (t) {
     res += key
   })
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     s.on('end', function () {
       t.is(res, 'cba', 'reversed correctly')
       resolve()
@@ -100,7 +100,7 @@ test('out of bounds iterator, string encoding', async function (t) {
     count++
   })
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     s.on('end', function () {
       t.is(count, 0, 'no out of bounds reads')
       resolve()
@@ -122,7 +122,7 @@ test('out of bounds iterator, larger db', async function (t) {
     count++
   })
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     s.on('end', function () {
       t.is(count, 0, 'no out of bounds reads')
       resolve()
@@ -147,9 +147,9 @@ test('test all short iterators', async function (t) {
     for (let i = 0; i < size; i++) {
       for (let j = 0; j <= i; j++) {
         for (let k = 0; k < 8; k++) {
-          const greater = (k & 1) ? 'gte' : 'gt'
-          const lesser = (k >> 1 & 1) ? 'lte' : 'lt'
-          const reverse = !!(k >> 2 & 1)
+          const greater = k & 1 ? 'gte' : 'gt'
+          const lesser = (k >> 1) & 1 ? 'lte' : 'lt'
+          const reverse = !!((k >> 2) & 1)
           const opts = {
             [greater]: '' + j,
             [lesser]: '' + i,
@@ -166,9 +166,13 @@ test('test all short iterators', async function (t) {
 
   t.pass('all iterations passed')
 
-  function validate (size, reference, opts, entries) {
-    const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
-    const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
+  function validate(size, reference, opts, entries) {
+    const start = opts.gt
+      ? reference.indexOf(opts.gt) + 1
+      : reference.indexOf(opts.gte)
+    const end = opts.lt
+      ? reference.indexOf(opts.lt)
+      : reference.indexOf(opts.lte) + 1
     const range = reference.slice(start, end)
     if (opts.reverse) range.reverse()
     for (let i = 0; i < range.length; i++) {
@@ -177,7 +181,10 @@ test('test all short iterators', async function (t) {
         console.log('SIZE:', size)
         console.log('FAILED WITH OPTS:', opts)
         console.log('  expected:', range, 'start:', start, 'end:', end)
-        console.log('  actual:', entries.map(e => e.key))
+        console.log(
+          '  actual:',
+          entries.map((e) => e.key)
+        )
         t.fail('ranges did not match')
         return false
       }
@@ -205,9 +212,9 @@ test('test all short iterators, sub database', async function (t) {
     for (let i = 0; i < size; i++) {
       for (let j = 0; j <= i; j++) {
         for (let k = 0; k < 8; k++) {
-          const greater = (k & 1) ? 'gte' : 'gt'
-          const lesser = (k >> 1 & 1) ? 'lte' : 'lt'
-          const reverse = !!(k >> 2 & 1)
+          const greater = k & 1 ? 'gte' : 'gt'
+          const lesser = (k >> 1) & 1 ? 'lte' : 'lt'
+          const reverse = !!((k >> 2) & 1)
           const opts = {
             [greater]: '' + j,
             [lesser]: '' + i,
@@ -226,9 +233,13 @@ test('test all short iterators, sub database', async function (t) {
 
   await db.close()
 
-  function validate (size, reference, opts, entries) {
-    const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
-    const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
+  function validate(size, reference, opts, entries) {
+    const start = opts.gt
+      ? reference.indexOf(opts.gt) + 1
+      : reference.indexOf(opts.gte)
+    const end = opts.lt
+      ? reference.indexOf(opts.lt)
+      : reference.indexOf(opts.lte) + 1
     const range = reference.slice(start, end)
     if (opts.reverse) range.reverse()
     for (let i = 0; i < range.length; i++) {
@@ -237,7 +248,10 @@ test('test all short iterators, sub database', async function (t) {
         console.log('SIZE:', size)
         console.log('FAILED WITH OPTS:', opts)
         console.log('  expected:', range, 'start:', start, 'end:', end)
-        console.log('  actual:', entries.map(e => e.key))
+        console.log(
+          '  actual:',
+          entries.map((e) => e.key)
+        )
         t.fail('ranges did not match')
         return false
       }
@@ -284,7 +298,7 @@ test('custom key/value encodings in range iterator', async function (t) {
     node = data
   })
 
-  await new Promise(resolve => s.on('end', resolve))
+  await new Promise((resolve) => s.on('end', resolve))
 
   t.is(count, 1)
   t.alike(node.key, b4a.from('hello2'))
@@ -363,10 +377,10 @@ test('sub respects keyEncoding', async function (t) {
   const db = await create(t, { sep: '!' })
   const helloSub = db.sub('hello', {
     keyEncoding: {
-      encode (key) {
+      encode(key) {
         return b4a.from(key.key)
       },
-      decode (buf) {
+      decode(buf) {
         return { key: b4a.toString(buf) }
       }
     }
@@ -504,7 +518,10 @@ test('get header out', async function (t) {
 
 test('isHyperbee throws for empty hypercore and wait false', async function (t) {
   const core = await createCore(t)
-  await t.exception(Hyperbee.isHyperbee(core, { wait: false }), 'Block is not available')
+  await t.exception(
+    Hyperbee.isHyperbee(core, { wait: false }),
+    'Block is not available'
+  )
 })
 
 test('isHyperbee is false for non-empty hypercore', async function (t) {
@@ -532,8 +549,16 @@ test('supports encodings in checkout', async function (t) {
   const checkout1 = db.checkout(db.version, { keyEncoding: 'binary' })
   const checkout2 = db.checkout(db.version, { valueEncoding: 'binary' })
 
-  t.alike(await checkout1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
-  t.alike(await checkout2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
+  t.alike(await checkout1.get('hi'), {
+    seq: 1,
+    key: b4a.from('hi'),
+    value: 'there'
+  })
+  t.alike(await checkout2.get('hi'), {
+    seq: 1,
+    key: 'hi',
+    value: b4a.from('there')
+  })
 
   await checkout1.close()
   await checkout2.close()
@@ -546,8 +571,16 @@ test('supports encodings in snapshot', async function (t) {
   const snap1 = db.snapshot({ keyEncoding: 'binary' })
   const snap2 = db.snapshot({ valueEncoding: 'binary' })
 
-  t.alike(await snap1.get('hi'), { seq: 1, key: b4a.from('hi'), value: 'there' })
-  t.alike(await snap2.get('hi'), { seq: 1, key: 'hi', value: b4a.from('there') })
+  t.alike(await snap1.get('hi'), {
+    seq: 1,
+    key: b4a.from('hi'),
+    value: 'there'
+  })
+  t.alike(await snap2.get('hi'), {
+    seq: 1,
+    key: 'hi',
+    value: b4a.from('there')
+  })
 
   await snap1.close()
   await snap2.close()

@@ -14,8 +14,7 @@ module.exports = class RangeIterator {
     this._lKey = opts.lt || opts.lte || null
     this._reverse = !!opts.reverse
     this._version = 0
-    this._checkpoint =
-      opts.checkpoint && opts.checkpoint.length ? opts.checkpoint : null
+    this._checkpoint = opts.checkpoint && opts.checkpoint.length ? opts.checkpoint : null
     this._nexting = false
   }
 
@@ -105,8 +104,7 @@ module.exports = class RangeIterator {
       const i = c < 0 ? e : s
       entry.i = 2 * i + (this._reverse ? -1 : 1)
 
-      if (entry.i >= 0 && entry.i <= node.keys.length << 1)
-        this.stack.push(entry)
+      if (entry.i >= 0 && entry.i <= node.keys.length << 1) this.stack.push(entry)
       if (!node.children.length) {
         this._nexting = false
         return
@@ -129,11 +127,7 @@ module.exports = class RangeIterator {
     while (this.stack.length && (this._limit === -1 || this._limit > 0)) {
       const top = this.stack[this.stack.length - 1]
       const isKey = (top.i & 1) === 1
-      const n = this._reverse
-        ? top.i < 0
-          ? top.node.keys.length
-          : top.i-- >> 1
-        : top.i++ >> 1
+      const n = this._reverse ? (top.i < 0 ? top.node.keys.length : top.i-- >> 1) : top.i++ >> 1
 
       if (!isKey) {
         if (!top.node.children.length) continue

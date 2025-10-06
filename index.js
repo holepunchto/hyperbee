@@ -155,15 +155,13 @@ class TreeNode {
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
-      if (k.seq >= core.signedLength || (bitfield && bitfield.get(k.seq)))
-        continue
+      if (k.seq >= core.signedLength || (bitfield && bitfield.get(k.seq))) continue
       blocks.push(k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
-      if (c.seq >= core.signedLength || (bitfield && bitfield.get(c.seq)))
-        continue
+      if (c.seq >= core.signedLength || (bitfield && bitfield.get(c.seq))) continue
       blocks.push(c.seq)
     }
 
@@ -232,8 +230,7 @@ class TreeNode {
     this.changed = true
     this.keys.push(median)
     for (let i = 0; i < node.keys.length; i++) this.keys.push(node.keys[i])
-    for (let i = 0; i < node.children.length; i++)
-      this.children.push(node.children[i])
+    for (let i = 0; i < node.children.length; i++) this.children.push(node.children[i])
   }
 
   async split() {
@@ -247,8 +244,7 @@ class TreeNode {
     const median = this.keys.pop()
 
     if (this.children.length) {
-      while (right.children.length < len + 1)
-        right.children.push(this.children.pop())
+      while (right.children.length < len + 1) right.children.push(this.children.pop())
       right.children.reverse()
     }
 
@@ -269,9 +265,7 @@ class TreeNode {
     const child = this.children[index]
     if (child.value) return child.value
     const block =
-      child.seq === this.block.seq
-        ? this.block
-        : await this.block.tree.getBlock(child.seq)
+      child.seq === this.block.seq ? this.block : await this.block.tree.getBlock(child.seq)
     return (child.value = block.getTreeNode(child.offset))
   }
 
@@ -283,10 +277,7 @@ class TreeNode {
   async getKey(index) {
     const key = this.keys[index]
     if (key.value) return key.value
-    const k =
-      key.seq === this.block.seq
-        ? this.block.key
-        : await this.block.tree.getKey(key.seq)
+    const k = key.seq === this.block.seq ? this.block.key : await this.block.tree.getKey(key.seq)
     return (key.value = k)
   }
 
@@ -353,9 +344,7 @@ class BlockEntry {
     return {
       seq: this.seq,
       key: encoding.key ? encoding.key.decode(this.key) : this.key,
-      value:
-        this.value &&
-        (encoding.value ? encoding.value.decode(this.value) : this.value)
+      value: this.value && (encoding.value ? encoding.value.decode(this.value) : this.value)
     }
   }
 
@@ -511,11 +500,8 @@ class Hyperbee extends ReadyResource {
     // backwards compat range arg
     opts = opts ? { ...opts, ...range } : range
 
-    const extension =
-      opts.extension === false && opts.limit !== 0 ? null : this.extension
-    const keyEncoding = opts.keyEncoding
-      ? codecs(opts.keyEncoding)
-      : this.keyEncoding
+    const extension = opts.extension === false && opts.limit !== 0 ? null : this.extension
+    const keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
 
     if (extension) {
       const { onseq, onwait } = opts
@@ -556,8 +542,7 @@ class Hyperbee extends ReadyResource {
   }
 
   createHistoryStream(opts) {
-    const session =
-      opts && opts.live ? this.core.session() : this._makeSnapshot()
+    const session = opts && opts.live ? this.core.session() : this._makeSnapshot()
     const signal = (opts && opts.signal) || null
     return iteratorToStream(
       new HistoryIterator(new Batch(this, session, null, false, opts), opts),
@@ -566,16 +551,14 @@ class Hyperbee extends ReadyResource {
   }
 
   createDiffStream(right, range, opts) {
-    if (typeof right === 'number')
-      right = this.checkout(Math.max(1, right), { reuseSession: true })
+    if (typeof right === 'number') right = this.checkout(Math.max(1, right), { reuseSession: true })
 
     // backwards compat range arg
     opts = opts ? { ...opts, ...range } : range
 
     const signal = (opts && opts.signal) || null
 
-    const keyEncoding =
-      opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
+    const keyEncoding = opts && opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
     if (keyEncoding) opts = encRange(keyEncoding, { ...opts, sub: this._sub })
 
     let done
@@ -606,10 +589,7 @@ class Hyperbee extends ReadyResource {
           return
         }
 
-        const snapshot =
-          right.version > left.version
-            ? right._makeSnapshot()
-            : left._makeSnapshot()
+        const snapshot = right.version > left.version ? right._makeSnapshot() : left._makeSnapshot()
 
         done = cb
         ite = new DiffIterator(
@@ -727,12 +707,7 @@ class Hyperbee extends ReadyResource {
   async clearUnlinked(options = {}) {
     await this.ready()
 
-    const {
-      gte = 0,
-      lt = this.version - 1,
-      batchSize = 4096,
-      wait = true
-    } = options
+    const { gte = 0, lt = this.version - 1, batchSize = 4096, wait = true } = options
     const checkout = this.version
 
     let prev = this.batch({ wait: false, checkout: gte })
@@ -753,9 +728,7 @@ class Hyperbee extends ReadyResource {
         await this.core.clear(data.seq)
       }
 
-      const prevNode = await prev
-        .get(data.key, { finalize: false })
-        .catch(toNull)
+      const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
 
       if (prevNode && !(await isLinked(b, prevNode))) {
         if (b.core.closing || this.core.closing || this.closing) break
@@ -772,8 +745,7 @@ class Hyperbee extends ReadyResource {
       }
     }
 
-    if (b.core.closing || this.core.closing || this.closing)
-      throw new Error('Core is closed')
+    if (b.core.closing || this.core.closing || this.closing) throw new Error('Core is closed')
 
     await b.close()
     await prev.close()
@@ -809,9 +781,7 @@ class Hyperbee extends ReadyResource {
 
   snapshot(opts) {
     return this.checkout(
-      this.core.opened === false || this._checkout <= 0
-        ? -1
-        : Math.max(1, this.version),
+      this.core.opened === false || this._checkout <= 0 ? -1 : Math.max(1, this.version),
       opts
     )
   }
@@ -915,9 +885,7 @@ class Batch {
     this.updating = null
     this.encoding = {
       key: options.keyEncoding ? codecs(options.keyEncoding) : tree.keyEncoding,
-      value: options.valueEncoding
-        ? codecs(options.valueEncoding)
-        : tree.valueEncoding
+      value: options.valueEncoding ? codecs(options.valueEncoding) : tree.valueEncoding
     }
   }
 
@@ -948,11 +916,7 @@ class Batch {
         )
       }
     }
-    if (
-      this.tree._checkout === 0 &&
-      this.checkout === -1 &&
-      this.shouldUpdate
-    ) {
+    if (this.tree._checkout === 0 && this.checkout === -1 && this.shouldUpdate) {
       if (this.updating === null) this.updating = this.core.update()
       await this.updating
     }
@@ -964,14 +928,10 @@ class Batch {
     await this.tree._cacheLock.enter(seq)
 
     try {
-      const k =
-        this.core.fork === this.tree.core.fork
-          ? this.tree._keyCache.get(seq)
-          : null
+      const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
       if (k !== null) return k
       const key = (await this._getBlock(seq)).key
-      if (this.core.fork === this.tree.core.fork)
-        this.tree._keyCache.set(seq, key)
+      if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
       return key
     } finally {
       this.tree._cacheLock.exit(seq)
@@ -1028,9 +988,7 @@ class Batch {
     if (!opts) return this.encoding
     return {
       key: opts.keyEncoding ? codecs(opts.keyEncoding) : this.encoding.key,
-      value: opts.valueEncoding
-        ? codecs(opts.valueEncoding)
-        : this.encoding.value
+      value: opts.valueEncoding ? codecs(opts.valueEncoding) : this.encoding.value
     }
   }
 
@@ -1089,11 +1047,7 @@ class Batch {
 
     while (true) {
       if (node.block.isTarget(key)) {
-        return node.block.isDeletion()
-          ? null
-          : finalize
-            ? node.block.final(encoding)
-            : node.block
+        return node.block.isDeletion() ? null : finalize ? node.block.final(encoding) : node.block
       }
 
       let s = 0
@@ -1203,8 +1157,7 @@ class Batch {
         if (c === 0) {
           if (cas) {
             const prev = await node.getKeyNode(mid)
-            if (!(await cas(prev.final(encoding), newNode)))
-              return this._unlockMaybe()
+            if (!(await cas(prev.final(encoding), newNode))) return this._unlockMaybe()
           }
           if (!this.tree.alwaysDuplicate) {
             const prev = await node.getKeyNode(mid)
@@ -1222,14 +1175,7 @@ class Batch {
       node = await node.getChildNode(i)
     }
 
-    let needsSplit = !(await node.insertKey(
-      target,
-      value,
-      null,
-      newNode,
-      encoding,
-      cas
-    ))
+    let needsSplit = !(await node.insertKey(target, value, null, newNode, encoding, cas))
     if (!node.changed) return this._unlockMaybe()
 
     while (needsSplit) {
@@ -1237,14 +1183,7 @@ class Batch {
       const { median, right } = await node.split()
 
       if (parent) {
-        needsSplit = !(await parent.insertKey(
-          median,
-          value,
-          right,
-          null,
-          encoding,
-          null
-        ))
+        needsSplit = !(await parent.insertKey(median, value, right, null, encoding, null))
         node = parent
       } else {
         root = TreeNode.create(node.block)
@@ -1303,8 +1242,7 @@ class Batch {
         if (c === 0) {
           if (cas) {
             const prev = await node.getKeyNode(mid)
-            if (!(await cas(prev.final(encoding), delNode)))
-              return this._unlockMaybe()
+            if (!(await cas(prev.final(encoding), delNode))) return this._unlockMaybe()
           }
           if (node.children.length) await setKeyToNearestLeaf(node, mid, stack)
           else node.removeKey(mid)
@@ -1405,11 +1343,7 @@ class Batch {
 
   _finalize() {
     // technically finalize can be called more than once, so here we just check if we already have been removed
-    if (
-      this.index >= this.tree._batches.length ||
-      this.tree._batches[this.index] !== this
-    )
-      return
+    if (this.index >= this.tree._batches.length || this.tree._batches[this.index] !== this) return
     const top = this.tree._batches.pop()
     if (top === this) return
     top.index = this.index
@@ -1563,9 +1497,7 @@ class Watcher extends ReadyResource {
     }
 
     // Point from which to start watching
-    this.current = this._eager
-      ? this.bee.checkout(1, opts)
-      : this.bee.snapshot(opts)
+    this.current = this._eager ? this.bee.checkout(1, opts) : this.bee.snapshot(opts)
     await this.current.ready()
 
     if (this._onchange) {
@@ -1719,20 +1651,13 @@ function defaultWatchMap(snapshot) {
 }
 
 async function leafSize(node, goLeft) {
-  while (node.children.length)
-    node = await node.getChildNode(goLeft ? 0 : node.children.length - 1)
+  while (node.children.length) node = await node.getChildNode(goLeft ? 0 : node.children.length - 1)
   return node.keys.length
 }
 
 async function setKeyToNearestLeaf(node, index, stack) {
-  let [left, right] = await Promise.all([
-    node.getChildNode(index),
-    node.getChildNode(index + 1)
-  ])
-  const [ls, rs] = await Promise.all([
-    leafSize(left, false),
-    leafSize(right, true)
-  ])
+  let [left, right] = await Promise.all([node.getChildNode(index), node.getChildNode(index + 1)])
+  const [ls, rs] = await Promise.all([leafSize(left, false), leafSize(right, true)])
 
   if (ls < rs) {
     // if fewer leaves on the left
@@ -1742,8 +1667,7 @@ async function setKeyToNearestLeaf(node, index, stack) {
   } else {
     // if fewer leaves on the right
     stack.push(left)
-    while (left.children.length)
-      stack.push((left = left.children[left.children.length - 1].value))
+    while (left.children.length) stack.push((left = left.children[left.children.length - 1].value))
     node.keys[index] = left.keys.pop()
   }
 }
@@ -1883,10 +1807,7 @@ function enc(e, v) {
 function prefixEncoding(prefix, keyEncoding) {
   return {
     encode(key) {
-      return b4a.concat([
-        prefix,
-        b4a.isBuffer(key) ? key : enc(keyEncoding, key)
-      ])
+      return b4a.concat([prefix, b4a.isBuffer(key) ? key : enc(keyEncoding, key)])
     },
     decode(key) {
       const sliced = key.slice(prefix.length, key.length)
@@ -1909,11 +1830,7 @@ function copyEntry(entry) {
     (value === null ? 0 : value.byteLength) +
     (index === null ? 0 : index.byteLength)
   if (2 * size < key.buffer.byteLength) {
-    const [newKey, newValue, newIndex] = unslabAll([
-      entry.key,
-      entry.value,
-      entry.index
-    ])
+    const [newKey, newValue, newIndex] = unslabAll([entry.key, entry.value, entry.index])
     key = newKey
     value = newValue
     index = newIndex

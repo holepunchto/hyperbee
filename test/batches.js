@@ -75,9 +75,7 @@ test('batch createReadStream', async function (t) {
 
   const b = db.batch()
 
-  t.alike(await collect(b.createReadStream()), [
-    { seq: 1, key: 'a', value: '1' }
-  ])
+  t.alike(await collect(b.createReadStream()), [{ seq: 1, key: 'a', value: '1' }])
 
   await b.put('b', '2')
 
@@ -86,9 +84,7 @@ test('batch createReadStream', async function (t) {
     { seq: 2, key: 'b', value: '2' }
   ])
 
-  t.alike(await collect(db.createReadStream()), [
-    { seq: 1, key: 'a', value: '1' }
-  ])
+  t.alike(await collect(db.createReadStream()), [{ seq: 1, key: 'a', value: '1' }])
 
   await b.flush()
 })

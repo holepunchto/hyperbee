@@ -167,12 +167,8 @@ test('test all short iterators', async function (t) {
   t.pass('all iterations passed')
 
   function validate(size, reference, opts, entries) {
-    const start = opts.gt
-      ? reference.indexOf(opts.gt) + 1
-      : reference.indexOf(opts.gte)
-    const end = opts.lt
-      ? reference.indexOf(opts.lt)
-      : reference.indexOf(opts.lte) + 1
+    const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
+    const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
     const range = reference.slice(start, end)
     if (opts.reverse) range.reverse()
     for (let i = 0; i < range.length; i++) {
@@ -234,12 +230,8 @@ test('test all short iterators, sub database', async function (t) {
   await db.close()
 
   function validate(size, reference, opts, entries) {
-    const start = opts.gt
-      ? reference.indexOf(opts.gt) + 1
-      : reference.indexOf(opts.gte)
-    const end = opts.lt
-      ? reference.indexOf(opts.lt)
-      : reference.indexOf(opts.lte) + 1
+    const start = opts.gt ? reference.indexOf(opts.gt) + 1 : reference.indexOf(opts.gte)
+    const end = opts.lt ? reference.indexOf(opts.lt) : reference.indexOf(opts.lte) + 1
     const range = reference.slice(start, end)
     if (opts.reverse) range.reverse()
     for (let i = 0; i < range.length; i++) {
@@ -518,10 +510,7 @@ test('get header out', async function (t) {
 
 test('isHyperbee throws for empty hypercore and wait false', async function (t) {
   const core = await createCore(t)
-  await t.exception(
-    Hyperbee.isHyperbee(core, { wait: false }),
-    'Block is not available'
-  )
+  await t.exception(Hyperbee.isHyperbee(core, { wait: false }), 'Block is not available')
 })
 
 test('isHyperbee is false for non-empty hypercore', async function (t) {

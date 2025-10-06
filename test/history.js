@@ -119,9 +119,7 @@ test('reverse history', async function (t) {
   }
 
   {
-    const h = await collect(
-      db.createHistoryStream({ gte: 3, lte: 5, reverse: true })
-    )
+    const h = await collect(db.createHistoryStream({ gte: 3, lte: 5, reverse: true }))
     t.is(h.length, 3)
     t.alike(
       h.map(({ seq, key }) => ({ seq, key })),
@@ -134,9 +132,7 @@ test('reverse history', async function (t) {
   }
 
   {
-    const h = await collect(
-      db.createHistoryStream({ gte: 3, lt: 5, reverse: true })
-    )
+    const h = await collect(db.createHistoryStream({ gte: 3, lt: 5, reverse: true }))
     t.is(h.length, 2)
     t.alike(
       h.map(({ seq, key }) => ({ seq, key })),
@@ -148,9 +144,7 @@ test('reverse history', async function (t) {
   }
 
   {
-    const h = await collect(
-      db.createHistoryStream({ gt: 3, lt: 5, reverse: true })
-    )
+    const h = await collect(db.createHistoryStream({ gt: 3, lt: 5, reverse: true }))
     t.is(h.length, 1)
     t.alike(
       h.map(({ seq, key }) => ({ seq, key })),

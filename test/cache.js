@@ -15,16 +15,8 @@ test('entries are not cached using buffers from default slab', async function (t
 
   const entry = await db.get('smallKey')
 
-  t.is(
-    entry.key.buffer.byteLength < 100,
-    true,
-    'Uses a small slab for cached key entry'
-  )
-  t.is(
-    entry.value.buffer.byteLength < 100,
-    true,
-    'Uses a small slab for cached value entry'
-  )
+  t.is(entry.key.buffer.byteLength < 100, true, 'Uses a small slab for cached key entry')
+  t.is(entry.value.buffer.byteLength < 100, true, 'Uses a small slab for cached value entry')
 
   await db.close()
 })

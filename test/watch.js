@@ -643,16 +643,8 @@ test('watch with passed key/value encodings', async function (t) {
   await watcher.ready()
 
   await db.put('not in sub', 'ignored')
-  await db.put(
-    'in sub 1',
-    { 'this is': 'yielded' },
-    { keyEncoding: sub, valueEncoding: 'json' }
-  )
-  await db.put(
-    'in sub 2',
-    { 'this is': 'yielded' },
-    { keyEncoding: sub, valueEncoding: 'json' }
-  )
+  await db.put('in sub 1', { 'this is': 'yielded' }, { keyEncoding: sub, valueEncoding: 'json' })
+  await db.put('in sub 2', { 'this is': 'yielded' }, { keyEncoding: sub, valueEncoding: 'json' })
 
   for await (const [current, previous] of watcher) {
     // eslint-disable-line no-unreachable-loop

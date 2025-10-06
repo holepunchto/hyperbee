@@ -48,10 +48,7 @@ class SubTree {
   update() {
     this.isKey = (this.i & 1) === 1
     this.n = this.i >> 1
-    if (
-      this.n >= (this.isKey ? this.node.keys.length : this.node.children.length)
-    )
-      return false
+    if (this.n >= (this.isKey ? this.node.keys.length : this.node.children.length)) return false
     const child = this.isKey ? null : this.node.children[this.n]
     this.seq = child !== null ? child.seq : this.node.keys[this.n].seq
     this.offset = child !== null ? child.offset : 0
@@ -200,8 +197,7 @@ module.exports = class DiffIterator {
       }
 
       if (l.isKey && r.isKey) {
-        if (c === 0)
-          return { left: await a.nextKey(), right: await b.nextKey() }
+        if (c === 0) return { left: await a.nextKey(), right: await b.nextKey() }
         if (c < 0) return { left: await a.nextKey(), right: null }
         return { left: null, right: await b.nextKey() }
       }

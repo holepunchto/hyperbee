@@ -24,6 +24,7 @@ const MAX_CHILDREN = MIN_KEYS * 2 + 1
 
 const SEP = b4a.alloc(1)
 const EMPTY = b4a.alloc(0)
+const DEFAULT_BLOCK_FORMAT = 1
 
 class Key {
   constructor (seq, value) {
@@ -406,6 +407,7 @@ class Hyperbee extends ReadyResource {
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
     this.core = core
+    this.blockFormat = opts.blockFormat || DEFAULT_BLOCK_FORMAT
 
     this.keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : null
     this.valueEncoding = opts.valueEncoding ? codecs(opts.valueEncoding) : null
@@ -758,6 +760,7 @@ class Hyperbee extends ReadyResource {
     return new Hyperbee(snap, {
       _view: true,
       _sub: false,
+      blockFormat: this.blockFormat,
       prefix: this.prefix,
       sep: this.sep,
       lock: this.lock,
@@ -784,6 +787,7 @@ class Hyperbee extends ReadyResource {
     return new Hyperbee(this.core, {
       _view: true,
       _sub: true,
+      blockFormat: this.blockFormat,
       prefix,
       sep: this.sep,
       lock: this.lock,
@@ -1253,8 +1257,58 @@ class Batch {
     this.close().catch(noop)
   }
 
+  _toBlocksFormat2 () {
+    const batch = new Array(this.length)
+    const dirty = new Set()
+
+    for (let i = 0; i < this.length; i++) {
+      const seq = this.core.length + i
+      const { pendingIndex, key, value } = this.blocks.get(seq)
+
+      for (const node of pendingIndex) dirty.add(node)
+
+      if (i < this.length - 1) {
+        batch[i] = Node.encode({
+          key,
+          value,
+          index: deflate([])
+        })
+        continue
+      }
+
+      const root = pendingIndex[0]
+      const stack = [root]
+      const changed = []
+
+      while (stack.length > 0) {
+        const idx = stack.pop()
+        changed.push(idx)
+        if (!idx.value) continue
+        for (const c of idx.value.children) {
+          if (dirty.has(c)) stack.push(c)
+        }
+      }
+
+      for (let i = 0; i < changed.length; i++) {
+        const idx = changed[i]
+        idx.offset = i
+        idx.seq = seq
+      }
+
+      batch[i] = Node.encode({
+        key,
+        value,
+        index: deflate(changed)
+      })
+    }
+
+    this.appending = batch
+    return batch
+  }
+
   toBlocks () {
     if (this.appending) return this.appending
+    if (this.tree.blockFormat === 2) return this._toBlocksFormat2()
 
     const batch = new Array(this.length)
 
@@ -1325,7 +1379,7 @@ class Batch {
     root.indexChanges(index, seq)
     index[0] = new Child(seq, 0, root)
 
-    if (!this.autoFlush) {
+    if (!this.autoFlush || this.tree.blockFormat === 2) {
       const block = new BatchEntry(seq, this, key, value, index)
       root.block = block
       this.root = root
@@ -1333,7 +1387,11 @@ class Batch {
       this.blocks.set(seq, block)
 
       root.updateChildren(seq, block)
-      return
+      if (!this.autoFlush) return
+    }
+
+    if (this.tree.blockFormat === 2) {
+      return this.flush()
     }
 
     return this._appendBatch(Node.encode({

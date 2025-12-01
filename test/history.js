@@ -1,5 +1,6 @@
 const { createRange, collect } = require('./helpers')
 const test = require('brittle')
+const process = require('process')
 
 test('basic history', async function (t) {
   const db = await createRange(t, 10)

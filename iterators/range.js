@@ -22,8 +22,9 @@ module.exports = class RangeIterator {
     const checkpoint = []
     for (const s of this.stack) {
       let { node, i } = s
-      if (this._nexting && s === this.stack[this.stack.length - 1])
+      if (this._nexting && s === this.stack[this.stack.length - 1]) {
         i = this._reverse ? i + 1 : i - 1
+      }
       if (!node.block) continue
       if (i < 0) continue
       checkpoint.push(node.block.seq, node.offset, i)

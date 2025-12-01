@@ -950,8 +950,9 @@ class Batch {
     })
     if (entry === null) throw BLOCK_NOT_AVAILABLE()
     const wrap = copyEntry(entry)
-    if (this.core.fork === this.tree.core.fork && this.tree._nodeCache !== null)
+    if (this.core.fork === this.tree.core.fork && this.tree._nodeCache !== null) {
       this.tree._nodeCache.set(seq, wrap)
+    }
     return wrap
   }
 
@@ -974,8 +975,9 @@ class Batch {
     b = this.blocks && this.blocks.get(seq)
     if (b) return b
     b = new BlockEntry(seq, this, entry)
-    if (this.blocks && this.blocks.size - this.length < this.maxBlocksCached)
+    if (this.blocks && this.blocks.size - this.length < this.maxBlocksCached) {
       this.blocks.set(seq, b)
+    }
     return b
   }
 

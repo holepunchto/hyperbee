@@ -14,7 +14,7 @@ test('extension set by boolean', async function (t) {
 
   s1.pipe(s2).pipe(s1)
 
-  await new Promise(resolve => dbClone.core.on('append', resolve))
+  await new Promise((resolve) => dbClone.core.on('append', resolve))
 
   t.alike((await dbClone.get('a')).value, 'a')
   t.alike((await dbClone.get('b')).value, 'b')

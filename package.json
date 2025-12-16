@@ -23,15 +23,28 @@
     "unslab": "^1.2.0"
   },
   "devDependencies": {
+    "bare-process": "^4.2.2",
     "brittle": "^3.1.0",
     "hypercore": "^11.0.0",
+    "lunte": "^1.0.0",
+    "prettier": "^3.6.2",
+    "prettier-config-holepunch": "^2.0.0",
     "protocol-buffers": "^4.2.0",
-    "standard": "^17.0.0",
     "sub-encoder": "^1.0.6",
     "tree-to-string": "^1.1.1"
   },
+  "imports": {
+    "process": {
+      "bare": "bare-process",
+      "default": "process"
+    }
+  },
   "scripts": {
-    "test": "standard && brittle test/*.js",
+    "format": "prettier --write .",
+    "lint": "prettier --check . && lunte",
+    "test": "npm run test:node && npm run test:bare",
+    "test:node": "brittle-node test/*.js",
+    "test:bare": "brittle-bare test/*.js",
     "protobuf": "protocol-buffers schema.proto -o ./lib/messages.js"
   },
   "repository": {

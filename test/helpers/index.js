@@ -15,13 +15,15 @@ module.exports = {
   eventFlush
 }
 
-function collect (stream) {
+function collect(stream) {
   return new Promise((resolve, reject) => {
     const entries = []
     let ended = false
-    stream.on('data', d => entries.push(d))
-    stream.on('error', err => reject(err))
-    stream.on('end', () => { ended = true })
+    stream.on('data', (d) => entries.push(d))
+    stream.on('error', (err) => reject(err))
+    stream.on('end', () => {
+      ended = true
+    })
     stream.on('close', () => {
       if (ended) resolve(entries)
       else reject(new Error('Premature close'))
@@ -29,7 +31,7 @@ function collect (stream) {
   })
 }
 
-function rangeify (start, end) {
+function rangeify(start, end) {
   if (Array.isArray(start)) return start
   if (typeof end !== 'number') {
     end = start
@@ -42,7 +44,7 @@ function rangeify (start, end) {
   return r
 }
 
-async function insertRange (db, start, end) {
+async function insertRange(db, start, end) {
   if (typeof end !== 'number') end = undefined
 
   const b = db.batch()
@@ -53,7 +55,7 @@ async function insertRange (db, start, end) {
   await b.flush()
 }
 
-async function createRange (t, start, end, opts = end) {
+async function createRange(t, start, end, opts = end) {
   if (typeof end !== 'number') end = undefined
 
   const db = await create(t, opts)
@@ -61,10 +63,10 @@ async function createRange (t, start, end, opts = end) {
   return db
 }
 
-async function toString (tree) {
+async function toString(tree) {
   return require('tree-to-string')(await load(await tree.getRoot(false)))
 
-  async function load (node) {
+  async function load(node) {
     const res = { values: [], children: [] }
     for (let i = 0; i < node.keys.length; i++) {
       res.values.push((await node.getKey(i)).toString())
@@ -76,7 +78,7 @@ async function toString (tree) {
   }
 }
 
-async function clone (t, db, opts) {
+async function clone(t, db, opts) {
   opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
   const storage = await t.tmp()
   const clone = new Hypercore(storage, db.core.key)
@@ -85,7 +87,7 @@ async function clone (t, db, opts) {
   return cdb
 }
 
-async function create (t, opts) {
+async function create(t, opts) {
   opts = { keyEncoding: 'utf-8', valueEncoding: 'utf-8', ...opts }
   const storage = await t.tmp()
   const core = new Hypercore(storage)
@@ -94,7 +96,7 @@ async function create (t, opts) {
   return db
 }
 
-async function createStoredCore (t) {
+async function createStoredCore(t) {
   const storage = await t.tmp()
   return function (...args) {
     const core = new Hypercore(storage, ...args)
@@ -103,7 +105,7 @@ async function createStoredCore (t) {
   }
 }
 
-async function createStored (t) {
+async function createStored(t) {
   const create = await createStoredCore(t)
 
   return function (...args) {
@@ -114,12 +116,12 @@ async function createStored (t) {
   }
 }
 
-async function createCore (t) {
+async function createCore(t) {
   const core = new Hypercore(await t.tmp())
   t.teardown(() => core.close())
   return core
 }
 
-function eventFlush () {
-  return new Promise(resolve => setTimeout(resolve, 1000))
+function eventFlush() {
+  return new Promise((resolve) => setTimeout(resolve, 1000))
 }

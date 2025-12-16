@@ -1,5 +1,5 @@
 module.exports = class LocalBlocksIterator {
-  constructor (batch, opts = {}) {
+  constructor(batch, opts = {}) {
     this.batch = batch
     this.options = opts
     this.gte = 0
@@ -7,13 +7,13 @@ module.exports = class LocalBlocksIterator {
     this.limit = typeof opts.limit === 'number' ? opts.limit : -1
   }
 
-  async open () {
+  async open() {
     await this.batch.getRoot(false) // does the update dance
     this.gte = gte(this.options, this.batch.version)
     this.lt = lt(this.options, this.batch.version)
   }
 
-  async next () {
+  async next() {
     if (this.limit === 0) return null
     if (this.limit > 0) this.limit--
 
@@ -28,20 +28,20 @@ module.exports = class LocalBlocksIterator {
     return null
   }
 
-  close () {
+  close() {
     return this.batch._closeSnapshot()
   }
 }
 
-function gte (opts, version) {
-  if (opts.gt) return (opts.gt < 0 ? (opts.gt + version) : opts.gt) + 1
+function gte(opts, version) {
+  if (opts.gt) return (opts.gt < 0 ? opts.gt + version : opts.gt) + 1
   const gte = opts.gte || opts.since || 1
   return gte < 0 ? gte + version : gte
 }
 
-function lt (opts, version) {
+function lt(opts, version) {
   if (opts.lte === 0 || opts.lt === 0 || opts.end === 0) return 0
-  if (opts.lte) return (opts.lte < 0 ? (opts.lte + version) : opts.lte) + 1
+  if (opts.lte) return (opts.lte < 0 ? opts.lte + version : opts.lte) + 1
   const lt = opts.lt || opts.end || version
   return lt < 0 ? lt + version : lt
 }

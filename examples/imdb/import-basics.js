@@ -7,7 +7,7 @@ const db = new Hyperbee(new Hypercore('./db'))
 
 main()
 
-async function main () {
+async function main() {
   const s = fs.createReadStream('title.basics.tsv').pipe(split2())
 
   setInterval(function () {
@@ -24,7 +24,17 @@ async function main () {
       continue
     }
 
-    const [id, titleType, primaryTitle, originalTitle, isAdult, startYear, endYear, runtimeMinutes, genres] = line.split('\t')
+    const [
+      id,
+      titleType,
+      primaryTitle,
+      originalTitle,
+      isAdult,
+      startYear,
+      endYear,
+      runtimeMinutes,
+      genres
+    ] = line.split('\t')
 
     const data = {
       id,

@@ -127,7 +127,7 @@ If you're inserting a series of data atomically or want more performance then ch
 
 By returning `true` it will insert the value, otherwise it won't.
 
-It receives two args: `prev` is the current node entry, and `next` is the potential new node.
+It receives two args: `prev` is the current node entry, and `next` is the potential new node at the specified key.
 
 ```js
 await db.put('number', '123', { cas })
@@ -170,7 +170,7 @@ Delete a key.
 
 By returning `true` it will delete the value, otherwise it won't.
 
-It only receives one arg: `prev` which is the current node entry.
+It receives one argument: `prev` - the current node entry at the specified key being deleted.
 
 ```js
 // This won't get deleted

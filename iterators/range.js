@@ -125,7 +125,7 @@ module.exports = class RangeIterator {
     if (this._limit === -1 && !this._reverse && this.stack.length) {
       for (const s of this.stack) {
         const k = (s.i - (s.i & 1)) / 2
-        this._preload(s.node, k + 1, this._lKey, max).catch(console.log)
+        this._preload(s.node, k + 1, this._lKey, max).catch(noop)
       }
     }
   }

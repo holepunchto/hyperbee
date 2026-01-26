@@ -119,9 +119,7 @@ module.exports = class RangeIterator {
     }
   }
 
-<<<<<<< HEAD
-=======
-  _preloadQuery () {
+  _preloadQuery() {
     const max = { nodes: 0, max: 500 }
 
     if (this._limit === -1 && !this._reverse && this.stack.length) {
@@ -132,7 +130,7 @@ module.exports = class RangeIterator {
     }
   }
 
-  async _preload (node, i, end, max) {
+  async _preload(node, i, end, max) {
     for (; i < node.keys.length; i++) {
       const key = node.keys[i]
       const block = await this.batch.getBlock(key.seq)
@@ -206,4 +204,4 @@ module.exports = class RangeIterator {
   }
 }
 
-function noop () {}
+function noop() {}

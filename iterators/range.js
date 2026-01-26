@@ -16,6 +16,7 @@ module.exports = class RangeIterator {
     this._version = 0
     this._checkpoint = opts.checkpoint && opts.checkpoint.length ? opts.checkpoint : null
     this._nexting = false
+    this._closed = false
   }
 
   snapshot(version = this.batch.version) {
@@ -76,6 +77,7 @@ module.exports = class RangeIterator {
     if (!start) {
       this.stack.push({ node, i: this._reverse ? node.keys.length << 1 : 0 })
       this._nexting = false
+      this._preloadQuery()
       return
     }
 
@@ -95,6 +97,7 @@ module.exports = class RangeIterator {
           else entry.i = mid * 2 + (this._reverse ? 0 : 2)
           this.stack.push(entry)
           this._nexting = false
+          this._preloadQuery()
           return
         }
 
@@ -108,10 +111,42 @@ module.exports = class RangeIterator {
       if (entry.i >= 0 && entry.i <= node.keys.length << 1) this.stack.push(entry)
       if (!node.children.length) {
         this._nexting = false
+        this._preloadQuery()
         return
       }
 
       node = await node.getChildNode(i)
+    }
+  }
+
+  _preloadQuery() {
+    const max = { nodes: 0, max: 500 }
+
+    if (this._limit === -1 && !this._reverse && this.stack.length) {
+      for (const s of this.stack) {
+        const k = (s.i - (s.i & 1)) / 2
+        this._preload(s.node, k + 1, this._lKey, max).catch(console.log)
+      }
+    }
+  }
+
+  async _preload(node, i, end, max) {
+    for (; i < node.keys.length; i++) {
+      const key = node.keys[i]
+      const block = await this.batch.getBlock(key.seq)
+      if (this._closed) return
+      const c = end ? b4a.compare(block.key, end) : -1
+      if (c >= 0 || max.nodes >= max.max || i >= node.children.length) return
+      max.nodes++
+      const next = await node.getChildNode(i)
+      if (this._closed) return
+      this._preload(next, 0, end, max).catch(noop)
+    }
+
+    if (node.children.length && max.nodes < max.max) {
+      const next = await node.getChildNode(node.children.length - 1)
+      if (this._closed) return
+      this._preload(next, 0, end, max).catch(noop)
     }
   }
 
@@ -164,6 +199,9 @@ module.exports = class RangeIterator {
   }
 
   close() {
+    this._closed = true
     return this.batch._closeSnapshot()
   }
 }
+
+function noop() {}

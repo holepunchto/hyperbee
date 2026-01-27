@@ -452,7 +452,9 @@ class Hyperbee extends ReadyResource {
   async _open() {
     if (this.core.opened === false) await this.core.ready()
     // bump the internal ranges since the nodes are small
-    if (this._watchers) this.core.replicator.setInflightRange(256, 512)
+    if (this._watchers && this.core.replicator.setInflightRange) {
+      this.core.replicator.setInflightRange(256, 512)
+    }
 
     // snapshot
     if (this._checkout === -1) this._checkout = Math.max(1, this.core.length)

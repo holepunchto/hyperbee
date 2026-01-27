@@ -120,7 +120,7 @@ module.exports = class RangeIterator {
   }
 
   _preloadQuery() {
-    const max = { nodes: 0, max: 500 }
+    const max = { nodes: 0, max: 2048 }
 
     if (this._limit === -1 && !this._reverse && this.stack.length) {
       for (const s of this.stack) {

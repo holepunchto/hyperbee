@@ -87,7 +87,10 @@ test('bigger diff', async function (t) {
   t.is(entries.length, 4)
   t.alike(entries, [
     { left: null, right: { seq: 2, key: '01', value: null } },
-    { left: { seq: 12, key: '09', value: null }, right: { seq: 10, key: '09', value: null } },
+    {
+      left: { seq: 12, key: '09', value: null },
+      right: { seq: 10, key: '09', value: null }
+    },
     { left: { seq: 13, key: '10', value: null }, right: null },
     { left: { seq: 14, key: '11', value: null }, right: null }
   ])
@@ -197,10 +200,14 @@ test('diff key encoding option', async function (t) {
   const v1 = db.version
 
   await db.put('a', 'b')
-  await db.put({ a: 1 }, { b: 2 }, {
-    keyEncoding: 'json',
-    valueEncoding: 'json'
-  })
+  await db.put(
+    { a: 1 },
+    { b: 2 },
+    {
+      keyEncoding: 'json',
+      valueEncoding: 'json'
+    }
+  )
 
   const diffStream = db.createDiffStream(v1, {
     gte: { a: 1 },

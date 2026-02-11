@@ -1,6 +1,6 @@
 # Hyperbee 🐝
 
-[See API docs at docs.holepunch.to](https://docs.holepunch.to/building-blocks/hyperbee)
+[See API docs at docs.pears.com](https://docs.pears.com/building-blocks/hyperbee)
 
 An append-only B-tree running on a Hypercore. Allows sorted iteration and more.
 
@@ -57,6 +57,7 @@ It works with sparse cores, only a small subset of the full core is downloaded t
 Make a new Hyperbee instance. `core` should be a [Hypercore](https://github.com/holepunchto/hypercore).
 
 `options` include:
+
 ```js
 {
   keyEncoding: 'binary', // "binary" (default), "utf-8", "ascii", "json", or an abstract-encoding
@@ -113,6 +114,7 @@ Insert a new key. Value can be optional.
 If you're inserting a series of data atomically or want more performance then check the `db.batch` API.
 
 `options` includes:
+
 ```js
 {
   cas (prev, next) { return true }
@@ -120,6 +122,7 @@ If you're inserting a series of data atomically or want more performance then ch
 ```
 
 ##### Compare And Swap (cas)
+
 `cas` option is a function comparator to control whether the `put` succeeds.
 
 By returning `true` it will insert the value, otherwise it won't.
@@ -137,7 +140,7 @@ console.log(await db.get('number')) // => { seq: 1, key: 'number', value: '123' 
 await db.put('number', '456', { cas })
 console.log(await db.get('number')) // => { seq: 2, key: 'number', value: '456' }
 
-function cas (prev, next) {
+function cas(prev, next) {
   // You can use same-data or same-object lib, depending on the value complexity
   return prev.value !== next.value
 }
@@ -154,6 +157,7 @@ Get a key's value. Returns `null` if key doesn't exists.
 Delete a key.
 
 `options` include:
+
 ```js
 {
   cas (prev, next) { return true }
@@ -161,6 +165,7 @@ Delete a key.
 ```
 
 ##### Compare And Swap (cas)
+
 `cas` option is a function comparator to control whether the `del` succeeds.
 
 By returning `true` it will delete the value, otherwise it won't.
@@ -178,7 +183,7 @@ await db.put('number', 'can-be-deleted')
 await db.del('number', { cas })
 console.log(await db.get('number')) // => null
 
-function cas (prev) {
+function cas(prev) {
   return prev.value === 'can-be-deleted'
 }
 ```
@@ -274,6 +279,7 @@ Create a stream of all entries ever inserted or deleted from the db.
 Each entry has an additional `type` property indicating if it was a `put` or `del` operation.
 
 `options` are the same as `db.batch()` and also include:
+
 ```js
 {
   live: false, // If true the stream will wait for new data and never end
@@ -297,6 +303,7 @@ Efficiently create a stream of the shallow changes between two versions of the d
 `options` are the same as `db.createReadStream`, except for `reverse`.
 
 Each entry is sorted by key and looks like this:
+
 ```js
 {
   left: Object, // The entry in the `db`
@@ -314,7 +321,7 @@ returned, only the diff.
 
 Returns a watcher which listens to changes on the given key.
 
-`entryWatcher.node` contains the current entry in the same format as the result of `bee.get(key)`,  and will be updated as it changes.
+`entryWatcher.node` contains the current entry in the same format as the result of `bee.get(key)`, and will be updated as it changes.
 
 By default, the node will have the bee's key- and value encoding, but you can overwrite it by setting the `keyEncoding` and `valueEncoding` options.
 
@@ -331,6 +338,7 @@ Listens to changes that are on the optional `range`.
 By default, the yielded snapshots will have the bee's key- and value encoding, but you can overwrite them by setting the `keyEncoding` and `valueEncoding` options.
 
 Usage example:
+
 ```js
 for await (const [current, previous] of watcher) {
   console.log(current.version)
@@ -367,7 +375,8 @@ Create a sub-database where all entries will be prefixed by a given value.
 This makes it easy to create namespaces within a single Hyperbee.
 
 `options` include:
-```js
+
+```
 {
   sep: Buffer.alloc(1), // A namespace separator
   valueEncoding, // Optional sub valueEncoding (defaults to the parents)
@@ -376,6 +385,7 @@ This makes it easy to create namespaces within a single Hyperbee.
 ```
 
 For example:
+
 ```js
 const root = new Hyperbee(core)
 const sub = root.sub('a')

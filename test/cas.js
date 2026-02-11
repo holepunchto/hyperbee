@@ -69,7 +69,10 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, {
+      keyEncoding: 'binary',
+      valueEncoding: 'binary'
+    })
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
@@ -81,7 +84,10 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 
   {
-    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, {
+      keyEncoding: 'binary',
+      valueEncoding: 'binary'
+    })
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
@@ -172,7 +178,10 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
   }
 
   {
-    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, {
+      keyEncoding: 'utf8',
+      valueEncoding: 'binary'
+    })
     const db = bee.batch()
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
@@ -186,7 +195,10 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
   }
 
   {
-    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, {
+      keyEncoding: 'utf8',
+      valueEncoding: 'binary'
+    })
     const db = bee.batch()
     const cas = (lst, nxt) => b4a.compare(lst.value, nxt.value) !== 0
     const k0 = b4a.from(key)
@@ -297,7 +309,10 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, {
+      keyEncoding: 'binary',
+      valueEncoding: 'binary'
+    })
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
     await db.put(k0, v0)
@@ -310,7 +325,10 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 
   {
-    const db = await create(t, { keyEncoding: 'binary', valueEncoding: 'binary' })
+    const db = await create(t, {
+      keyEncoding: 'binary',
+      valueEncoding: 'binary'
+    })
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
     await db.put(k0, v0)
@@ -436,7 +454,10 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
   }
 
   {
-    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, {
+      keyEncoding: 'utf8',
+      valueEncoding: 'binary'
+    })
     const db = bee.batch()
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)
@@ -451,7 +472,10 @@ test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async funct
   }
 
   {
-    const bee = await create(t, { keyEncoding: 'utf8', valueEncoding: 'binary' })
+    const bee = await create(t, {
+      keyEncoding: 'utf8',
+      valueEncoding: 'binary'
+    })
     const db = bee.batch()
     const k0 = b4a.from(key)
     const v0 = b4a.from(value)

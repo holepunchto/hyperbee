@@ -1,7 +1,7 @@
 const b4a = require('b4a')
 
 module.exports = class RangeIterator {
-  constructor (batch, encoding, opts = {}) {
+  constructor(batch, encoding, opts = {}) {
     this.batch = batch
     this.stack = []
     this.opened = false
@@ -14,15 +14,18 @@ module.exports = class RangeIterator {
     this._lKey = opts.lt || opts.lte || null
     this._reverse = !!opts.reverse
     this._version = 0
-    this._checkpoint = (opts.checkpoint && opts.checkpoint.length) ? opts.checkpoint : null
+    this._checkpoint = opts.checkpoint && opts.checkpoint.length ? opts.checkpoint : null
     this._nexting = false
+    this._closed = false
   }
 
-  snapshot (version = this.batch.version) {
+  snapshot(version = this.batch.version) {
     const checkpoint = []
     for (const s of this.stack) {
       let { node, i } = s
-      if (this._nexting && s === this.stack[this.stack.length - 1]) i = this._reverse ? i + 1 : i - 1
+      if (this._nexting && s === this.stack[this.stack.length - 1]) {
+        i = this._reverse ? i + 1 : i - 1
+      }
       if (!node.block) continue
       if (i < 0) continue
       checkpoint.push(node.block.seq, node.offset, i)
@@ -41,12 +44,12 @@ module.exports = class RangeIterator {
     }
   }
 
-  async open () {
+  async open() {
     await this._open()
     this.opened = true
   }
 
-  async _open () {
+  async _open() {
     if (this._checkpoint) {
       for (let j = 0; j < this._checkpoint.length; j += 3) {
         const seq = this._checkpoint[j]
@@ -74,6 +77,7 @@ module.exports = class RangeIterator {
     if (!start) {
       this.stack.push({ node, i: this._reverse ? node.keys.length << 1 : 0 })
       this._nexting = false
+      this._preloadQuery()
       return
     }
 
@@ -93,6 +97,7 @@ module.exports = class RangeIterator {
           else entry.i = mid * 2 + (this._reverse ? 0 : 2)
           this.stack.push(entry)
           this._nexting = false
+          this._preloadQuery()
           return
         }
 
@@ -103,9 +108,10 @@ module.exports = class RangeIterator {
       const i = c < 0 ? e : s
       entry.i = 2 * i + (this._reverse ? -1 : 1)
 
-      if (entry.i >= 0 && entry.i <= (node.keys.length << 1)) this.stack.push(entry)
+      if (entry.i >= 0 && entry.i <= node.keys.length << 1) this.stack.push(entry)
       if (!node.children.length) {
         this._nexting = false
+        this._preloadQuery()
         return
       }
 
@@ -113,7 +119,38 @@ module.exports = class RangeIterator {
     }
   }
 
-  async next () {
+  _preloadQuery() {
+    const max = { nodes: 0, max: 2048 }
+
+    if (this._limit === -1 && !this._reverse && this.stack.length) {
+      for (const s of this.stack) {
+        const k = (s.i - (s.i & 1)) / 2
+        this._preload(s.node, k + 1, this._lKey, max).catch(noop)
+      }
+    }
+  }
+
+  async _preload(node, i, end, max) {
+    for (; i < node.keys.length; i++) {
+      const key = node.keys[i]
+      const block = await this.batch.getBlock(key.seq)
+      if (this._closed) return
+      const c = end ? b4a.compare(block.key, end) : -1
+      if (c >= 0 || max.nodes >= max.max || i >= node.children.length) return
+      max.nodes++
+      const next = await node.getChildNode(i)
+      if (this._closed) return
+      this._preload(next, 0, end, max).catch(noop)
+    }
+
+    if (node.children.length && max.nodes < max.max) {
+      const next = await node.getChildNode(node.children.length - 1)
+      if (this._closed) return
+      this._preload(next, 0, end, max).catch(noop)
+    }
+  }
+
+  async next() {
     // TODO: this nexting flag is only needed if someone asks for a snapshot during
     // a lookup (ie the extension, pretty important...).
     // A better solution would be to refactor this so top.i is incremented eagerly
@@ -126,9 +163,7 @@ module.exports = class RangeIterator {
     while (this.stack.length && (this._limit === -1 || this._limit > 0)) {
       const top = this.stack[this.stack.length - 1]
       const isKey = (top.i & 1) === 1
-      const n = this._reverse
-        ? (top.i < 0 ? top.node.keys.length : top.i-- >> 1)
-        : top.i++ >> 1
+      const n = this._reverse ? (top.i < 0 ? top.node.keys.length : top.i-- >> 1) : top.i++ >> 1
 
       if (!isKey) {
         if (!top.node.children.length) continue
@@ -149,7 +184,7 @@ module.exports = class RangeIterator {
       const block = await this.batch.getBlock(key.seq)
       if (end) {
         const c = b4a.compare(block.key, end)
-        if (c === 0 ? !incl : (this._reverse ? c < 0 : c > 0)) {
+        if (c === 0 ? !incl : this._reverse ? c < 0 : c > 0) {
           this._limit = 0
           break
         }
@@ -163,7 +198,10 @@ module.exports = class RangeIterator {
     return null
   }
 
-  close () {
+  close() {
+    this._closed = true
     return this.batch._closeSnapshot()
   }
 }
+
+function noop() {}

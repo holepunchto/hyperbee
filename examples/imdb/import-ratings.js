@@ -7,7 +7,7 @@ const db = new Hyperbee(new Hypercore('./db'))
 
 main()
 
-async function main () {
+async function main() {
   const s = fs.createReadStream('title.ratings.tsv').pipe(split2())
 
   setInterval(function () {
@@ -32,7 +32,13 @@ async function main () {
       numVotes: numVotes === '\\N' ? 0 : Number(numVotes)
     }
 
-    const key = 'ratings!' + (data.averageRating * 10).toString().padStart(2, '0') + '!' + (data.numVotes).toString().padStart(7, '0') + '!' + data.id
+    const key =
+      'ratings!' +
+      (data.averageRating * 10).toString().padStart(2, '0') +
+      '!' +
+      data.numVotes.toString().padStart(7, '0') +
+      '!' +
+      data.id
 
     n++
     const prev = await batch.get(key)

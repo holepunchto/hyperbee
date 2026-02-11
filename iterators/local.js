@@ -1,46 +1,36 @@
-module.exports = class HistoryIterator {
+module.exports = class LocalBlocksIterator {
   constructor(batch, opts = {}) {
     this.batch = batch
     this.options = opts
-    this.live = !!opts.live
     this.gte = 0
     this.lt = 0
-    this.reverse = !!opts.reverse
     this.limit = typeof opts.limit === 'number' ? opts.limit : -1
-    this.encoding = opts.encoding || batch.encoding
-    if (this.live && this.reverse) {
-      throw new Error('Cannot have both live and reverse enabled')
-    }
   }
 
   async open() {
     await this.batch.getRoot(false) // does the update dance
     this.gte = gte(this.options, this.batch.version)
-    this.lt = this.live ? Infinity : lt(this.options, this.batch.version)
+    this.lt = lt(this.options, this.batch.version)
   }
 
   async next() {
     if (this.limit === 0) return null
     if (this.limit > 0) this.limit--
 
-    if (this.gte >= this.lt) return null
-
-    if (this.reverse) {
-      if (this.lt <= 1) return null
-      return final(await this.batch.getBlock(--this.lt), this.encoding)
+    while (this.gte < this.lt) {
+      try {
+        return await this.batch.getBlock(this.gte++)
+      } catch {
+        continue
+      }
     }
 
-    return final(await this.batch.getBlock(this.gte++), this.encoding)
+    return null
   }
 
   close() {
     return this.batch._closeSnapshot()
   }
-}
-
-function final(node, encoding) {
-  const type = node.isDeletion() ? 'del' : 'put'
-  return { type, ...node.final(encoding) }
 }
 
 function gte(opts, version) {

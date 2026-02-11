@@ -6,12 +6,14 @@ const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
 const Rache = require('rache')
+const rrp = require('resolve-reject-promise')
 
 const { all: unslabAll } = require('unslab')
 
 const RangeIterator = require('./iterators/range')
 const HistoryIterator = require('./iterators/history')
 const DiffIterator = require('./iterators/diff')
+const LocalBlockIterator = require('./iterators/local')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 const { BLOCK_NOT_AVAILABLE, DECODING_ERROR } = require('hypercore-errors')
@@ -24,14 +26,14 @@ const SEP = b4a.alloc(1)
 const EMPTY = b4a.alloc(0)
 
 class Key {
-  constructor (seq, value) {
+  constructor(seq, value) {
     this.seq = seq
     this.value = value
   }
 }
 
 class Child {
-  constructor (seq, offset, value) {
+  constructor(seq, offset, value) {
     this.seq = seq
     this.offset = offset
     this.value = value
@@ -39,21 +41,21 @@ class Child {
 }
 
 class Cache {
-  constructor (rache) {
+  constructor(rache) {
     this.keys = rache
     this.length = 0
   }
 
-  get (seq) {
+  get(seq) {
     return this.keys.get(seq) || null
   }
 
-  set (seq, key) {
+  set(seq, key) {
     this.keys.set(seq, key)
     if (seq >= this.length) this.length = seq + 1
   }
 
-  gc (length) {
+  gc(length) {
     // if we need to "work" more than 128 ticks, just bust the cache...
     if (this.length - length > 128) {
       this.keys.clear()
@@ -65,11 +67,15 @@ class Cache {
 
     this.length = length
   }
+
+  clear() {
+    this.keys.clear()
+  }
 }
 
 class Pointers {
-  constructor (decoded) {
-    this.levels = decoded.levels.map(l => {
+  constructor(decoded) {
+    this.levels = decoded.levels.map((l) => {
       const children = []
       const keys = []
 
@@ -85,11 +91,11 @@ class Pointers {
     })
   }
 
-  get (i) {
+  get(i) {
     return this.levels[i]
   }
 
-  hasKey (seq) {
+  hasKey(seq) {
     for (const lvl of this.levels) {
       for (const key of lvl.keys) {
         if (key.seq === seq) return true
@@ -99,7 +105,7 @@ class Pointers {
   }
 }
 
-function inflate (entry) {
+function inflate(entry) {
   if (entry.inflated === null) {
     entry.inflated = YoloIndex.decode(entry.index)
     entry.index = null
@@ -107,8 +113,8 @@ function inflate (entry) {
   return new Pointers(entry.inflated)
 }
 
-function deflate (index) {
-  const levels = index.map(l => {
+function deflate(index) {
+  const levels = index.map((l) => {
     const keys = []
     const children = []
 
@@ -127,7 +133,7 @@ function deflate (index) {
 }
 
 class TreeNode {
-  constructor (block, keys, children, offset) {
+  constructor(block, keys, children, offset) {
     this.block = block
     this.offset = offset
     this.keys = keys
@@ -137,7 +143,7 @@ class TreeNode {
     this.preload()
   }
 
-  preload () {
+  preload() {
     if (this.block === null) return
 
     const core = getBackingCore(this.block.tree.core)
@@ -162,7 +168,7 @@ class TreeNode {
     if (blocks.length) core.download({ blocks })
   }
 
-  async insertKey (key, value, child, node, encoding, cas) {
+  async insertKey(key, value, child, node, encoding, cas) {
     let s = 0
     let e = this.keys.length
     let c
@@ -197,7 +203,7 @@ class TreeNode {
     return this.keys.length < MAX_CHILDREN
   }
 
-  removeKey (index) {
+  removeKey(index) {
     this.keys.splice(index, 1)
     if (this.children.length) {
       this.children[index + 1].seq = 0 // mark as freed
@@ -206,7 +212,7 @@ class TreeNode {
     this.changed = true
   }
 
-  async siblings (parent) {
+  async siblings(parent) {
     for (let i = 0; i < parent.children.length; i++) {
       if (parent.children[i].value === this) {
         const [left, right] = await Promise.all([
@@ -220,14 +226,14 @@ class TreeNode {
     throw new Error('Bad parent')
   }
 
-  merge (node, median) {
+  merge(node, median) {
     this.changed = true
     this.keys.push(median)
     for (let i = 0; i < node.keys.length; i++) this.keys.push(node.keys[i])
     for (let i = 0; i < node.children.length; i++) this.children.push(node.children[i])
   }
 
-  async split () {
+  async split() {
     const len = this.keys.length >> 1
     const right = TreeNode.create(this.block)
 
@@ -251,30 +257,31 @@ class TreeNode {
     }
   }
 
-  getKeyNode (index) {
+  getKeyNode(index) {
     return this.block.tree.getBlock(this.keys[index].seq)
   }
 
-  async getChildNode (index) {
+  async getChildNode(index) {
     const child = this.children[index]
     if (child.value) return child.value
-    const block = child.seq === this.block.seq ? this.block : await this.block.tree.getBlock(child.seq)
+    const block =
+      child.seq === this.block.seq ? this.block : await this.block.tree.getBlock(child.seq)
     return (child.value = block.getTreeNode(child.offset))
   }
 
-  setKey (index, key) {
+  setKey(index, key) {
     this.keys[index] = key
     this.changed = true
   }
 
-  async getKey (index) {
+  async getKey(index) {
     const key = this.keys[index]
     if (key.value) return key.value
     const k = key.seq === this.block.seq ? this.block.key : await this.block.tree.getKey(key.seq)
     return (key.value = k)
   }
 
-  indexChanges (index, seq) {
+  indexChanges(index, seq) {
     const offset = index.push(null) - 1
     this.changed = false
 
@@ -288,7 +295,7 @@ class TreeNode {
     return offset
   }
 
-  updateChildren (seq, block) {
+  updateChildren(seq, block) {
     for (const child of this.children) {
       if (!child.value || child.seq !== seq) continue
       child.value.block = block
@@ -296,7 +303,7 @@ class TreeNode {
     }
   }
 
-  static create (block) {
+  static create(block) {
     const node = new TreeNode(block, [], [], 0)
     node.changed = true
     return node
@@ -304,7 +311,7 @@ class TreeNode {
 }
 
 class BlockEntry {
-  constructor (seq, tree, entry) {
+  constructor(seq, tree, entry) {
     this.seq = seq
     this.tree = tree
     this.index = null
@@ -313,11 +320,17 @@ class BlockEntry {
     this.value = entry.value
   }
 
-  isTarget (key) {
+  isTarget(key) {
     return b4a.equals(this.key, key)
   }
 
-  isDeletion () {
+  inflate() {
+    if (this.index === null) {
+      this.index = inflate(this.entry)
+    }
+  }
+
+  isDeletion() {
     if (this.value !== null) return false
 
     if (this.index === null) {
@@ -327,7 +340,7 @@ class BlockEntry {
     return !this.index.hasKey(this.seq)
   }
 
-  final (encoding) {
+  final(encoding) {
     return {
       seq: this.seq,
       key: encoding.key ? encoding.key.decode(this.key) : this.key,
@@ -335,7 +348,7 @@ class BlockEntry {
     }
   }
 
-  getTreeNode (offset) {
+  getTreeNode(offset) {
     if (this.index === null) {
       this.index = inflate(this.entry)
     }
@@ -344,23 +357,52 @@ class BlockEntry {
   }
 }
 
+class CacheLock {
+  constructor() {
+    this.map = new Map()
+  }
+
+  enter(seq) {
+    const pending = this.map.get(seq)
+
+    if (!pending) {
+      this.map.set(seq, [])
+      return Promise.resolve()
+    }
+
+    const { resolve, promise } = rrp()
+    pending.push(resolve)
+    return promise
+  }
+
+  exit(seq) {
+    const pending = this.map.get(seq)
+    if (!pending.length) {
+      this.map.delete(seq)
+      return
+    }
+
+    pending.pop()()
+  }
+}
+
 class BatchEntry extends BlockEntry {
-  constructor (seq, tree, key, value, index) {
+  constructor(seq, tree, key, value, index) {
     super(seq, tree, { key, value, index: null, inflated: null })
     this.pendingIndex = index
   }
 
-  isTarget (key) {
+  isTarget(key) {
     return false
   }
 
-  getTreeNode (offset) {
+  getTreeNode(offset) {
     return this.pendingIndex[offset].value
   }
 }
 
 class Hyperbee extends ReadyResource {
-  constructor (core, opts = {}) {
+  constructor(core, opts = {}) {
     super()
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
@@ -391,6 +433,7 @@ class Hyperbee extends ReadyResource {
 
     this._keyCache = null
     this._nodeCache = null
+    this._cacheLock = new CacheLock()
 
     this._batches = []
 
@@ -406,8 +449,12 @@ class Hyperbee extends ReadyResource {
     this.ready().catch(safetyCatch)
   }
 
-  async _open () {
+  async _open() {
     if (this.core.opened === false) await this.core.ready()
+    // bump the internal ranges since the nodes are small
+    if (this._watchers && this.core.replicator.setInflightRange) {
+      this.core.replicator.setInflightRange(256, 512)
+    }
 
     // snapshot
     if (this._checkout === -1) this._checkout = Math.max(1, this.core.length)
@@ -417,47 +464,47 @@ class Hyperbee extends ReadyResource {
     this._nodeCache = new Cache(Rache.from(baseCache))
   }
 
-  get version () {
+  get version() {
     return Math.max(1, this._checkout || this.core.length)
   }
 
-  get id () {
+  get id() {
     return this.core.id
   }
 
-  get key () {
+  get key() {
     return this.core.key
   }
 
-  get discoveryKey () {
+  get discoveryKey() {
     return this.core.discoveryKey
   }
 
-  get writable () {
+  get writable() {
     return this.core.writable
   }
 
-  get readable () {
+  get readable() {
     return this.core.readable
   }
 
-  replicate (isInitiator, opts) {
+  replicate(isInitiator, opts) {
     return this.core.replicate(isInitiator, opts)
   }
 
-  update (opts) {
+  update(opts) {
     return this.core.update(opts)
   }
 
-  peek (range, opts) {
+  peek(range, opts) {
     return iteratorPeek(this.createRangeIterator(range, { ...opts, limit: 1 }))
   }
 
-  createRangeIterator (range, opts = {}) {
+  createRangeIterator(range, opts = {}) {
     // backwards compat range arg
     opts = opts ? { ...opts, ...range } : range
 
-    const extension = (opts.extension === false && opts.limit !== 0) ? null : this.extension
+    const extension = opts.extension === false && opts.limit !== 0 ? null : this.extension
     const keyEncoding = opts.keyEncoding ? codecs(opts.keyEncoding) : this.keyEncoding
 
     if (extension) {
@@ -468,12 +515,12 @@ class Hyperbee extends ReadyResource {
       opts = encRange(keyEncoding, {
         ...opts,
         sub: this._sub,
-        onseq (seq) {
+        onseq(seq) {
           if (!version) version = seq + 1
           if (next) next--
           if (onseq) onseq(seq)
         },
-        onwait (seq) {
+        onwait(seq) {
           if (!next) {
             next = Extension.BATCH_SIZE
             extension.iterator(ite.snapshot(version))
@@ -485,22 +532,29 @@ class Hyperbee extends ReadyResource {
       opts = encRange(keyEncoding, { ...opts, sub: this._sub })
     }
 
-    const ite = new RangeIterator(new Batch(this, this._makeSnapshot(), null, false, opts), null, opts)
+    const ite = new RangeIterator(
+      new Batch(this, this._makeSnapshot(), null, false, opts),
+      null,
+      opts
+    )
     return ite
   }
 
-  createReadStream (range, opts) {
+  createReadStream(range, opts) {
     const signal = (opts && opts.signal) || null
     return iteratorToStream(this.createRangeIterator(range, opts), signal)
   }
 
-  createHistoryStream (opts) {
-    const session = (opts && opts.live) ? this.core.session() : this._makeSnapshot()
+  createHistoryStream(opts) {
+    const session = opts && opts.live ? this.core.session() : this._makeSnapshot()
     const signal = (opts && opts.signal) || null
-    return iteratorToStream(new HistoryIterator(new Batch(this, session, null, false, opts), opts), signal)
+    return iteratorToStream(
+      new HistoryIterator(new Batch(this, session, null, false, opts), opts),
+      signal
+    )
   }
 
-  createDiffStream (right, range, opts) {
+  createDiffStream(right, range, opts) {
     if (typeof right === 'number') right = this.checkout(Math.max(1, right), { reuseSession: true })
 
     // backwards compat range arg
@@ -520,7 +574,7 @@ class Hyperbee extends ReadyResource {
     const rs = new Readable({
       signal,
       eagerOpen: true,
-      async open (cb) {
+      async open(cb) {
         try {
           if (right.opened === false) await right.ready()
           if (left.opened === false) await left.ready()
@@ -539,9 +593,7 @@ class Hyperbee extends ReadyResource {
           return
         }
 
-        const snapshot = right.version > left.version
-          ? right._makeSnapshot()
-          : left._makeSnapshot()
+        const snapshot = right.version > left.version ? right._makeSnapshot() : left._makeSnapshot()
 
         done = cb
         ite = new DiffIterator(
@@ -551,11 +603,11 @@ class Hyperbee extends ReadyResource {
         )
         ite.open().then(fin, fin)
       },
-      read (cb) {
+      read(cb) {
         done = cb
         ite.next().then(push, fin)
       },
-      predestroy () {
+      predestroy() {
         if (!ite) {
           closing = Promise.resolve()
         } else {
@@ -563,7 +615,7 @@ class Hyperbee extends ReadyResource {
           closing.catch(noop)
         }
       },
-      destroy (cb) {
+      destroy(cb) {
         done = cb
         if (!closing) closing = ite.close()
         closing.then(fin, fin)
@@ -572,46 +624,46 @@ class Hyperbee extends ReadyResource {
 
     return rs
 
-    function fin (err) {
+    function fin(err) {
       done(err)
     }
 
-    function push (val) {
+    function push(val) {
       rs.push(val)
       done(null)
     }
   }
 
-  get (key, opts) {
+  get(key, opts) {
     const b = new Batch(this, this._makeSnapshot(), null, true, opts)
     return b.get(key)
   }
 
-  getBySeq (seq, opts) {
+  getBySeq(seq, opts) {
     const b = new Batch(this, this._makeSnapshot(), null, true, opts)
     return b.getBySeq(seq)
   }
 
-  put (key, value, opts) {
+  put(key, value, opts) {
     const b = new Batch(this, this.core, null, true, opts)
     return b.put(key, value, opts)
   }
 
-  batch (opts) {
+  batch(opts) {
     return new Batch(this, this.core, mutexify(), true, opts)
   }
 
-  del (key, opts) {
+  del(key, opts) {
     const b = new Batch(this, this.core, null, true, opts)
     return b.del(key, opts)
   }
 
-  watch (range, opts) {
+  watch(range, opts) {
     if (!this._watchers) throw new Error('Can only watch the main bee instance')
     return new Watcher(this, range, opts)
   }
 
-  async getAndWatch (key, opts) {
+  async getAndWatch(key, opts) {
     if (!this._watchers) throw new Error('Can only watch the main bee instance')
 
     const watcher = new EntryWatcher(this, key, opts)
@@ -625,7 +677,7 @@ class Hyperbee extends ReadyResource {
     return watcher
   }
 
-  _onappend () {
+  _onappend() {
     for (const watcher of this._watchers) {
       watcher._onappend()
     }
@@ -635,7 +687,7 @@ class Hyperbee extends ReadyResource {
     }
   }
 
-  _ontruncate (length) {
+  _ontruncate(length) {
     for (const watcher of this._watchers) {
       watcher._ontruncate()
     }
@@ -648,19 +700,75 @@ class Hyperbee extends ReadyResource {
     this._keyCache.gc(length)
   }
 
-  _makeSnapshot () {
+  _makeSnapshot() {
     if (this._sessions === false) return this.core
     // TODO: better if we could encapsulate this in hypercore in the future
-    return (this._checkout <= this.core.length || this._checkout <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
+    return this._checkout <= this.core.length || this._checkout <= 1
+      ? this.core.snapshot()
+      : this.core.session({ snapshot: false })
   }
 
-  checkout (version, opts = {}) {
+  async clearUnlinked(options = {}) {
+    await this.ready()
+
+    const { gte = 0, lt = this.version - 1, batchSize = 4096, wait = true } = options
+    const checkout = this.version
+
+    let prev = this.batch({ wait: false, checkout: gte })
+    let b = this.batch({ wait, checkout })
+
+    const iteBatch = this.batch({ wait: false, checkout })
+    const ite = new LocalBlockIterator(iteBatch, { gte, lt })
+    await ite.open()
+
+    let ticks = 0
+
+    while (true) {
+      const data = await ite.next()
+      if (!data) break
+
+      if (!(await isLinked(b, data))) {
+        if (b.core.closing || this.core.closing || this.closing) break
+        await this.core.clear(data.seq)
+      }
+
+      const prevNode = await prev.get(data.key, { finalize: false }).catch(toNull)
+
+      if (prevNode && !(await isLinked(b, prevNode))) {
+        if (b.core.closing || this.core.closing || this.closing) break
+        await this.core.clear(prevNode.seq)
+      }
+
+      if (ticks++ >= batchSize) {
+        ticks = 0
+        await prev.close()
+        await b.close()
+
+        prev = this.batch({ wait: false, checkout: gte })
+        b = this.batch({ wait, checkout })
+      }
+    }
+
+    if (b.core.closing || this.core.closing || this.closing) throw new Error('Core is closed')
+
+    await b.close()
+    await prev.close()
+    await ite.close()
+    await iteBatch.close()
+
+    return lt
+  }
+
+  checkout(version, opts = {}) {
     if (version === 0) version = 1
 
     // same as above, just checkout isn't set yet...
-    const snap = (opts.reuseSession || this._sessions === false)
-      ? this.core
-      : (version <= this.core.length || version <= 1) ? this.core.snapshot() : this.core.session({ snapshot: false })
+    const snap =
+      opts.reuseSession || this._sessions === false
+        ? this.core
+        : version <= this.core.length || version <= 1
+          ? this.core.snapshot()
+          : this.core.session({ snapshot: false })
 
     return new Hyperbee(snap, {
       _view: true,
@@ -675,11 +783,14 @@ class Hyperbee extends ReadyResource {
     })
   }
 
-  snapshot (opts) {
-    return this.checkout((this.core.opened === false || this._checkout <= 0) ? -1 : Math.max(1, this.version), opts)
+  snapshot(opts) {
+    return this.checkout(
+      this.core.opened === false || this._checkout <= 0 ? -1 : Math.max(1, this.version),
+      opts
+    )
   }
 
-  sub (prefix, opts = {}) {
+  sub(prefix, opts = {}) {
     let sep = opts.sep || this.sep
     if (!b4a.isBuffer(sep)) sep = b4a.from(sep)
 
@@ -702,7 +813,7 @@ class Hyperbee extends ReadyResource {
     })
   }
 
-  async getHeader (opts) {
+  async getHeader(opts) {
     const blk = await this.core.get(0, opts)
     try {
       return blk && Header.decode(blk)
@@ -711,7 +822,12 @@ class Hyperbee extends ReadyResource {
     }
   }
 
-  async _close () {
+  async _close() {
+    if (!this._view) {
+      if (this._keyCache) this._keyCache.clear()
+      if (this._nodeCache) this._nodeCache.clear()
+    }
+
     if (this._watchers) {
       this.core.off('append', this._onappendBound)
       this.core.off('truncate', this._ontruncateBound)
@@ -734,7 +850,7 @@ class Hyperbee extends ReadyResource {
     return this.core.close()
   }
 
-  static async isHyperbee (core, opts) {
+  static async isHyperbee(core, opts) {
     await core.ready()
 
     const blk0 = await core.get(0, opts)
@@ -742,14 +858,15 @@ class Hyperbee extends ReadyResource {
 
     try {
       return Header.decode(blk0).protocol === 'hyperbee'
-    } catch (err) { // undecodable
+    } catch (err) {
+      // undecodable
       return false
     }
   }
 }
 
 class Batch {
-  constructor (tree, core, batchLock, cache, options = {}) {
+  constructor(tree, core, batchLock, cache, options = {}) {
     this.tree = tree
     // this.feed is now deprecated, and will be this.core going forward
     this.feed = core
@@ -757,6 +874,7 @@ class Batch {
     this.index = tree._batches.push(this) - 1
     this.blocks = cache ? new Map() : null
     this.autoFlush = !batchLock
+    this.maxBlocksCached = options.maxBlocksCached || 128
     this.rootSeq = 0
     this.root = null
     this.length = 0
@@ -775,29 +893,31 @@ class Batch {
     }
   }
 
-  async ready () {
+  async ready() {
     if (this.core.opened === false) await this.core.ready()
     if (this.tree.opened === false) await this.tree.ready()
   }
 
-  async lock () {
+  async lock() {
     if (this.tree.readonly) throw new Error('Hyperbee is marked as read-only')
     if (this.locked === null) this.locked = await this.tree.lock()
   }
 
-  get version () {
+  get version() {
     if (this.checkout !== -1) return Math.max(1, this.checkout)
-    return Math.max(1, this.tree._checkout || (this.core.length + this.length))
+    return Math.max(1, this.tree._checkout || this.core.length + this.length)
   }
 
-  async getRoot (ensureHeader) {
+  async getRoot(ensureHeader) {
     await this.ready()
     if (ensureHeader) {
       if (this.core.length === 0 && this.core.writable && !this.tree.readonly) {
-        await this.core.append(Header.encode({
-          protocol: 'hyperbee',
-          metadata: this.tree.metadata
-        }))
+        await this.core.append(
+          Header.encode({
+            protocol: 'hyperbee',
+            metadata: this.tree.metadata
+          })
+        )
       }
     }
     if (this.tree._checkout === 0 && this.checkout === -1 && this.shouldUpdate) {
@@ -808,41 +928,69 @@ class Batch {
     return (await this.getBlock(this.version - 1)).getTreeNode(0)
   }
 
-  async getKey (seq) {
-    const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
-    if (k !== null) return k
-    const key = (await this.getBlock(seq)).key
-    if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
-    return key
+  async getKey(seq) {
+    await this.tree._cacheLock.enter(seq)
+
+    try {
+      const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
+      if (k !== null) return k
+      const key = (await this._getBlock(seq)).key
+      if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
+      return key
+    } finally {
+      this.tree._cacheLock.exit(seq)
+    }
   }
 
-  async _getNode (seq) {
-    const cached = (this.tree._nodeCache !== null && this.core.fork === this.tree.core.fork) ? this.tree._nodeCache.get(seq) : null
+  async _getNode(seq) {
+    const cached =
+      this.tree._nodeCache !== null && this.core.fork === this.tree.core.fork
+        ? this.tree._nodeCache.get(seq)
+        : null
     if (cached !== null) return cached
-    const entry = await this.core.get(seq, { ...this.options, valueEncoding: Node })
+    const entry = await this.core.get(seq, {
+      ...this.options,
+      valueEncoding: Node
+    })
     if (entry === null) throw BLOCK_NOT_AVAILABLE()
     const wrap = copyEntry(entry)
-    if (this.core.fork === this.tree.core.fork && this.tree._nodeCache !== null) this.tree._nodeCache.set(seq, wrap)
+    if (this.core.fork === this.tree.core.fork && this.tree._nodeCache !== null) {
+      this.tree._nodeCache.set(seq, wrap)
+    }
     return wrap
   }
 
-  async getBlock (seq) {
+  async getBlock(seq) {
     if (this.rootSeq === 0) this.rootSeq = seq
+    await this.tree._cacheLock.enter(seq)
+
+    try {
+      return await this._getBlock(seq)
+    } finally {
+      this.tree._cacheLock.exit(seq)
+    }
+  }
+
+  async _getBlock(seq) {
     let b = this.blocks && this.blocks.get(seq)
     if (b) return b
     this.onseq(seq)
     const entry = await this._getNode(seq)
+    b = this.blocks && this.blocks.get(seq)
+    if (b) return b
     b = new BlockEntry(seq, this, entry)
-    if (this.blocks && (this.blocks.size - this.length) < 128) this.blocks.set(seq, b)
+    if (this.blocks && this.blocks.size - this.length < this.maxBlocksCached) {
+      this.blocks.set(seq, b)
+    }
     return b
   }
 
-  _onwait (key) {
+  _onwait(key) {
     this.options.onwait = null
     this.tree.extension.get(this.rootSeq + 1, key)
   }
 
-  _getEncoding (opts) {
+  _getEncoding(opts) {
     if (!opts) return this.encoding
     return {
       key: opts.keyEncoding ? codecs(opts.keyEncoding) : this.encoding.key,
@@ -850,24 +998,28 @@ class Batch {
     }
   }
 
-  peek (range, opts) {
+  peek(range, opts) {
     return iteratorPeek(this.createRangeIterator(range, { ...opts, limit: 1 }))
   }
 
-  createRangeIterator (range, opts = {}) {
+  createRangeIterator(range, opts = {}) {
     // backwards compat range arg
     opts = opts ? { ...opts, ...range } : range
 
     const encoding = this._getEncoding(opts)
-    return new RangeIterator(this, encoding, encRange(encoding.key, { ...opts, sub: this.tree._sub }))
+    return new RangeIterator(
+      this,
+      encoding,
+      encRange(encoding.key, { ...opts, sub: this.tree._sub })
+    )
   }
 
-  createReadStream (range, opts) {
+  createReadStream(range, opts) {
     const signal = (opts && opts.signal) || null
     return iteratorToStream(this.createRangeIterator(range, opts), signal)
   }
 
-  async getBySeq (seq, opts) {
+  async getBySeq(seq, opts) {
     const encoding = this._getEncoding(opts)
 
     try {
@@ -878,17 +1030,18 @@ class Batch {
     }
   }
 
-  async get (key, opts) {
+  async get(key, opts) {
     const encoding = this._getEncoding(opts)
+    const finalize = opts ? opts.finalize !== false : true
 
     try {
-      return await this._get(key, encoding)
+      return await this._get(key, encoding, finalize)
     } finally {
       await this._closeSnapshot()
     }
   }
 
-  async _get (key, encoding) {
+  async _get(key, encoding, finalize) {
     key = enc(encoding.key, key)
 
     if (this.tree.extension !== null && this.options.extension !== false) {
@@ -900,7 +1053,7 @@ class Batch {
 
     while (true) {
       if (node.block.isTarget(key)) {
-        return node.block.isDeletion() ? null : node.block.final(encoding)
+        return node.block.isDeletion() ? null : finalize ? node.block.final(encoding) : node.block
       }
 
       let s = 0
@@ -912,7 +1065,10 @@ class Batch {
 
         c = b4a.compare(key, await node.getKey(mid))
 
-        if (c === 0) return (await this.getBlock(node.keys[mid].seq)).final(encoding)
+        if (c === 0) {
+          const block = await this.getBlock(node.keys[mid].seq)
+          return finalize ? block.final(encoding) : block
+        }
 
         if (c < 0) e = mid
         else s = mid + 1
@@ -925,7 +1081,40 @@ class Batch {
     }
   }
 
-  async put (key, value, opts) {
+  async links(key, seq) {
+    let node = await this.getRoot(false)
+    if (!node) return false
+
+    if (node.block.seq === seq) return true
+
+    while (true) {
+      if (node.block.isTarget(key)) return false
+
+      let s = 0
+      let e = node.keys.length
+      let c
+
+      while (s < e) {
+        const mid = (s + e) >> 1
+
+        if (node.keys[mid].seq === seq) return true
+        c = b4a.compare(key, await node.getKey(mid))
+
+        if (c === 0) return false
+
+        if (c < 0) e = mid
+        else s = mid + 1
+      }
+
+      if (!node.children.length) return false
+
+      const i = c < 0 ? e : s
+      node = await node.getChildNode(i)
+      if (node.block.seq === seq) return true
+    }
+  }
+
+  async put(key, value, opts) {
     const release = this.batchLock ? await this.batchLock() : null
 
     const cas = (opts && opts.cas) || null
@@ -941,7 +1130,7 @@ class Batch {
     }
   }
 
-  async _put (key, value, encoding, cas) {
+  async _put(key, value, encoding, cas) {
     const newNode = {
       seq: 0,
       key,
@@ -953,10 +1142,10 @@ class Batch {
     const stack = []
 
     let root
-    let node = root = await this.getRoot(true)
+    let node = (root = await this.getRoot(true))
     if (!node) node = root = TreeNode.create(null)
 
-    const seq = newNode.seq = this.core.length + this.length
+    const seq = (newNode.seq = this.core.length + this.length)
     const target = new Key(seq, key)
 
     while (node.children.length) {
@@ -1014,7 +1203,7 @@ class Batch {
     return this._append(root, seq, key, value)
   }
 
-  async del (key, opts) {
+  async del(key, opts) {
     const release = this.batchLock ? await this.batchLock() : null
     const cas = (opts && opts.cas) || null
     const encoding = this._getEncoding(opts)
@@ -1029,7 +1218,7 @@ class Batch {
     }
   }
 
-  async _del (key, encoding, cas) {
+  async _del(key, encoding, cas) {
     const delNode = {
       seq: 0,
       key,
@@ -1043,7 +1232,7 @@ class Batch {
     let node = await this.getRoot(true)
     if (!node) return this._unlockMaybe()
 
-    const seq = delNode.seq = this.core.length + this.length
+    const seq = (delNode.seq = this.core.length + this.length)
 
     while (true) {
       stack.push(node)
@@ -1079,14 +1268,14 @@ class Batch {
     }
   }
 
-  async _closeSnapshot () {
+  async _closeSnapshot() {
     if (this.isSnapshot) {
       await this.core.close()
       this._finalize()
     }
   }
 
-  async close () {
+  async close() {
     if (this.isSnapshot) return this._closeSnapshot()
 
     this.root = null
@@ -1095,11 +1284,12 @@ class Batch {
     this._unlock()
   }
 
-  destroy () { // compat, remove later
+  destroy() {
+    // compat, remove later
     this.close().catch(noop)
   }
 
-  toBlocks () {
+  toBlocks() {
     if (this.appending) return this.appending
 
     const batch = new Array(this.length)
@@ -1134,7 +1324,7 @@ class Batch {
     return batch
   }
 
-  flush () {
+  flush() {
     if (!this.length) return this.close()
 
     const batch = this.toBlocks()
@@ -1146,18 +1336,18 @@ class Batch {
     return this._appendBatch(batch)
   }
 
-  _unlockMaybe () {
+  _unlockMaybe() {
     if (this.autoFlush) this._unlock()
   }
 
-  _unlock () {
+  _unlock() {
     const locked = this.locked
     this.locked = null
     if (locked !== null) locked()
     this._finalize()
   }
 
-  _finalize () {
+  _finalize() {
     // technically finalize can be called more than once, so here we just check if we already have been removed
     if (this.index >= this.tree._batches.length || this.tree._batches[this.index] !== this) return
     const top = this.tree._batches.pop()
@@ -1166,7 +1356,7 @@ class Batch {
     this.tree._batches[top.index] = top
   }
 
-  _append (root, seq, key, value) {
+  _append(root, seq, key, value) {
     const index = []
     root.indexChanges(index, seq)
     index[0] = new Child(seq, 0, root)
@@ -1182,14 +1372,16 @@ class Batch {
       return
     }
 
-    return this._appendBatch(Node.encode({
-      key,
-      value,
-      index: deflate(index)
-    }))
+    return this._appendBatch(
+      Node.encode({
+        key,
+        value,
+        index: deflate(index)
+      })
+    )
   }
 
-  async _appendBatch (raw) {
+  async _appendBatch(raw) {
     try {
       await this.core.append(raw)
     } finally {
@@ -1199,7 +1391,7 @@ class Batch {
 }
 
 class EntryWatcher extends ReadyResource {
-  constructor (bee, key, opts = {}) {
+  constructor(bee, key, opts = {}) {
     super()
 
     this.keyEncoding = opts.keyEncoding || bee.keyEncoding
@@ -1215,7 +1407,7 @@ class EntryWatcher extends ReadyResource {
     this._debouncedUpdate = debounce(this._processUpdate.bind(this))
   }
 
-  _close () {
+  _close() {
     const top = this.bee._entryWatchers.pop()
     if (top !== this) {
       top.index = this.index
@@ -1223,16 +1415,16 @@ class EntryWatcher extends ReadyResource {
     }
   }
 
-  _onappend () {
+  _onappend() {
     this._debouncedUpdate()
   }
 
-  _ontruncate () {
+  _ontruncate() {
     this._forceUpdate = true
     this._debouncedUpdate()
   }
 
-  async _processUpdate () {
+  async _processUpdate() {
     const force = this._forceUpdate
     this._forceUpdate = false
 
@@ -1263,7 +1455,7 @@ class EntryWatcher extends ReadyResource {
 }
 
 class Watcher extends ReadyResource {
-  constructor (bee, range, opts = {}) {
+  constructor(bee, range, opts = {}) {
     super()
 
     this.keyEncoding = opts.keyEncoding || bee.keyEncoding
@@ -1294,14 +1486,15 @@ class Watcher extends ReadyResource {
     this.ready().catch(safetyCatch)
   }
 
-  async _consume () {
+  async _consume() {
     if (this._flowing) return
     try {
-      for await (const _ of this) {} // eslint-disable-line
+      for await (const _ of this) {
+      } // eslint-disable-line
     } catch {}
   }
 
-  async _open () {
+  async _open() {
     await this.bee.ready()
 
     const opts = {
@@ -1319,30 +1512,30 @@ class Watcher extends ReadyResource {
     }
   }
 
-  [Symbol.asyncIterator] () {
+  [Symbol.asyncIterator]() {
     this._flowing = true
     return this
   }
 
-  _ontruncate () {
+  _ontruncate() {
     this._onappend()
   }
 
-  _onappend () {
+  _onappend() {
     const resolve = this._resolveOnChange
     this._resolveOnChange = null
     if (resolve) resolve()
   }
 
-  async _waitForChanges () {
+  async _waitForChanges() {
     if (this.current.version < this.bee.version || this.closing) return
 
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       this._resolveOnChange = resolve
     })
   }
 
-  async next () {
+  async next() {
     try {
       return await this._next()
     } catch (err) {
@@ -1352,7 +1545,7 @@ class Watcher extends ReadyResource {
     }
   }
 
-  async _next () {
+  async _next() {
     const release = await this._lock()
 
     try {
@@ -1384,7 +1577,8 @@ class Watcher extends ReadyResource {
         this.stream = this._differ(this.current, this.previous, this.range)
 
         try {
-          for await (const data of this.stream) { // eslint-disable-line
+          for await (const data of this.stream) {
+            // eslint-disable-line
             return await this._yield()
           }
         } finally {
@@ -1396,7 +1590,7 @@ class Watcher extends ReadyResource {
     }
   }
 
-  async _yield () {
+  async _yield() {
     this.currentMapped = this.map(this.current)
     this.previousMapped = this.map(this.previous)
 
@@ -1412,12 +1606,12 @@ class Watcher extends ReadyResource {
     return { done: false, value: [this.currentMapped, this.previousMapped] }
   }
 
-  async return () {
+  async return() {
     await this.close()
     return { done: true }
   }
 
-  async _close () {
+  async _close() {
     const top = this.bee._watchers.pop()
     if (top !== this) {
       top.index = this.index
@@ -1437,52 +1631,54 @@ class Watcher extends ReadyResource {
     release()
   }
 
-  destroy () {
+  destroy() {
     return this.close()
   }
 
-  async _closeCurrent () {
+  async _closeCurrent() {
     if (this.currentMapped) await this.currentMapped.close()
     if (this.current) await this.current.close()
     this.current = this.currentMapped = null
   }
 
-  async _closePrevious () {
+  async _closePrevious() {
     if (this.previousMapped) await this.previousMapped.close()
     if (this.previous) await this.previous.close()
     this.previous = this.previousMapped = null
   }
 }
 
-function autoFlowOnUpdate (name) {
+function autoFlowOnUpdate(name) {
   if (name === 'update') this._consume()
 }
 
-function defaultWatchMap (snapshot) {
+function defaultWatchMap(snapshot) {
   return snapshot
 }
 
-async function leafSize (node, goLeft) {
+async function leafSize(node, goLeft) {
   while (node.children.length) node = await node.getChildNode(goLeft ? 0 : node.children.length - 1)
   return node.keys.length
 }
 
-async function setKeyToNearestLeaf (node, index, stack) {
+async function setKeyToNearestLeaf(node, index, stack) {
   let [left, right] = await Promise.all([node.getChildNode(index), node.getChildNode(index + 1)])
   const [ls, rs] = await Promise.all([leafSize(left, false), leafSize(right, true)])
 
-  if (ls < rs) { // if fewer leaves on the left
+  if (ls < rs) {
+    // if fewer leaves on the left
     stack.push(right)
-    while (right.children.length) stack.push(right = right.children[0].value)
+    while (right.children.length) stack.push((right = right.children[0].value))
     node.keys[index] = right.keys.shift()
-  } else { // if fewer leaves on the right
+  } else {
+    // if fewer leaves on the right
     stack.push(left)
-    while (left.children.length) stack.push(left = left.children[left.children.length - 1].value)
+    while (left.children.length) stack.push((left = left.children[left.children.length - 1].value))
     node.keys[index] = left.keys.pop()
   }
 }
 
-async function rebalance (stack) {
+async function rebalance(stack) {
   const root = stack[0]
 
   while (stack.length > 1) {
@@ -1528,25 +1724,25 @@ async function rebalance (stack) {
   return root
 }
 
-function iteratorToStream (ite, signal) {
+function iteratorToStream(ite, signal) {
   let done
   let closing
 
   const rs = new Readable({
     signal,
-    open (cb) {
+    open(cb) {
       done = cb
       ite.open().then(fin, fin)
     },
-    read (cb) {
+    read(cb) {
       done = cb
       ite.next().then(push, fin)
     },
-    predestroy () {
+    predestroy() {
       closing = ite.close()
       closing.catch(noop)
     },
-    destroy (cb) {
+    destroy(cb) {
       done = cb
       if (!closing) closing = ite.close()
       closing.then(fin, fin)
@@ -1555,17 +1751,17 @@ function iteratorToStream (ite, signal) {
 
   return rs
 
-  function fin (err) {
+  function fin(err) {
     done(err)
   }
 
-  function push (val) {
+  function push(val) {
     rs.push(val)
     done(null)
   }
 }
 
-async function iteratorPeek (ite) {
+async function iteratorPeek(ite) {
   try {
     await ite.open()
     return await ite.next()
@@ -1574,11 +1770,16 @@ async function iteratorPeek (ite) {
   }
 }
 
-function encRange (e, opts) {
+function encRange(e, opts) {
   if (!e) return opts
 
   if (e.encodeRange) {
-    const r = e.encodeRange({ gt: opts.gt, gte: opts.gte, lt: opts.lt, lte: opts.lte })
+    const r = e.encodeRange({
+      gt: opts.gt,
+      gte: opts.gte,
+      lt: opts.lt,
+      lte: opts.lte
+    })
     opts.gt = r.gt
     opts.gte = r.gte
     opts.lt = r.lt
@@ -1596,32 +1797,32 @@ function encRange (e, opts) {
   return opts
 }
 
-function bump (key) {
+function bump(key) {
   // key should have been copied by enc above before hitting this
   key[key.length - 1]++
   return key
 }
 
-function enc (e, v) {
+function enc(e, v) {
   if (v === undefined || v === null) return null
   if (e !== null) return e.encode(v)
   if (typeof v === 'string') return b4a.from(v)
   return v
 }
 
-function prefixEncoding (prefix, keyEncoding) {
+function prefixEncoding(prefix, keyEncoding) {
   return {
-    encode (key) {
+    encode(key) {
       return b4a.concat([prefix, b4a.isBuffer(key) ? key : enc(keyEncoding, key)])
     },
-    decode (key) {
+    decode(key) {
       const sliced = key.slice(prefix.length, key.length)
       return keyEncoding ? keyEncoding.decode(sliced) : sliced
     }
   }
 }
 
-function copyEntry (entry) {
+function copyEntry(entry) {
   let key = entry.key
   let value = entry.value
   let index = entry.index
@@ -1630,7 +1831,10 @@ function copyEntry (entry) {
   // If together they are larger than half the buffer's byteLength,
   // this means that they got their own private slab (see Buffer.allocUnsafe docs)
   // so no need to unslab
-  const size = key.byteLength + (value === null ? 0 : value.byteLength) + (index === null ? 0 : index.byteLength)
+  const size =
+    key.byteLength +
+    (value === null ? 0 : value.byteLength) +
+    (index === null ? 0 : index.byteLength)
   if (2 * size < key.buffer.byteLength) {
     const [newKey, newValue, newIndex] = unslabAll([entry.key, entry.value, entry.index])
     key = newKey
@@ -1646,26 +1850,55 @@ function copyEntry (entry) {
   }
 }
 
-function defaultDiffer (currentSnap, previousSnap, opts) {
+function defaultDiffer(currentSnap, previousSnap, opts) {
   return currentSnap.createDiffStream(previousSnap, opts)
 }
 
-function getBackingCore (core) {
+function toNull() {
+  return null
+}
+
+function getBackingCore(core) {
   if (core.core) return core
   if (core.getBackingCore) return core.getBackingCore().session
   return null
 }
 
-function sameValue (a, b) {
+function sameValue(a, b) {
   return a === b || (a !== null && b !== null && b4a.equals(a, b))
 }
 
-function noop () {}
+function noop() {}
 
-function getExtension (db, opts) {
+function getExtension(db, opts) {
   if (opts.extension === false) return null
   if (opts.extension && opts.extension !== true) return opts.extension
   return Extension.register(db)
+}
+
+async function isLinked(batch, block) {
+  const seq = block.seq
+  block.inflate()
+
+  const keys = [block.key]
+  const wait = batch.options.wait
+
+  for (const l of block.index.levels) {
+    if (!l.keys.length) continue
+    batch.options.wait = false
+    try {
+      keys.push(await batch.getKey(l.keys[0].seq))
+    } catch {}
+    batch.options.wait = wait
+  }
+
+  for (const k of keys) {
+    if (await batch.links(k, seq)) return true
+  }
+
+  if (batch.core.closing) throw new Error('Core is closed')
+
+  return false
 }
 
 module.exports = Hyperbee

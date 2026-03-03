@@ -129,6 +129,8 @@ By returning `true` it will insert the value, otherwise it won't.
 
 It receives two args: `prev` is the current node entry, and `next` is the potential new node.
 
+It executes only if a previous value exists. For a new or deleted key, the value is inserted without calling `cas`.
+
 ```js
 await db.put('number', '123', { cas })
 console.log(await db.get('number')) // => { seq: 1, key: 'number', value: '123' }
@@ -171,6 +173,8 @@ Delete a key.
 By returning `true` it will delete the value, otherwise it won't.
 
 It only receives one arg: `prev` which is the current node entry.
+
+It executes only if the key exists. If there is no key to delete, the deletion succeeds without calling `cas`.
 
 ```js
 // This won't get deleted

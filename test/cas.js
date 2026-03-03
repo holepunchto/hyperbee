@@ -2,7 +2,7 @@ const test = require('brittle')
 const b4a = require('b4a')
 const { create } = require('./helpers')
 
-test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async function (t) {
+test('bee.put({ cas }) succeeds if cas(last, next) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 
@@ -99,7 +99,40 @@ test('bee.put({ cas }) succeds if cas(last, next) returns truthy', async functio
   }
 })
 
-test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async function (t) {
+test('bee.put({ cas }) ignores cas(last, next) if it is a new key', async function (t) {
+  const key = 'key'
+  const value = 'value'
+
+  {
+    const db = await create(t)
+    const cas = () => false
+    await db.put(key, value, { cas })
+    const fst = await db.get(key)
+    t.not(fst, null)
+  }
+
+  {
+    const db = await create(t)
+    const cas = () => false
+    await db.put(key, value, { cas })
+    const fst = await db.get(key)
+    await db.put(key, value + '^', { cas })
+    const snd = await db.get(key)
+    t.alike(fst, snd)
+  }
+
+  {
+    const db = await create(t)
+    const cas = () => false
+    await db.put(key, value)
+    await db.del(key)
+    await db.put(key, value, { cas })
+    const fst = await db.get(key)
+    t.not(fst, null)
+  }
+})
+
+test('bee.batch().put({ cas }) succeeds if cas(last, next) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 
@@ -212,7 +245,7 @@ test('bee.batch().put({ cas }) succeds if cas(last, next) returns truthy', async
   }
 })
 
-test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async function (t) {
+test('bee.del({ cas }) succeeds if cas(last, tomb) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 
@@ -341,7 +374,35 @@ test('bee.del({ cas }) succeds if cas(last, tomb) returns truthy', async functio
   }
 })
 
-test('bee.batch({ cas }) succeds if cas(last, tomb) returns truthy', async function (t) {
+test('bee.del({ cas }) ignores cas(last, tomb) if key does not exist', async function (t) {
+  const key = 'key'
+  const value = 'value'
+
+  {
+    const db = await create(t)
+    let isCasCalled = false
+    const cas = (lst) => {
+      isCasCalled = true
+      return true
+    }
+    await db.del(key, { cas })
+    t.is(isCasCalled, false)
+  }
+
+  {
+    const db = await create(t)
+    let isCasCalled = false
+    const cas = (lst) => {
+      isCasCalled = true
+      return lst.value === value
+    }
+    await db.put(key, value)
+    await db.del(key, { cas })
+    t.is(isCasCalled, true)
+  }
+})
+
+test('bee.batch({ cas }) succeeds if cas(last, tomb) returns truthy', async function (t) {
   const key = 'key'
   const value = 'value'
 

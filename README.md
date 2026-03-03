@@ -129,7 +129,7 @@ By returning `true` it will insert the value, otherwise it won't.
 
 It receives two args: `prev` is the current node entry, and `next` is the potential new node.
 
-It executes only if a previous value exists. For a new or deleted key, the value is inserted without calling `cas`.
+It executes only if a previous key exists. For a new or deleted key, the value is inserted without calling `cas`.
 
 ```js
 await db.put('number', '123', { cas })

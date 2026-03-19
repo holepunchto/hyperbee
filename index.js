@@ -935,10 +935,14 @@ class Batch {
     await this.tree._cacheLock.enter(seq)
 
     try {
-      const k = this.core.fork === this.tree.core.fork && this.tree._keyCache !== null ? this.tree._keyCache.get(seq) : null
+      const k =
+        this.core.fork === this.tree.core.fork && this.tree._keyCache !== null
+          ? this.tree._keyCache.get(seq)
+          : null
       if (k !== null) return k
       const key = (await this._getBlock(seq)).key
-      if (this.core.fork === this.tree.core.fork && this.tree._keyCache !== null) this.tree._keyCache.set(seq, key)
+      if (this.core.fork === this.tree.core.fork && this.tree._keyCache !== null)
+        this.tree._keyCache.set(seq, key)
       return key
     } finally {
       this.tree._cacheLock.exit(seq)

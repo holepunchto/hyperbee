@@ -42,9 +42,11 @@ test('disableCache', async (t) => {
   // 2 normal gets, 1 for the 2nd put to get root, 2 get w/ two layers, 1 for put
   const onseqAsserts = 2 + 1 + 2 + 1
   t.plan(onseqAsserts + 4)
-  const core = new Hypercore(await t.tmp(), { onseq: () => {
-    t.pass('called onseq') // Onseq only is called when get is called
-  } })
+  const core = new Hypercore(await t.tmp(), {
+    onseq: () => {
+      t.pass('called onseq') // Onseq only is called when get is called
+    }
+  })
   const db = new Hyperbee(core, { disableCache: true })
   await db.ready()
 
@@ -66,7 +68,7 @@ test('disableCache', async (t) => {
 
   const prev = db.checkout(preLength + 1)
   t.ok(prev._disableCache, 'internal prop is inherited')
-  
+
   await prev.close()
   await db.close()
 })

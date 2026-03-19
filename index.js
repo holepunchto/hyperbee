@@ -941,8 +941,9 @@ class Batch {
           : null
       if (k !== null) return k
       const key = (await this._getBlock(seq)).key
-      if (this.core.fork === this.tree.core.fork && this.tree._keyCache !== null)
+      if (this.core.fork === this.tree.core.fork && this.tree._keyCache !== null) {
         this.tree._keyCache.set(seq, key)
+      }
       return key
     } finally {
       this.tree._cacheLock.exit(seq)

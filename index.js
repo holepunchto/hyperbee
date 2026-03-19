@@ -431,6 +431,7 @@ class Hyperbee extends ReadyResource {
     this._entryWatchers = this._onappendBound ? [] : null
     this._sessions = opts.sessions !== false
 
+    this._disableCache = opts.disableCache === true
     this._keyCache = null
     this._nodeCache = null
     this._cacheLock = new CacheLock()
@@ -460,8 +461,8 @@ class Hyperbee extends ReadyResource {
     if (this._checkout === -1) this._checkout = Math.max(1, this.core.length)
 
     const baseCache = Rache.from(this.core.globalCache)
-    this._keyCache = new Cache(baseCache)
-    this._nodeCache = new Cache(Rache.from(baseCache))
+    this._keyCache = this._disableCache ? null : new Cache(baseCache)
+    this._nodeCache = this._disableCache ? null : new Cache(Rache.from(baseCache))
   }
 
   get version() {
@@ -696,8 +697,8 @@ class Hyperbee extends ReadyResource {
       watcher._ontruncate()
     }
 
-    this._nodeCache.gc(length)
-    this._keyCache.gc(length)
+    if (this._nodeCache) this._nodeCache.gc(length)
+    if (this._keyCache) this._keyCache.gc(length)
   }
 
   _makeSnapshot() {
@@ -777,6 +778,7 @@ class Hyperbee extends ReadyResource {
       sep: this.sep,
       lock: this.lock,
       checkout: version,
+      disableCache: this._disableCache,
       keyEncoding: opts.keyEncoding || this.keyEncoding,
       valueEncoding: opts.valueEncoding || this.valueEncoding,
       extension: this.extension !== null ? this.extension : false
@@ -806,6 +808,7 @@ class Hyperbee extends ReadyResource {
       sep: this.sep,
       lock: this.lock,
       checkout: this._checkout,
+      disableCache: this._disableCache,
       valueEncoding,
       keyEncoding,
       extension: this.extension !== null ? this.extension : false,
@@ -932,10 +935,10 @@ class Batch {
     await this.tree._cacheLock.enter(seq)
 
     try {
-      const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
+      const k = this.core.fork === this.tree.core.fork && this.tree._keyCache !== null ? this.tree._keyCache.get(seq) : null
       if (k !== null) return k
       const key = (await this._getBlock(seq)).key
-      if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
+      if (this.core.fork === this.tree.core.fork && this.tree._keyCache !== null) this.tree._keyCache.set(seq, key)
       return key
     } finally {
       this.tree._cacheLock.exit(seq)

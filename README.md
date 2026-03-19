@@ -61,7 +61,7 @@ Make a new Hyperbee instance. `core` should be a [Hypercore](https://github.com/
 ```js
 {
   keyEncoding: 'binary', // "binary" (default), "utf-8", "ascii", "json", or an abstract-encoding
-  valueEncoding: 'binary' // Same options as keyEncoding like "json", etc
+  valueEncoding: 'binary', // Same options as keyEncoding like "json", etc
   disableCache: false // Whether to disable caching. Caching is enabled by default.
 }
 ```

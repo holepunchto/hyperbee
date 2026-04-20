@@ -149,19 +149,18 @@ class TreeNode {
     const core = getBackingCore(this.block.tree.core)
     if (!core) return
 
-    const bitfield = core.core.bitfield
     const blocks = []
 
     for (let i = 0; i < this.keys.length; i++) {
       const k = this.keys[i]
       if (k.value) continue
-      if (k.seq >= core.signedLength || (bitfield && bitfield.get(k.seq))) continue
+      if (k.seq >= core.signedLength) continue
       blocks.push(k.seq)
     }
     for (let i = 0; i < this.children.length; i++) {
       const c = this.children[i]
       if (c.value) continue
-      if (c.seq >= core.signedLength || (bitfield && bitfield.get(c.seq))) continue
+      if (c.seq >= core.signedLength) continue
       blocks.push(c.seq)
     }
 

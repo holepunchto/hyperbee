@@ -3,10 +3,12 @@
   "version": "2.27.3",
   "description": "An append-only B-tree running on a Hypercore.",
   "main": "index.js",
+  "types": "index.d.ts",
   "files": [
     "index.js",
     "lib/**.js",
-    "iterators/**.js"
+    "iterators/**.js",
+    "index.d.ts"
   ],
   "dependencies": {
     "b4a": "^1.6.0",

@@ -584,3 +584,18 @@ test('get by seq', async function (t) {
   t.alike(await db.getBySeq(1), { key: '/a', value: '1' })
   t.alike(await db.getBySeq(2), { key: '/b', value: '2' })
 })
+
+test('get does not return the old value of a deleted key', async function (t) {
+  const db = await create(t)
+  const key = (i) => 'k' + String(i).padStart(2, '0')
+
+  // the tree shape only depends on the order of the keys
+  for (const i of [10, 3, 7, 1, 0, 4, 12, 13, 2, 5, 6, 8, 11, 9, 14]) {
+    await db.put(key(i), 'value of ' + key(i))
+  }
+  await db.del('k09')
+  await db.put('k15', 'value of k15')
+
+  t.is(await db.get('k09'), null)
+  t.is(await db.peek({ gte: 'k09', lte: 'k09' }), null)
+})

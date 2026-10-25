@@ -1051,11 +1051,13 @@ class Batch {
     let node = await this.getRoot(false)
     if (!node) return null
 
-    while (true) {
-      if (node.block.isTarget(key)) {
-        return node.block.isDeletion() ? null : finalize ? node.block.final(encoding) : node.block
-      }
+    // only the root is known to be in the latest block, a node further down can be in an older
+    // block of this key (eg a sibling split off when the key was put) after the key was deleted
+    if (node.block.isTarget(key)) {
+      return node.block.isDeletion() ? null : finalize ? node.block.final(encoding) : node.block
+    }
 
+    while (true) {
       let s = 0
       let e = node.keys.length
       let c

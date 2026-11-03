@@ -6,7 +6,6 @@ const safetyCatch = require('safety-catch')
 const ReadyResource = require('ready-resource')
 const debounce = require('debounceify')
 const Rache = require('rache')
-const rrp = require('resolve-reject-promise')
 
 const { all: unslabAll } = require('unslab')
 
@@ -357,35 +356,6 @@ class BlockEntry {
   }
 }
 
-class CacheLock {
-  constructor() {
-    this.map = new Map()
-  }
-
-  enter(seq) {
-    const pending = this.map.get(seq)
-
-    if (!pending) {
-      this.map.set(seq, [])
-      return Promise.resolve()
-    }
-
-    const { resolve, promise } = rrp()
-    pending.push(resolve)
-    return promise
-  }
-
-  exit(seq) {
-    const pending = this.map.get(seq)
-    if (!pending.length) {
-      this.map.delete(seq)
-      return
-    }
-
-    pending.pop()()
-  }
-}
-
 class BatchEntry extends BlockEntry {
   constructor(seq, tree, key, value, index) {
     super(seq, tree, { key, value, index: null, inflated: null })
@@ -433,7 +403,6 @@ class Hyperbee extends ReadyResource {
 
     this._keyCache = null
     this._nodeCache = null
-    this._cacheLock = new CacheLock()
 
     this._batches = []
 
@@ -929,17 +898,11 @@ class Batch {
   }
 
   async getKey(seq) {
-    await this.tree._cacheLock.enter(seq)
-
-    try {
-      const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
-      if (k !== null) return k
-      const key = (await this._getBlock(seq)).key
-      if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
-      return key
-    } finally {
-      this.tree._cacheLock.exit(seq)
-    }
+    const k = this.core.fork === this.tree.core.fork ? this.tree._keyCache.get(seq) : null
+    if (k !== null) return k
+    const key = (await this._getBlock(seq)).key
+    if (this.core.fork === this.tree.core.fork) this.tree._keyCache.set(seq, key)
+    return key
   }
 
   async _getNode(seq) {
@@ -960,15 +923,9 @@ class Batch {
     return wrap
   }
 
-  async getBlock(seq) {
+  getBlock(seq) {
     if (this.rootSeq === 0) this.rootSeq = seq
-    await this.tree._cacheLock.enter(seq)
-
-    try {
-      return await this._getBlock(seq)
-    } finally {
-      this.tree._cacheLock.exit(seq)
-    }
+    return this._getBlock(seq)
   }
 
   async _getBlock(seq) {

@@ -225,3 +225,23 @@ test('no session leak after history stream closes', async function (t) {
 
   await snap.close()
 })
+
+test('history ranges longer than the read window', async function (t) {
+  const db = await createRange(t, 50)
+  const seqs = (h) => h.map(({ seq }) => seq)
+  const span = (a, b) => Array.from({ length: b - a }, (_, i) => a + i)
+
+  t.alike(seqs(await collect(db.createHistoryStream())), span(1, 51))
+  t.alike(seqs(await collect(db.createHistoryStream({ reverse: true }))), span(1, 51).reverse())
+  t.alike(seqs(await collect(db.createHistoryStream({ gte: 7, lt: 40 }))), span(7, 40))
+  t.alike(
+    seqs(await collect(db.createHistoryStream({ gte: 7, lt: 40, reverse: true }))),
+    span(7, 40).reverse()
+  )
+  t.alike(seqs(await collect(db.createHistoryStream({ gt: 3, limit: 20 }))), span(4, 24))
+  t.alike(
+    seqs(await collect(db.createHistoryStream({ reverse: true, limit: 20 }))),
+    span(31, 51).reverse()
+  )
+  t.alike(seqs(await collect(db.createHistoryStream({ gte: -5 }))), span(46, 51))
+})

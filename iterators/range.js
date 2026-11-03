@@ -17,6 +17,8 @@ module.exports = class RangeIterator {
     this._checkpoint = opts.checkpoint && opts.checkpoint.length ? opts.checkpoint : null
     this._nexting = false
     this._closed = false
+    // Issue all reads of a node at once so storage serves them in one batch
+    this._eager = this._limit === -1 || this._limit > 1
   }
 
   snapshot(version = this.batch.version) {
@@ -55,10 +57,7 @@ module.exports = class RangeIterator {
         const seq = this._checkpoint[j]
         const offset = this._checkpoint[j + 1]
         const i = this._checkpoint[j + 2]
-        this.stack.push({
-          node: (await this.batch.getBlock(seq)).getTreeNode(offset),
-          i
-        })
+        this._push((await this.batch.getBlock(seq)).getTreeNode(offset), i)
       }
       return
     }
@@ -75,14 +74,14 @@ module.exports = class RangeIterator {
     const start = this._reverse ? this._lKey : this._gKey
 
     if (!start) {
-      this.stack.push({ node, i: this._reverse ? node.keys.length << 1 : 0 })
+      this._push(node, this._reverse ? node.keys.length << 1 : 0)
       this._nexting = false
       this._preloadQuery()
       return
     }
 
     while (true) {
-      const entry = { node, i: this._reverse ? node.keys.length << 1 : 0 }
+      const entry = new Frame(node, this._reverse ? node.keys.length << 1 : 0)
 
       let s = 0
       let e = node.keys.length
@@ -95,7 +94,7 @@ module.exports = class RangeIterator {
         if (c === 0) {
           if (incl) entry.i = mid * 2 + 1
           else entry.i = mid * 2 + (this._reverse ? 0 : 2)
-          this.stack.push(entry)
+          this._pushFrame(entry)
           this._nexting = false
           this._preloadQuery()
           return
@@ -108,7 +107,7 @@ module.exports = class RangeIterator {
       const i = c < 0 ? e : s
       entry.i = 2 * i + (this._reverse ? -1 : 1)
 
-      if (entry.i >= 0 && entry.i <= node.keys.length << 1) this.stack.push(entry)
+      if (entry.i >= 0 && entry.i <= node.keys.length << 1) this._pushFrame(entry)
       if (!node.children.length) {
         this._nexting = false
         this._preloadQuery()
@@ -117,6 +116,15 @@ module.exports = class RangeIterator {
 
       node = await node.getChildNode(i)
     }
+  }
+
+  _push(node, i) {
+    this._pushFrame(new Frame(node, i))
+  }
+
+  _pushFrame(frame) {
+    if (this._eager) frame.load(this.batch, this._reverse)
+    this.stack.push(frame)
   }
 
   _preloadQuery() {
@@ -167,11 +175,16 @@ module.exports = class RangeIterator {
 
       if (!isKey) {
         if (!top.node.children.length) continue
-        const node = await top.node.getChildNode(n)
+        const child = await top.child(n)
         if (top.node.block.seq < this.batch.core.length) {
           top.node.children[n].value = null // unlink it to save memory
         }
-        this.stack.push({ i: this._reverse ? node.keys.length << 1 : 0, node })
+        if (child instanceof Frame) {
+          if (child.blocks === null) child.load(this.batch, this._reverse)
+          this.stack.push(child)
+        } else {
+          this._push(child, this._reverse ? child.keys.length << 1 : 0)
+        }
         continue
       }
 
@@ -180,8 +193,7 @@ module.exports = class RangeIterator {
         continue
       }
 
-      const key = top.node.keys[n]
-      const block = await this.batch.getBlock(key.seq)
+      const block = await top.block(this.batch, n)
       if (end) {
         const c = b4a.compare(block.key, end)
         if (c === 0 ? !incl : this._reverse ? c < 0 : c > 0) {
@@ -202,6 +214,60 @@ module.exports = class RangeIterator {
     this._closed = true
     return this.batch._closeSnapshot()
   }
+}
+
+class Frame {
+  constructor(node, i) {
+    this.node = node
+    this.i = i
+    this.blocks = null
+    this.children = null
+  }
+
+  // start the reads for every key and child still ahead of i, without awaiting
+  load(batch, reverse) {
+    const node = this.node
+    const n = this.i >> 1
+    const keys = node.keys.length
+    const children = node.children.length
+
+    this.blocks = new Array(keys)
+    for (let j = reverse ? 0 : n; j < (reverse ? Math.min(n + 1, keys) : keys); j++) {
+      const p = batch.getBlock(node.keys[j].seq)
+      p.catch(noop)
+      this.blocks[j] = p
+    }
+
+    if (children === 0) return
+
+    this.children = new Array(children)
+    for (let j = reverse ? 0 : n; j < (reverse ? Math.min(n + 1, children) : children); j++) {
+      const p = node.getChildNode(j).then((child) => childFrame(batch, child, reverse))
+      p.catch(noop)
+      this.children[j] = p
+    }
+  }
+
+  block(batch, n) {
+    const p = this.blocks === null ? undefined : this.blocks[n]
+    if (p === undefined) return batch.getBlock(this.node.keys[n].seq)
+    this.blocks[n] = undefined
+    return p
+  }
+
+  child(n) {
+    const p = this.children === null ? undefined : this.children[n]
+    if (p === undefined) return this.node.getChildNode(n)
+    this.children[n] = undefined
+    return p
+  }
+}
+
+// leaves start their key reads as soon as they arrive, inner nodes wait until visited
+function childFrame(batch, node, reverse) {
+  const frame = new Frame(node, reverse ? node.keys.length << 1 : 0)
+  if (node.children.length === 0) frame.load(batch, reverse)
+  return frame
 }
 
 function noop() {}

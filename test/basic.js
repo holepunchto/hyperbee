@@ -584,3 +584,20 @@ test('get by seq', async function (t) {
   t.alike(await db.getBySeq(1), { key: '/a', value: '1' })
   t.alike(await db.getBySeq(2), { key: '/b', value: '2' })
 })
+
+test('get throws when a tree child points at itself', async function (t) {
+  // https://github.com/holepunchto/hyperbee/issues/206
+  const db = await create(t, { keyEncoding: 'utf-8', valueEncoding: 'json' })
+  await db.put('a', 1)
+
+  const { Node, YoloIndex } = require('../lib/messages')
+  const S = db.core.length
+  const index = YoloIndex.encode({
+    levels: [{ keys: [S], children: [S, 0, S, 0] }]
+  })
+  await db.core.append(Node.encode({ index, key: b4a.from('m'), value: null }))
+
+  const started = Date.now()
+  await t.exception(db.get('z'), /cycle detected/)
+  t.ok(Date.now() - started < 1000, 'rejected quickly instead of hanging')
+})

@@ -1,4 +1,5 @@
 const b4a = require('b4a')
+const { assertNoTreeCycle } = require('../lib/cycle')
 
 module.exports = class RangeIterator {
   constructor(batch, encoding, opts = {}) {
@@ -74,6 +75,9 @@ module.exports = class RangeIterator {
     const incl = this._reverse ? this._lIncl : this._gIncl
     const start = this._reverse ? this._lKey : this._gKey
 
+    const seen = new Set()
+    assertNoTreeCycle(seen, node)
+
     if (!start) {
       this.stack.push({ node, i: this._reverse ? node.keys.length << 1 : 0 })
       this._nexting = false
@@ -116,6 +120,7 @@ module.exports = class RangeIterator {
       }
 
       node = await node.getChildNode(i)
+      assertNoTreeCycle(seen, node)
     }
   }
 
@@ -168,6 +173,10 @@ module.exports = class RangeIterator {
       if (!isKey) {
         if (!top.node.children.length) continue
         const node = await top.node.getChildNode(n)
+        // Child pointing at an ancestor would grow the stack forever (#206).
+        const seen = new Set()
+        for (const frame of this.stack) assertNoTreeCycle(seen, frame.node)
+        assertNoTreeCycle(seen, node)
         if (top.node.block.seq < this.batch.core.length) {
           top.node.children[n].value = null // unlink it to save memory
         }

@@ -16,6 +16,7 @@ const DiffIterator = require('./iterators/diff')
 const LocalBlockIterator = require('./iterators/local')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
+const { assertNoTreeCycle } = require('./lib/cycle')
 const { BLOCK_NOT_AVAILABLE, DECODING_ERROR } = require('hypercore-errors')
 
 const T = 5
@@ -1051,6 +1052,11 @@ class Batch {
     let node = await this.getRoot(false)
     if (!node) return null
 
+    // A child that points at an ancestor (or itself) used to spin forever in
+    // this loop with no I/O, so timeouts never fired (#206).
+    const seen = new Set()
+    assertNoTreeCycle(seen, node)
+
     while (true) {
       if (node.block.isTarget(key)) {
         return node.block.isDeletion() ? null : finalize ? node.block.final(encoding) : node.block
@@ -1078,6 +1084,7 @@ class Batch {
 
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
+      assertNoTreeCycle(seen, node)
     }
   }
 
@@ -1086,6 +1093,9 @@ class Batch {
     if (!node) return false
 
     if (node.block.seq === seq) return true
+
+    const seen = new Set()
+    assertNoTreeCycle(seen, node)
 
     while (true) {
       if (node.block.isTarget(key)) return false
@@ -1110,6 +1120,7 @@ class Batch {
 
       const i = c < 0 ? e : s
       node = await node.getChildNode(i)
+      assertNoTreeCycle(seen, node)
       if (node.block.seq === seq) return true
     }
   }

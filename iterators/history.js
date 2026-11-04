@@ -8,6 +8,9 @@ module.exports = class HistoryIterator {
     this.reverse = !!opts.reverse
     this.limit = typeof opts.limit === 'number' ? opts.limit : -1
     this.encoding = opts.encoding || batch.encoding
+    // ring of in-flight block reads ahead of the cursor (bounded runs only)
+    this._reads = this.live ? null : new Array(READAHEAD)
+    this._next = 0
     if (this.live && this.reverse) {
       throw new Error('Cannot have both live and reverse enabled')
     }
@@ -17,6 +20,7 @@ module.exports = class HistoryIterator {
     await this.batch.getRoot(false) // does the update dance
     this.gte = gte(this.options, this.batch.version)
     this.lt = this.live ? Infinity : lt(this.options, this.batch.version)
+    this._next = this.reverse ? this.lt - 1 : this.gte
   }
 
   async next() {
@@ -27,16 +31,45 @@ module.exports = class HistoryIterator {
 
     if (this.reverse) {
       if (this.lt <= 1) return null
-      return final(await this.batch.getBlock(--this.lt), this.encoding)
+      return final(await this._read(--this.lt), this.encoding)
     }
 
-    return final(await this.batch.getBlock(this.gte++), this.encoding)
+    return final(await this._read(this.gte++), this.encoding)
+  }
+
+  _read(seq) {
+    if (this._reads === null) return this.batch.getBlock(seq)
+
+    // this.limit was already decremented for seq itself
+    const ahead = this.limit === -1 ? READAHEAD : Math.min(READAHEAD, this.limit + 1)
+
+    if (this.reverse) {
+      const end = Math.max(this.gte, 1)
+      while (this._next >= end && seq - this._next < ahead) this._fetch(this._next--)
+    } else {
+      while (this._next < this.lt && this._next - seq < ahead) this._fetch(this._next++)
+    }
+
+    const slot = seq & (READAHEAD - 1)
+    const read = this._reads[slot]
+    this._reads[slot] = null
+    return read === null || read === undefined ? this.batch.getBlock(seq) : read
+  }
+
+  _fetch(seq) {
+    const read = this.batch.getBlock(seq)
+    read.catch(noop)
+    this._reads[seq & (READAHEAD - 1)] = read
   }
 
   close() {
     return this.batch._closeSnapshot()
   }
 }
+
+const READAHEAD = 16 // power of two
+
+function noop() {}
 
 function final(node, encoding) {
   const type = node.isDeletion() ? 'del' : 'put'

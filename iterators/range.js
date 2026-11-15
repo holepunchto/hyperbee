@@ -1,4 +1,5 @@
 const b4a = require('b4a')
+const { assertTreeDepth } = require('../lib/tree-safety')
 
 module.exports = class RangeIterator {
   constructor(batch, encoding, opts = {}) {
@@ -81,7 +82,9 @@ module.exports = class RangeIterator {
       return
     }
 
+    let depth = 0
     while (true) {
+      assertTreeDepth(++depth)
       const entry = { node, i: this._reverse ? node.keys.length << 1 : 0 }
 
       let s = 0
@@ -130,7 +133,8 @@ module.exports = class RangeIterator {
     }
   }
 
-  async _preload(node, i, end, max) {
+  async _preload(node, i, end, max, depth = 0) {
+    assertTreeDepth(++depth)
     for (; i < node.keys.length; i++) {
       const key = node.keys[i]
       const block = await this.batch.getBlock(key.seq)
@@ -140,13 +144,13 @@ module.exports = class RangeIterator {
       max.nodes++
       const next = await node.getChildNode(i)
       if (this._closed) return
-      this._preload(next, 0, end, max).catch(noop)
+      this._preload(next, 0, end, max, depth).catch(noop)
     }
 
     if (node.children.length && max.nodes < max.max) {
       const next = await node.getChildNode(node.children.length - 1)
       if (this._closed) return
-      this._preload(next, 0, end, max).catch(noop)
+      this._preload(next, 0, end, max, depth).catch(noop)
     }
   }
 
@@ -171,6 +175,9 @@ module.exports = class RangeIterator {
         if (top.node.block.seq < this.batch.core.length) {
           top.node.children[n].value = null // unlink it to save memory
         }
+        // Depth bound (not object identity): concurrent batch put/peek shares
+        // live TreeNode objects, so a stack membership check false-fires (#206).
+        assertTreeDepth(this.stack.length + 1)
         this.stack.push({ i: this._reverse ? node.keys.length << 1 : 0, node })
         continue
       }

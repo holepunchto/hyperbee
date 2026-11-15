@@ -17,6 +17,7 @@ const LocalBlockIterator = require('./iterators/local')
 const Extension = require('./lib/extension')
 const { YoloIndex, Node, Header } = require('./lib/messages')
 const { BLOCK_NOT_AVAILABLE, DECODING_ERROR } = require('hypercore-errors')
+const { assertTreeDepth } = require('./lib/tree-safety')
 
 const T = 5
 const MIN_KEYS = T - 1
@@ -1051,7 +1052,9 @@ class Batch {
     let node = await this.getRoot(false)
     if (!node) return null
 
+    let depth = 0
     while (true) {
+      assertTreeDepth(++depth)
       if (node.block.isTarget(key)) {
         return node.block.isDeletion() ? null : finalize ? node.block.final(encoding) : node.block
       }
@@ -1087,7 +1090,9 @@ class Batch {
 
     if (node.block.seq === seq) return true
 
+    let depth = 0
     while (true) {
+      assertTreeDepth(++depth)
       if (node.block.isTarget(key)) return false
 
       let s = 0
@@ -1657,7 +1662,11 @@ function defaultWatchMap(snapshot) {
 }
 
 async function leafSize(node, goLeft) {
-  while (node.children.length) node = await node.getChildNode(goLeft ? 0 : node.children.length - 1)
+  let depth = 0
+  while (node.children.length) {
+    assertTreeDepth(++depth)
+    node = await node.getChildNode(goLeft ? 0 : node.children.length - 1)
+  }
   return node.keys.length
 }
 

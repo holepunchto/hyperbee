@@ -1,4 +1,5 @@
 const b4a = require('b4a')
+const { assertTreeDepth } = require('../lib/tree-safety')
 
 class SubTree {
   constructor(node, parent) {
@@ -136,6 +137,7 @@ class TreeIterator {
 
     const child = await top.node.getChildNode(n)
     top.node.children[n] = null // unlink to save memory
+    assertTreeDepth(this.stack.length + 1)
     const tree = new SubTree(child, top)
     if (this.seeking && !(await this._seek(tree))) return null
     this.stack.push(tree)
